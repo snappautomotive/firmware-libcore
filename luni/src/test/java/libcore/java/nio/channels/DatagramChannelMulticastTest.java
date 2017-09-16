@@ -441,6 +441,7 @@ public class DatagramChannelMulticastTest extends TestCase {
 
         DatagramChannel dc = createReceiverChannel();
         dc.setOption(StandardSocketOptions.IP_MULTICAST_LOOP, true /* enable loop */);
+        dc.setOption(StandardSocketOptions.IP_MULTICAST_IF, networkInterface);
         configureChannelForReceiving(dc);
         dc.join(group, networkInterface);
 
@@ -1008,7 +1009,7 @@ public class DatagramChannelMulticastTest extends TestCase {
                 GOOD_MULTICAST_IPv4 /* receiverBindAddress */,
                 GOOD_MULTICAST_IPv4 /* groupAddress */,
                 UNICAST_IPv4_1 /* badSenderAddress */,
-                ipv6NetworkInterface);
+                ipv4NetworkInterface);
     }
 
     /**
@@ -1063,6 +1064,7 @@ public class DatagramChannelMulticastTest extends TestCase {
      * @param receiverBindAddress the address to bind the receiver socket to
      * @param groupAddress the group address to join
      * @param badSenderAddress a unicast address to join to perform a negative test
+     * @param networkInterface The network interface on which to join the multicast group
      */
     private void test_joinSourceSpecific(
             InetAddress senderBindAddress, InetAddress receiverBindAddress, InetAddress groupAddress,
