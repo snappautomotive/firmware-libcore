@@ -25,7 +25,7 @@
 
 package java.lang.reflect;
 
-import com.android.dex.Dex;
+import dalvik.annotation.optimization.FastNative;
 
 import java.lang.annotation.Annotation;
 import java.util.Objects;
@@ -420,6 +420,7 @@ public abstract class Executable extends AccessibleObject
     private transient volatile boolean hasRealParameterData;
     private transient volatile Parameter[] parameters;
 
+    @FastNative
     private native Parameter[] getParameters0();
 
     /**
@@ -534,6 +535,7 @@ public abstract class Executable extends AccessibleObject
         // Android-changed: Implemented natively.
         return getAnnotationNative(annotationClass);
     }
+    @FastNative
     private native <T extends Annotation> T getAnnotationNative(Class<T> annotationClass);
 
     /**
@@ -554,6 +556,7 @@ public abstract class Executable extends AccessibleObject
         // Android-changed: Implemented natively.
         return getDeclaredAnnotationsNative();
     }
+    @FastNative
     private native Annotation[] getDeclaredAnnotationsNative();
 
     // Android-changed: Additional ART-related fields and logic below that is shared between
@@ -617,30 +620,16 @@ public abstract class Executable extends AccessibleObject
 
     /**
      * Returns an array of {@code Class} objects associated with the parameter types of this
-     * Executable. If the Executable was declared with no parameters, an empty array will be
+     * Executable. If the Executable was declared with no parameters, {@code null} will be
      * returned.
      *
-     * @return the parameter types
+     * @return the parameter types, or {@code null} if no parameters were declared.
      */
-    final Class<?>[] getParameterTypesInternal() {
-        Dex dex = declaringClassOfOverriddenMethod.getDex();
-        short[] types = dex.parameterTypeIndicesFromMethodIndex(dexMethodIndex);
-        if (types.length == 0) {
-            return EmptyArray.CLASS;
-        }
-        Class<?>[] parametersArray = new Class[types.length];
-        for (int i = 0; i < types.length; i++) {
-            // Note, in the case of a Proxy the dex cache types are equal.
-            parametersArray[i] = declaringClassOfOverriddenMethod.getDexCacheType(dex, types[i]);
-        }
-        return parametersArray;
-    }
+    @FastNative
+    final native Class<?>[] getParameterTypesInternal();
 
-    final int getParameterCountInternal() {
-        Dex dex = declaringClassOfOverriddenMethod.getDex();
-        short[] types = dex.parameterTypeIndicesFromMethodIndex(dexMethodIndex);
-        return types.length;
-    }
+    @FastNative
+    final native int getParameterCountInternal();
 
     // Android provides a more efficient implementation of this method for Executable than the one
     // implemented in AnnotatedElement.
@@ -649,6 +638,7 @@ public abstract class Executable extends AccessibleObject
         Objects.requireNonNull(annotationType);
         return isAnnotationPresentNative(annotationType);
     }
+    @FastNative
     private native boolean isAnnotationPresentNative(Class<? extends Annotation> annotationType);
 
     final Annotation[][] getParameterAnnotationsInternal() {
@@ -658,6 +648,7 @@ public abstract class Executable extends AccessibleObject
         }
         return parameterAnnotations;
     }
+    @FastNative
     private native Annotation[][] getParameterAnnotationsNative();
 
     /**
@@ -721,55 +712,21 @@ public abstract class Executable extends AccessibleObject
         }
         return result.toString();
     }
+    @FastNative
     private native String[] getSignatureAnnotation();
 
     final boolean equalNameAndParametersInternal(Method m) {
-        return getName().equals(m.getName()) && equalMethodParameters(m.getParameterTypes());
+        return getName().equals(m.getName()) && (compareMethodParametersInternal(m) == 0);
     }
 
-    private boolean equalMethodParameters(Class<?>[] params) {
-        Dex dex = declaringClassOfOverriddenMethod.getDex();
-        short[] types = dex.parameterTypeIndicesFromMethodIndex(dexMethodIndex);
-        if (types.length != params.length) {
-            return false;
-        }
-        for (int i = 0; i < types.length; i++) {
-            if (declaringClassOfOverriddenMethod.getDexCacheType(dex, types[i]) != params[i]) {
-                return false;
-            }
-        }
-        return true;
-    }
+    @FastNative
+    native int compareMethodParametersInternal(Method meth);
 
-    final int compareMethodParametersInternal(Class<?>[] params) {
-        Dex dex = declaringClassOfOverriddenMethod.getDex();
-        short[] types = dex.parameterTypeIndicesFromMethodIndex(dexMethodIndex);
-        int length = Math.min(types.length, params.length);
-        for (int i = 0; i < length; i++) {
-            Class<?> aType = declaringClassOfOverriddenMethod.getDexCacheType(dex, types[i]);
-            Class<?> bType = params[i];
-            if (aType != bType) {
-                int comparison = aType.getName().compareTo(bType.getName());
-                if (comparison != 0) {
-                    return comparison;
-                }
-            }
-        }
-        return types.length - params.length;
-    }
+    @FastNative
+    final native String getMethodNameInternal();
 
-    final String getMethodNameInternal() {
-        Dex dex = declaringClassOfOverriddenMethod.getDex();
-        int nameIndex = dex.nameIndexFromMethodIndex(dexMethodIndex);
-        return declaringClassOfOverriddenMethod.getDexCacheString(dex, nameIndex);
-    }
-
-    final Class<?> getMethodReturnTypeInternal() {
-        Dex dex = declaringClassOfOverriddenMethod.getDex();
-        int returnTypeIndex = dex.returnTypeIndexFromMethodIndex(dexMethodIndex);
-        // Note, in the case of a Proxy the dex cache types are equal.
-        return declaringClassOfOverriddenMethod.getDexCacheType(dex, returnTypeIndex);
-    }
+    @FastNative
+    final native Class<?> getMethodReturnTypeInternal();
 
     /** A cheap implementation for {@link Method#isDefault()}. */
     final boolean isDefaultMethodInternal() {

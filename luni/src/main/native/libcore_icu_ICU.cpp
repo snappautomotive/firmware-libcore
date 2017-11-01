@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#define LOG_NDEBUG 1
 #define LOG_TAG "ICU"
 
 #include <errno.h>
@@ -33,16 +34,16 @@
 
 #include <android-base/unique_fd.h>
 #include <log/log.h>
+#include <nativehelper/JNIHelp.h>
+#include <nativehelper/JniConstants.h>
+#include <nativehelper/ScopedLocalRef.h>
+#include <nativehelper/ScopedUtfChars.h>
+#include <nativehelper/toStringArray.h>
 
 #include "IcuUtilities.h"
-#include "JNIHelp.h"
-#include "JniConstants.h"
 #include "JniException.h"
 #include "ScopedIcuLocale.h"
 #include "ScopedJavaUnicodeString.h"
-#include "ScopedLocalRef.h"
-#include "ScopedUtfChars.h"
-#include "toStringArray.h"
 #include "unicode/brkiter.h"
 #include "unicode/calendar.h"
 #include "unicode/datefmt.h"
@@ -57,6 +58,7 @@
 #include "unicode/timezone.h"
 #include "unicode/ubrk.h"
 #include "unicode/ucal.h"
+#include "unicode/ucasemap.h"
 #include "unicode/uclean.h"
 #include "unicode/ucol.h"
 #include "unicode/ucurr.h"
@@ -171,8 +173,8 @@ static jstring ICU_getCurrencyCode(JNIEnv* env, jclass, jstring javaCountryCode)
     }
 
     int32_t charCount;
-    const jchar* chars = ures_getString(currencyId.get(), &charCount, &status);
-    return (charCount == 0) ? env->NewStringUTF("XXX") : env->NewString(chars, charCount);
+    const UChar* chars = ures_getString(currencyId.get(), &charCount, &status);
+    return (charCount == 0) ? env->NewStringUTF("XXX") : jniCreateString(env, chars, charCount);
 }
 
 static jstring getCurrencyName(JNIEnv* env, jstring javaLanguageTag, jstring javaCurrencyCode, UCurrNameStyle nameStyle) {
@@ -204,7 +206,7 @@ static jstring getCurrencyName(JNIEnv* env, jstring javaLanguageTag, jstring jav
       charCount = icuCurrencyCode.length();
     }
   }
-  return (charCount == 0) ? NULL : env->NewString(chars, charCount);
+  return (charCount == 0) ? NULL : jniCreateString(env, chars, charCount);
 }
 
 static jstring ICU_getCurrencyDisplayName(JNIEnv* env, jclass, jstring javaLanguageTag, jstring javaCurrencyCode) {
@@ -227,7 +229,7 @@ static jstring ICU_getDisplayCountryNative(JNIEnv* env, jclass, jstring javaTarg
 
   icu::UnicodeString str;
   icuTargetLocale.locale().getDisplayCountry(icuLocale.locale(), str);
-  return env->NewString(str.getBuffer(), str.length());
+  return jniCreateString(env, str.getBuffer(), str.length());
 }
 
 static jstring ICU_getDisplayLanguageNative(JNIEnv* env, jclass, jstring javaTargetLanguageTag, jstring javaLanguageTag) {
@@ -242,7 +244,7 @@ static jstring ICU_getDisplayLanguageNative(JNIEnv* env, jclass, jstring javaTar
 
   icu::UnicodeString str;
   icuTargetLocale.locale().getDisplayLanguage(icuLocale.locale(), str);
-  return env->NewString(str.getBuffer(), str.length());
+  return jniCreateString(env, str.getBuffer(), str.length());
 }
 
 static jstring ICU_getDisplayScriptNative(JNIEnv* env, jclass, jstring javaTargetLanguageTag, jstring javaLanguageTag) {
@@ -257,7 +259,7 @@ static jstring ICU_getDisplayScriptNative(JNIEnv* env, jclass, jstring javaTarge
 
   icu::UnicodeString str;
   icuTargetLocale.locale().getDisplayScript(icuLocale.locale(), str);
-  return env->NewString(str.getBuffer(), str.length());
+  return jniCreateString(env, str.getBuffer(), str.length());
 }
 
 static jstring ICU_getDisplayVariantNative(JNIEnv* env, jclass, jstring javaTargetLanguageTag, jstring javaLanguageTag) {
@@ -272,7 +274,7 @@ static jstring ICU_getDisplayVariantNative(JNIEnv* env, jclass, jstring javaTarg
 
   icu::UnicodeString str;
   icuTargetLocale.locale().getDisplayVariant(icuLocale.locale(), str);
-  return env->NewString(str.getBuffer(), str.length());
+  return jniCreateString(env, str.getBuffer(), str.length());
 }
 
 static jstring ICU_getISO3Country(JNIEnv* env, jclass, jstring javaLanguageTag) {
@@ -345,7 +347,7 @@ static void setStringArrayField(JNIEnv* env, jobject obj, const char* fieldName,
 static void setStringArrayField(JNIEnv* env, jobject obj, const char* fieldName, const icu::UnicodeString* valueArray, int32_t size) {
     ScopedLocalRef<jobjectArray> result(env, env->NewObjectArray(size, JniConstants::stringClass, NULL));
     for (int32_t i = 0; i < size ; i++) {
-        ScopedLocalRef<jstring> s(env, env->NewString(valueArray[i].getBuffer(),valueArray[i].length()));
+        ScopedLocalRef<jstring> s(env, jniCreateString(env, valueArray[i].getBuffer(),valueArray[i].length()));
         if (env->ExceptionCheck()) {
             return;
         }
@@ -377,7 +379,7 @@ static void setStringField(JNIEnv* env, jobject obj, const char* fieldName, URes
   }
   ures_close(currentBundle);
   if (U_SUCCESS(status)) {
-    setStringField(env, obj, fieldName, env->NewString(chars, charCount));
+    setStringField(env, obj, fieldName, jniCreateString(env, chars, charCount));
   } else {
     ALOGE("Error setting String field %s from ICU resource (index %d): %s", fieldName, index, u_errorName(status));
   }
@@ -393,7 +395,7 @@ static void setCharField(JNIEnv* env, jobject obj, const char* fieldName, const 
 
 static void setStringField(JNIEnv* env, jobject obj, const char* fieldName, const icu::UnicodeString& value) {
     const UChar* chars = value.getBuffer();
-    setStringField(env, obj, fieldName, env->NewString(chars, value.length()));
+    setStringField(env, obj, fieldName, jniCreateString(env, chars, value.length()));
 }
 
 static void setNumberPatterns(JNIEnv* env, jobject obj, icu::Locale& locale) {
@@ -421,7 +423,7 @@ static void setDecimalFormatSymbolsData(JNIEnv* env, jobject obj, icu::Locale& l
     setCharField(env, obj, "groupingSeparator", dfs.getSymbol(icu::DecimalFormatSymbols::kGroupingSeparatorSymbol));
     setCharField(env, obj, "patternSeparator", dfs.getSymbol(icu::DecimalFormatSymbols::kPatternSeparatorSymbol));
     setStringField(env, obj, "percent", dfs.getSymbol(icu::DecimalFormatSymbols::kPercentSymbol));
-    setCharField(env, obj, "perMill", dfs.getSymbol(icu::DecimalFormatSymbols::kPerMillSymbol));
+    setStringField(env, obj, "perMill", dfs.getSymbol(icu::DecimalFormatSymbols::kPerMillSymbol));
     setCharField(env, obj, "monetarySeparator", dfs.getSymbol(icu::DecimalFormatSymbols::kMonetarySeparatorSymbol));
     setStringField(env, obj, "minusSign", dfs.getSymbol(icu::DecimalFormatSymbols:: kMinusSignSymbol));
     setStringField(env, obj, "exponentSeparator", dfs.getSymbol(icu::DecimalFormatSymbols::kExponentialSymbol));
@@ -707,7 +709,7 @@ static jstring ICU_toLowerCase(JNIEnv* env, jclass, jstring javaString, jstring 
   icu::UnicodeString& s(scopedString.unicodeString());
   icu::UnicodeString original(s);
   s.toLower(icuLocale.locale());
-  return s == original ? javaString : env->NewString(s.getBuffer(), s.length());
+  return s == original ? javaString : jniCreateString(env, s.getBuffer(), s.length());
 }
 
 static jstring ICU_toUpperCase(JNIEnv* env, jclass, jstring javaString, jstring javaLanguageTag) {
@@ -722,7 +724,7 @@ static jstring ICU_toUpperCase(JNIEnv* env, jclass, jstring javaString, jstring 
   icu::UnicodeString& s(scopedString.unicodeString());
   icu::UnicodeString original(s);
   s.toUpper(icuLocale.locale());
-  return s == original ? javaString : env->NewString(s.getBuffer(), s.length());
+  return s == original ? javaString : jniCreateString(env, s.getBuffer(), s.length());
 }
 
 static jstring versionString(JNIEnv* env, const UVersionInfo& version) {
@@ -786,7 +788,7 @@ static jstring ICU_getBestDateTimePatternNative(JNIEnv* env, jclass, jstring jav
     return NULL;
   }
 
-  return env->NewString(result.getBuffer(), result.length());
+  return jniCreateString(env, result.getBuffer(), result.length());
 }
 
 static void ICU_setDefaultLocale(JNIEnv* env, jclass, jstring javaLanguageTag) {
@@ -961,7 +963,7 @@ struct ICURegistration {
             ALOGW("TZ override file %s exists but could not be loaded. Skipping.", dataPath.c_str());
         }
     } else {
-        ALOGD("No timezone override file found: %s", dataPath.c_str());
+        ALOGV("No timezone override file found: %s", dataPath.c_str());
     }
 
     // Use the ICU data files that shipped with the device for everything else.

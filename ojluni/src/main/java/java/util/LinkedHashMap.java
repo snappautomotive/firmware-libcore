@@ -30,6 +30,7 @@ import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.io.IOException;
 
+// Android-added: Note about spliterator order b/33945212 in Android N
 /**
  * <p>Hash table and linked list implementation of the <tt>Map</tt> interface,
  * with predictable iteration order.  This implementation differs from
@@ -138,6 +139,23 @@ import java.io.IOException;
  * returned by all of this class's collection view methods are
  * <em><a href="Spliterator.html#binding">late-binding</a></em>,
  * <em>fail-fast</em>, and additionally report {@link Spliterator#ORDERED}.
+ * <em>Note</em>: The implementation of these spliterators in Android Nougat
+ * (API levels 24 and 25) uses the wrong order (inconsistent with the
+ * iterators, which use the correct order), despite reporting
+ * {@link Spliterator#ORDERED}. You may use the following code fragments
+ * to obtain a correctly ordered Spliterator on API level 24 and 25:
+ * <ul>
+ *     <li>For a Collection view {@code c = lhm.keySet()},
+ *         {@code c = lhm.keySet()} or {@code c = lhm.values()}, use
+ *         {@code java.util.Spliterators.spliterator(c, c.spliterator().characteristics())}
+ *         instead of {@code c.spliterator()}.
+ *     <li>Instead of {@code lhm.stream()} or {@code lhm.parallelStream()}, use
+ *         {@code java.util.stream.StreamSupport.stream(spliterator, false)}
+ *         to construct a (nonparallel) {@link java.util.stream.Stream} from
+ *         such a {@code Spliterator}.
+ * </ul>
+ * Note that these workarounds are only suggested where {@code lhm} is a
+ * {@code LinkedHashMap}.
  *
  * <p>This class is a member of the
  * <a href="{@docRoot}/../technotes/guides/collections/index.html">
@@ -172,7 +190,7 @@ public class LinkedHashMap<K,V>
      * LinkedHashMap.Entry is now treated as intermediary node class
      * that can also be converted to tree form.
      *
-     * Android-changed BEGIN
+     // BEGIN Android-changed
      * LinkedHashMapEntry should not be renamed. Specifically, for
      * source compatibility with earlier versions of Android, this
      * nested class must not be named "Entry". Otherwise, it would
@@ -183,7 +201,7 @@ public class LinkedHashMap<K,V>
      * To compile, that code snippet's "LinkedHashMap.Entry" must
      * mean java.util.Map.Entry which is the compile time type of
      * entrySet()'s elements.
-     * Android-changed END
+     // END Android-changed
      *
      * The changes in node classes also require using two fields
      * (head, tail) rather than a pointer to a header node to maintain
@@ -470,11 +488,9 @@ public class LinkedHashMap<K,V>
         head = tail = null;
     }
 
+    // Android-added: eldest(), for internal use in LRU caches
     /**
      * Returns the eldest entry in the map, or {@code null} if the map is empty.
-     *
-     * Android-added.
-     *
      * @hide
      */
     public Map.Entry<K, V> eldest() {
@@ -545,8 +561,12 @@ public class LinkedHashMap<K,V>
      * @return a set view of the keys contained in this map
      */
     public Set<K> keySet() {
-        Set<K> ks;
-        return (ks = keySet) == null ? (keySet = new LinkedKeySet()) : ks;
+        Set<K> ks = keySet;
+        if (ks == null) {
+            ks = new LinkedKeySet();
+            keySet = ks;
+        }
+        return ks;
     }
 
     final class LinkedKeySet extends AbstractSet<K> {
@@ -595,8 +615,12 @@ public class LinkedHashMap<K,V>
      * @return a view of the values contained in this map
      */
     public Collection<V> values() {
-        Collection<V> vs;
-        return (vs = values) == null ? (values = new LinkedValues()) : vs;
+        Collection<V> vs = values;
+        if (vs == null) {
+            vs = new LinkedValues();
+            values = vs;
+        }
+        return vs;
     }
 
     final class LinkedValues extends AbstractCollection<V> {

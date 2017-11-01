@@ -16,17 +16,16 @@
 
 package libcore.java.lang;
 
+import junit.framework.TestCase;
+
 import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.lang.SecurityException;
-import java.lang.SecurityManager;
 import java.util.Formatter;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
-import junit.framework.TestCase;
 
 public class SystemTest extends TestCase {
 

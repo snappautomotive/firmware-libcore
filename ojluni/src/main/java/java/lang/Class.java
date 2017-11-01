@@ -26,7 +26,7 @@
 
 package java.lang;
 
-import com.android.dex.Dex;
+import dalvik.annotation.optimization.FastNative;
 
 import java.io.InputStream;
 import java.io.Serializable;
@@ -127,7 +127,7 @@ public final class Class<T> implements java.io.Serializable,
      * DexCache of resolved constant pool entries. Will be null for certain runtime-generated classes
      * e.g. arrays and primitive classes.
      */
-    private transient DexCache dexCache;
+    private transient Object dexCache;
 
     /**
      * Extra data that only some classes possess. This is allocated lazily as needed.
@@ -462,6 +462,7 @@ public final class Class<T> implements java.io.Serializable,
     }
 
     /** Called after security checks have been made. */
+    @FastNative
     static native Class<?> classForName(String className, boolean shouldInitialize,
             ClassLoader classLoader) throws ClassNotFoundException;
 
@@ -500,6 +501,7 @@ public final class Class<T> implements java.io.Serializable,
      *          s.checkPackageAccess()} denies access to the package
      *          of this class.
      */
+    @FastNative
     public native T newInstance() throws InstantiationException, IllegalAccessException;
 
     /**
@@ -743,6 +745,7 @@ public final class Class<T> implements java.io.Serializable,
         return name;
     }
 
+    @FastNative
     private native String getNameNative();
 
     /**
@@ -956,23 +959,19 @@ public final class Class<T> implements java.io.Serializable,
     public Class<?>[] getInterfaces() {
         if (isArray()) {
             return new Class<?>[] { Cloneable.class, Serializable.class };
-        } else if (isProxy()) {
-            return getProxyInterfaces();
         }
-        Dex dex = getDex();
-        if (dex == null) {
+
+        final Class<?>[] ifaces = getInterfacesInternal();
+        if (ifaces == null) {
             return EmptyArray.CLASS;
         }
-        short[] interfaces = dex.interfaceTypeIndicesFromClassDefIndex(dexClassDefIndex);
-        Class<?>[] result = new Class<?>[interfaces.length];
-        for (int i = 0; i < interfaces.length; i++) {
-            result[i] = getDexCacheType(dex, interfaces[i]);
-        }
-        return result;
+
+        return ifaces;
     }
 
-    // Returns the interfaces that this proxy class directly implements.
-    private native Class<?>[] getProxyInterfaces();
+    @FastNative
+    private native Class<?>[] getInterfacesInternal();
+
 
     /**
      * Returns the {@code Type}s representing the interfaces
@@ -1115,6 +1114,7 @@ public final class Class<T> implements java.io.Serializable,
         return null;
     }
 
+    @FastNative
     private native Method getEnclosingMethodNative();
 
     /**
@@ -1132,7 +1132,7 @@ public final class Class<T> implements java.io.Serializable,
      *     that class is a local or anonymous class; otherwise {@code null}.
      * @since 1.5
      */
-    // ANDROID-CHANGED: Removed SecurityException
+    // Android-changed: Removed SecurityException
     public Method getEnclosingMethod() {
         if (classNameImpliesTopLevel()) {
             return null;
@@ -1154,7 +1154,7 @@ public final class Class<T> implements java.io.Serializable,
      *     that class is a local or anonymous class; otherwise {@code null}.
      * @since 1.5
      */
-    // ANDROID-CHANGED: Removed SecurityException
+    // Android-changed: Removed SecurityException
     public Constructor<?> getEnclosingConstructor() {
         if (classNameImpliesTopLevel()) {
             return null;
@@ -1162,6 +1162,7 @@ public final class Class<T> implements java.io.Serializable,
         return getEnclosingConstructorNative();
     }
 
+    @FastNative
     private native Constructor<?> getEnclosingConstructorNative();
 
     private boolean classNameImpliesTopLevel() {
@@ -1180,7 +1181,8 @@ public final class Class<T> implements java.io.Serializable,
      * @return the declaring class for this class
      * @since JDK1.1
      */
-    // ANDROID-CHANGED: Removed SecurityException
+    // Android-changed: Removed SecurityException
+    @FastNative
     public native Class<?> getDeclaringClass();
 
     /**
@@ -1190,7 +1192,8 @@ public final class Class<T> implements java.io.Serializable,
      * @return the immediately enclosing class of the underlying class
      * @since 1.5
      */
-    // ANDROID-CHANGED: Removed SecurityException
+    // Android-changed: Removed SecurityException
+    @FastNative
     public native Class<?> getEnclosingClass();
 
     /**
@@ -1295,6 +1298,7 @@ public final class Class<T> implements java.io.Serializable,
      * @return {@code true} if and only if this class is an anonymous class.
      * @since 1.5
      */
+    @FastNative
     public native boolean isAnonymousClass();
 
     /**
@@ -1586,7 +1590,7 @@ public final class Class<T> implements java.io.Serializable,
      * @jls 8.2 Class Members
      * @jls 8.3 Field Declarations
      */
-    // ANDROID-CHANGED: Removed SecurityException
+    // Android-changed: Removed SecurityException
     public Field getField(String name)
         throws NoSuchFieldException {
         if (name == null) {
@@ -1606,6 +1610,7 @@ public final class Class<T> implements java.io.Serializable,
      *            if name is null.
      * @see #getField(String)
      */
+    @FastNative
     private native Field getPublicFieldRecursive(String name);
 
     /**
@@ -1756,7 +1761,8 @@ public final class Class<T> implements java.io.Serializable,
      *
      * @since JDK1.1
      */
-    // ANDROID-CHANGED: Removed SecurityException
+    // Android-changed: Removed SecurityException
+    @FastNative
     public native Class<?>[] getDeclaredClasses();
 
     /**
@@ -1801,7 +1807,8 @@ public final class Class<T> implements java.io.Serializable,
      * @jls 8.2 Class Members
      * @jls 8.3 Field Declarations
      */
-    // ANDROID-CHANGED: Removed SecurityException
+    // Android-changed: Removed SecurityException
+    @FastNative
     public native Field[] getDeclaredFields();
 
     /**
@@ -1811,6 +1818,7 @@ public final class Class<T> implements java.io.Serializable,
      * @param publicOnly Whether to return only public fields.
      * @hide
      */
+    @FastNative
     public native Field[] getDeclaredFieldsUnchecked(boolean publicOnly);
 
     /**
@@ -1882,6 +1890,7 @@ public final class Class<T> implements java.io.Serializable,
      * @param publicOnly Whether to return only public methods.
      * @hide
      */
+    @FastNative
     public native Method[] getDeclaredMethodsUnchecked(boolean publicOnly);
 
     /**
@@ -1931,6 +1940,7 @@ public final class Class<T> implements java.io.Serializable,
      * Returns the constructor with the given parameters if it is defined by this class;
      * {@code null} otherwise. This may return a non-public member.
      */
+    @FastNative
     private native Constructor<?>[] getDeclaredConstructorsInternal(boolean publicOnly);
 
     /**
@@ -1973,12 +1983,14 @@ public final class Class<T> implements java.io.Serializable,
      * @jls 8.2 Class Members
      * @jls 8.3 Field Declarations
      */
-    // ANDROID-CHANGED: Removed SecurityException
+    // Android-changed: Removed SecurityException
+    @FastNative
     public native Field getDeclaredField(String name) throws NoSuchFieldException;
 
     /**
      * Returns the subset of getDeclaredFields which are public.
      */
+    @FastNative
     private native Field[] getPublicDeclaredFields();
 
     /**
@@ -2320,6 +2332,7 @@ public final class Class<T> implements java.io.Serializable,
      *
      * @param args the types of the parameters to the constructor.
      */
+    @FastNative
     private native Constructor<T> getDeclaredConstructorInternal(Class<?>[] args);
 
     /**
@@ -2353,8 +2366,10 @@ public final class Class<T> implements java.io.Serializable,
     /**
      * Returns the simple name of a member or local class, or {@code null} otherwise.
      */
+    @FastNative
     private native String getInnerClassName();
 
+    @FastNative
     private native int getInnerClassFlags(int defaultValue);
 
     /**
@@ -2388,13 +2403,15 @@ public final class Class<T> implements java.io.Serializable,
         return (values != null) ? values.clone() : null;
     }
 
+    // Android-changed: Made public/hidden instead of using sun.misc.SharedSecrets.
     /**
      * Returns the elements of this enum class or null if this
      * Class object does not represent an enum type;
      * identical to getEnumConstants except that the result is
      * uncloned, cached, and shared by all callers.
+     * @hide
      */
-    T[] getEnumConstantsShared() {
+    public T[] getEnumConstantsShared() {
         if (!isEnum()) return null;
         return (T[]) Enum.getSharedConstants((Class) this);
     }
@@ -2575,17 +2592,20 @@ public final class Class<T> implements java.io.Serializable,
      * @since 1.8
      */
     @Override
+    @FastNative
     public native <A extends Annotation> A getDeclaredAnnotation(Class<A> annotationClass);
 
     /**
      * @since 1.5
      */
     @Override
+    @FastNative
     public native Annotation[] getDeclaredAnnotations();
 
     /**
      * Returns true if the annotation exists.
      */
+    @FastNative
     private native boolean isDeclaredAnnotationPresent(Class<? extends Annotation> annotationClass);
 
     private String getSignatureAttribute() {
@@ -2600,6 +2620,7 @@ public final class Class<T> implements java.io.Serializable,
         return result.toString();
     }
 
+    @FastNative
     private native String[] getSignatureAnnotation();
 
     /**
@@ -2611,132 +2632,6 @@ public final class Class<T> implements java.io.Serializable,
         return (accessFlags & 0x00040000) != 0;
     }
 
-    /**
-     * Returns the dex file from which this class was loaded.
-     *
-     * @hide
-     */
-    public Dex getDex() {
-        if (dexCache == null) {
-            return null;
-        }
-        return dexCache.getDex();
-    }
-    /**
-     * Returns a string from the dex cache, computing the string from the dex file if necessary.
-     *
-     * @hide
-     */
-    public String getDexCacheString(Dex dex, int dexStringIndex) {
-        String s = dexCache.getResolvedString(dexStringIndex);
-        if (s == null) {
-            s = dex.strings().get(dexStringIndex).intern();
-            dexCache.setResolvedString(dexStringIndex, s);
-        }
-        return s;
-    }
-
-    /**
-     * Returns a resolved type from the dex cache, computing the type from the dex file if
-     * necessary.
-     *
-     * @hide
-     */
-    public Class<?> getDexCacheType(Dex dex, int dexTypeIndex) {
-        Class<?> resolvedType = dexCache.getResolvedType(dexTypeIndex);
-        if (resolvedType == null) {
-            int descriptorIndex = dex.typeIds().get(dexTypeIndex);
-            String descriptor = getDexCacheString(dex, descriptorIndex);
-            resolvedType = InternalNames.getClass(getClassLoader(), descriptor);
-            dexCache.setResolvedType(dexTypeIndex, resolvedType);
-        }
-        return resolvedType;
-    }
-    /**
-     * The annotation directory offset of this class in its own Dex, or 0 if it
-     * is unknown.
-     *
-     * TODO: 0 is a sentinel that means 'no annotations directory'; this should be -1 if unknown
-     *
-     * @hide
-     */
-    public int getDexAnnotationDirectoryOffset() {
-        Dex dex = getDex();
-        if (dex == null) {
-            return 0;
-        }
-        int classDefIndex = getDexClassDefIndex();
-        if (classDefIndex < 0) {
-            return 0;
-        }
-        return dex.annotationDirectoryOffsetFromClassDefIndex(classDefIndex);
-    }
-    /**
-     * The type index of this class in its own Dex, or -1 if it is unknown. If a class is referenced
-     * by multiple Dex files, it will have a different type index in each. Dex files support 65534
-     * type indices, with 65535 representing no index.
-     *
-     * @hide
-     */
-    public int getDexTypeIndex() {
-        int typeIndex = dexTypeIndex;
-        if (typeIndex != 65535) {
-            return typeIndex;
-        }
-        synchronized (this) {
-            typeIndex = dexTypeIndex;
-            if (typeIndex == 65535) {
-                if (dexClassDefIndex >= 0) {
-                    typeIndex = getDex().typeIndexFromClassDefIndex(dexClassDefIndex);
-                } else {
-                    typeIndex = getDex().findTypeIndex(InternalNames.getInternalName(this));
-                    if (typeIndex < 0) {
-                        typeIndex = -1;
-                    }
-                }
-                dexTypeIndex = typeIndex;
-            }
-        }
-        return typeIndex;
-    }
-    private boolean canAccess(Class<?> c) {
-        if(Modifier.isPublic(c.accessFlags)) {
-            return true;
-        }
-        return inSamePackage(c);
-    }
-
-    private boolean canAccessMember(Class<?> memberClass, int memberModifiers) {
-        if (memberClass == this || Modifier.isPublic(memberModifiers)) {
-            return true;
-        }
-        if (Modifier.isPrivate(memberModifiers)) {
-            return false;
-        }
-        if (Modifier.isProtected(memberModifiers)) {
-            for (Class<?> parent = this.superClass; parent != null; parent = parent.superClass) {
-                if (parent == memberClass) {
-                    return true;
-                }
-            }
-        }
-        return inSamePackage(memberClass);
-    }
-
-    private boolean inSamePackage(Class<?> c) {
-        if (classLoader != c.classLoader) {
-            return false;
-        }
-        String packageName1 = getPackageName$();
-        String packageName2 = c.getPackageName$();
-        if (packageName1 == null) {
-            return packageName2 == null;
-        } else if (packageName2 == null) {
-            return false;
-        } else {
-            return packageName1.equals(packageName2);
-        }
-    }
     /**
      * @hide
      */
@@ -2752,16 +2647,9 @@ public final class Class<T> implements java.io.Serializable,
      * @param name the method name
      * @param args the method's parameter types
      */
+    @FastNative
     private native Method getDeclaredMethodInternal(String name, Class<?>[] args);
 
-    /**
-     * The class def of this class in its own Dex, or -1 if there is no class def.
-     *
-     * @hide
-     */
-    public int getDexClassDefIndex() {
-        return (dexClassDefIndex == 65535) ? -1 : dexClassDefIndex;
-    }
     private static class Caches {
         /**
          * Cache to avoid frequent recalculation of generic interfaces, which is generally uncommon.

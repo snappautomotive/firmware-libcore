@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1996, 2009, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1996, 2016, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -72,11 +72,13 @@ public class DerValue {
 
     private int                 length;
 
+    // BEGIN Android-added: Original encoded form needed for APKs parsing/validation
     /**
      * The original encoded form of the whole value (tag, length, and value)
      * or null if the form was not provided or was not retained during parsing.
      */
     private byte[]              originalEncodedForm;
+    // END Android-added: Original encoded form needed for APKs parsing/validation
 
     /*
      * The type starts at the first byte of the encoding, and
@@ -249,6 +251,7 @@ public class DerValue {
     /*
      * package private
      */
+    // BEGIN Android-changed: Original encoded form needed for APKs parsing/validation
     DerValue(DerInputBuffer in, boolean originalEncodedFormRetained)
             throws IOException {
         // XXX must also parse BER-encoded constructed
@@ -257,7 +260,7 @@ public class DerValue {
         int startPosInInput = in.getPos();
         tag = (byte)in.read();
         byte lenByte = (byte)in.read();
-        length = DerInputStream.getLength((lenByte & 0xff), in);
+        length = DerInputStream.getLength(lenByte, in);
         if (length == -1) {  // indefinite length encoding found
             DerInputBuffer inbuf = in.dup();
             int readLen = inbuf.available();
@@ -294,6 +297,7 @@ public class DerValue {
             int consumed = in.getPos() - startPosInInput;
             originalEncodedForm = in.getSlice(startPosInInput, consumed);
         }
+    // END Android-changed: Original encoded form needed for APKs parsing/validation
     }
 
     /**
@@ -375,7 +379,7 @@ public class DerValue {
 
         tag = (byte)in.read();
         byte lenByte = (byte)in.read();
-        length = DerInputStream.getLength((lenByte & 0xff), in);
+        length = DerInputStream.getLength(lenByte, in);
         if (length == -1) { // indefinite length encoding found
             int readLen = in.available();
             int offset = 2;     // for tag and length bytes
@@ -834,6 +838,7 @@ public class DerValue {
         }
     }
 
+    // BEGIN Android-added: Original encoded form needed for APKs parsing/validation
     /**
      * Returns the original encoded form or {@code null} if the form was not
      * retained or is not available.
@@ -842,6 +847,7 @@ public class DerValue {
         return (originalEncodedForm != null)
                 ? originalEncodedForm.clone() : null;
     }
+    // END Android-added: Original encoded form needed for APKs parsing/validation
 
     /**
      * Returns a DER-encoded value, such that if it's passed to the

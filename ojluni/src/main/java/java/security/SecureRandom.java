@@ -34,9 +34,6 @@ import java.util.function.Function;
 import dalvik.system.VMRuntime;
 import sun.security.jca.*;
 import sun.security.jca.GetInstance.Instance;
-/** BEGIN ANDROID-REMOVED: this debugging mechanism is not supported in Android.
-import sun.security.util.Debug;
-*/
 
 /**
  * This class provides a cryptographically strong random number
@@ -102,12 +99,14 @@ import sun.security.util.Debug;
 
 public class SecureRandom extends java.util.Random {
 
-    /** BEGIN ANDROID-REMOVED: this debugging mechanism is not supported in Android.
+    // Android-removed: this debugging mechanism is not used in Android.
+    /*
     private static final Debug pdebug =
                         Debug.getInstance("provider", "Provider");
     private static final boolean skipDebug =
         Debug.isOn("engine=") && !Debug.isOn("securerandom");
-    END ANDROID-REMOVED */
+    */
+    // END Android-removed
 
     /**
      * The provider.
@@ -204,7 +203,7 @@ public class SecureRandom extends java.util.Random {
     private void getDefaultPRNG(boolean setSeed, byte[] seed) {
         String prng = getPrngAlgorithm();
         if (prng == null) {
-            // Android changed, should never happen
+            // Android-changed: This should never happen, we always provide a SecureRandom
             throw new IllegalStateException("No SecureRandom implementation!");
         } else {
             try {
@@ -247,12 +246,14 @@ public class SecureRandom extends java.util.Random {
         this.provider = provider;
         this.algorithm = algorithm;
 
-        /** BEGIN ANDROID-REMOVED: this debugging mechanism is not supported in Android.
+        // BEGIN Android-removed: this debugging mechanism is not supported in Android.
+        /*
         if (!skipDebug && pdebug != null) {
             pdebug.println("SecureRandom." + algorithm +
                 " algorithm from: " + this.provider.getName());
         }
-        END ANDROID-REMOVED */
+        */
+        // END Android-removed
     }
 
     /**
@@ -300,39 +301,6 @@ public class SecureRandom extends java.util.Random {
     }
 
     /**
-     * Maximum SDK version for which the workaround for the Crypto provider is in place.
-     *
-     * <p> We provide instances from the Crypto provider (although the provider is not installed) to
-     * apps targeting M or earlier versions of the SDK.
-     *
-     * <p> Default is 23 (M). We have it as a field for testability and it shouldn't be changed.
-     *
-     * @hide
-     */
-    public static final int DEFAULT_SDK_TARGET_FOR_CRYPTO_PROVIDER_WORKAROUND = 23;
-
-    private static int sdkTargetForCryptoProviderWorkaround =
-            DEFAULT_SDK_TARGET_FOR_CRYPTO_PROVIDER_WORKAROUND;
-
-    /**
-     * Only for testing.
-     *
-     * @hide
-     */
-    public static void setSdkTargetForCryptoProviderWorkaround(int sdkTargetVersion) {
-        sdkTargetForCryptoProviderWorkaround = sdkTargetVersion;
-    }
-
-    /**
-     * Only for testing.
-     *
-     * @hide
-     */
-    public static int getSdkTargetForCryptoProviderWorkaround() {
-        return sdkTargetForCryptoProviderWorkaround;
-    }
-
-    /**
      * Returns a SecureRandom object that implements the specified
      * Random Number Generator (RNG) algorithm.
      *
@@ -377,51 +345,10 @@ public class SecureRandom extends java.util.Random {
      */
     public static SecureRandom getInstance(String algorithm, String provider)
             throws NoSuchAlgorithmException, NoSuchProviderException {
-        try {
-            Instance instance = GetInstance.getInstance("SecureRandom",
-                    SecureRandomSpi.class, algorithm, provider);
-            return new SecureRandom((SecureRandomSpi) instance.impl,
-                    instance.provider, algorithm);
-        } catch (NoSuchProviderException nspe) {
-            if ("Crypto".equals(provider)) {
-                System.logE(" ********** PLEASE READ ************ ");
-                System.logE(" * ");
-                System.logE(" * New versions of the Android SDK no longer support the Crypto provider.");
-                System.logE(" * If your app was relying on setSeed() to derive keys from strings, you");
-                System.logE(" * should switch to using SecretKeySpec to load raw key bytes directly OR");
-                System.logE(" * use a real key derivation function (KDF). See advice here : ");
-                System.logE(" * http://android-developers.blogspot.com/2016/06/security-crypto-provider-deprecated-in.html ");
-                System.logE(" *********************************** ");
-                if (VMRuntime.getRuntime().getTargetSdkVersion()
-                        <= sdkTargetForCryptoProviderWorkaround) {
-                    System.logE(" Returning an instance of SecureRandom from the Crypto provider");
-                    System.logE(" as a temporary measure so that the apps targeting earlier SDKs");
-                    System.logE(" keep working. Please do not rely on the presence of the Crypto");
-                    System.logE(" provider in the codebase, as our plan is to delete it");
-                    System.logE(" completely in the future.");
-                    return getInstanceFromCryptoProvider(algorithm);
-                }
-            }
-
-            throw nspe;
-        }
-    }
-
-    private static SecureRandom getInstanceFromCryptoProvider(String algorithm)
-            throws NoSuchAlgorithmException {
-        Provider cryptoProvider;
-        try {
-            cryptoProvider = (Provider) SecureRandom.class.getClassLoader()
-                    .loadClass(
-                            "org.apache.harmony.security.provider.crypto.CryptoProvider")
-                    .newInstance();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-        Service service = cryptoProvider.getService("SecureRandom", algorithm);
-        Instance instance = GetInstance.getInstance(service, SecureRandomSpi.class);
-        return new SecureRandom(
-                (SecureRandomSpi) instance.impl, instance.provider, algorithm);
+        Instance instance = GetInstance.getInstance("SecureRandom",
+            SecureRandomSpi.class, algorithm, provider);
+        return new SecureRandom((SecureRandomSpi)instance.impl,
+            instance.provider, algorithm);
     }
 
     /**
@@ -546,6 +473,9 @@ public class SecureRandom extends java.util.Random {
      * @param bytes the array to be filled in with random bytes.
      */
     @Override
+    // Android-changed: Added synchronized
+    // This method has been synchronized at least since Cupcake, so it would probably
+    // lead to problems if it was removed.
     synchronized public void nextBytes(byte[] bytes) {
         secureRandomSpi.engineNextBytes(bytes);
     }
@@ -671,7 +601,7 @@ public class SecureRandom extends java.util.Random {
     /**
      * Returns a {@code SecureRandom} object.
      *
-     * In Android this is equivalent to get a SHA1PRNG from OpenSSLProvider.
+     * In Android this is equivalent to get a SHA1PRNG from AndroidOpenSSL.
      *
      * Some situations require strong random values, such as when
      * creating high-value/long-lived secrets like RSA public/private
@@ -694,6 +624,7 @@ public class SecureRandom extends java.util.Random {
      */
     public static SecureRandom getInstanceStrong()
             throws NoSuchAlgorithmException {
+
         String property = AccessController.doPrivileged(
             new PrivilegedAction<String>() {
                 @Override

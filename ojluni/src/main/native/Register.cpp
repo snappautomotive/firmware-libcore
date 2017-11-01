@@ -29,8 +29,8 @@
 
 #include <log/log.h>
 
-#include "JniConstants.h"
-#include "ScopedLocalFrame.h"
+#include <nativehelper/JniConstants.h>
+#include <nativehelper/ScopedLocalFrame.h>
 
 extern "C" {
 
@@ -56,7 +56,6 @@ extern void register_java_net_Inet4Address(JNIEnv*);
 extern void register_java_net_Inet6Address(JNIEnv*);
 extern void register_java_net_InetAddress(JNIEnv*);
 extern void register_java_net_PlainDatagramSocketImpl(JNIEnv*);
-extern void register_java_net_PlainSocketImpl(JNIEnv*);
 extern void register_java_net_SocketInputStream(JNIEnv*);
 extern void register_java_net_SocketOutputStream(JNIEnv*);
 extern void register_java_nio_Bits(JNIEnv* env);
@@ -77,7 +76,6 @@ extern void register_sun_nio_ch_NativeThread(JNIEnv*);
 extern void register_sun_nio_ch_Net(JNIEnv*);
 extern void register_sun_nio_ch_ServerSocketChannelImpl(JNIEnv*);
 extern void register_sun_nio_ch_SocketChannelImpl(JNIEnv* env);
-extern void register_sun_nio_ch_EPollArrayWrapper(JNIEnv* env);
 
 extern jint net_JNI_OnLoad(JavaVM*, void*);
 
@@ -126,9 +124,6 @@ jint JNI_OnLoad(JavaVM* vm, void*) { JNIEnv* env;
     register_java_net_InetAddress(env);
     register_java_net_Inet4Address(env);
     register_java_net_Inet6Address(env);
-    register_java_net_PlainSocketImpl(env);
-    register_java_net_PlainDatagramSocketImpl(env);
-    register_java_net_DatagramPacket(env);
     register_java_net_SocketInputStream(env);
     register_java_net_SocketOutputStream(env);
     register_java_nio_Bits(env);
@@ -138,7 +133,6 @@ jint JNI_OnLoad(JavaVM* vm, void*) { JNIEnv* env;
     register_sun_nio_ch_Net(env);
     register_sun_nio_ch_DatagramChannelImpl(env);
     register_sun_nio_ch_DatagramDispatcher(env);
-    register_sun_nio_ch_EPollArrayWrapper(env);
     register_java_nio_MappedByteBuffer(env);
     net_JNI_OnLoad(vm, NULL);
     return JNI_VERSION_1_6;

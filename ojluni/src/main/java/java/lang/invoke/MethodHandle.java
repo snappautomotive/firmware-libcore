@@ -435,10 +435,12 @@ public abstract class MethodHandle {
     /**
      * Internal marker interface which distinguishes (to the Java compiler)
      * those methods which are <a href="MethodHandle.html#sigpoly">signature polymorphic</a>.
+     *
+     * @hide
      */
     @java.lang.annotation.Target({java.lang.annotation.ElementType.METHOD})
     @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.RUNTIME)
-    @interface PolymorphicSignature { }
+    public @interface PolymorphicSignature { }
 
     /**
      * The type of this method handle, this corresponds to the exact type of the method
@@ -452,6 +454,12 @@ public abstract class MethodHandle {
      * or the type of the emulated stackframe expected by an underyling adapter.
      */
     private MethodType nominalType;
+
+    /**
+     * The spread invoker associated with this type with zero trailing arguments.
+     * This is used to speed up invokeWithArguments.
+     */
+    private MethodHandle cachedSpreadInvoker;
 
     /**
      * The INVOKE* constants and SGET/SPUT and IGET/IPUT constants specify the behaviour of this
@@ -485,11 +493,12 @@ public abstract class MethodHandle {
 
     // The kind of this method handle (used by the runtime). This is one of the INVOKE_*
     // constants or SGET/SPUT, IGET/IPUT.
-    protected final int handleKind;
+    /** @hide */ protected final int handleKind;
 
     // The ArtMethod* or ArtField* associated with this method handle (used by the runtime).
-    protected final long artFieldOrMethod;
+    /** @hide */ protected final long artFieldOrMethod;
 
+    /** @hide */
     protected MethodHandle(long artFieldOrMethod, int handleKind, MethodType type) {
         this.artFieldOrMethod = artFieldOrMethod;
         this.handleKind = handleKind;
@@ -624,8 +633,16 @@ public abstract class MethodHandle {
      * @see MethodHandles#spreadInvoker
      */
     public Object invokeWithArguments(Object... arguments) throws Throwable {
-        // TODO(narayan): Implement invokeWithArguments.
-        throw new UnsupportedOperationException("invokeWithArguments(Object...)");
+        MethodHandle invoker = null;
+        synchronized (this) {
+            if (cachedSpreadInvoker == null) {
+                cachedSpreadInvoker = MethodHandles.spreadInvoker(this.type(), 0);
+            }
+
+            invoker = cachedSpreadInvoker;
+        }
+
+        return invoker.invoke(this, arguments);
     }
 
     /**
@@ -856,8 +873,12 @@ assertEquals("[A, B, C]", (String) caToString2.invokeExact('A', "BC".toCharArray
     public MethodHandle asSpreader(Class<?> arrayType, int arrayLength) {
         MethodType postSpreadType = asSpreaderChecks(arrayType, arrayLength);
 
-        // Android-changed, TODO(narayan): Not implemented yet.
-        throw new UnsupportedOperationException("asSpreader(Class<?>, int)");
+        final int targetParamCount = postSpreadType.parameterCount();
+        MethodType dropArrayArgs = postSpreadType.dropParameterTypes(
+                (targetParamCount - arrayLength), targetParamCount);
+        MethodType adapterType = dropArrayArgs.appendParameterTypes(arrayType);
+
+        return new Transformers.Spreader(this, adapterType, arrayLength);
     }
 
     /**
@@ -978,8 +999,7 @@ assertEquals("[123]", (String) longsToString.invokeExact((long)123));
     public MethodHandle asCollector(Class<?> arrayType, int arrayLength) {
         asCollectorChecks(arrayType, arrayLength);
 
-        // Android-changed, TODO(narayan): Not implemented yet.
-        throw new UnsupportedOperationException("asCollector(Class<?>, int)");
+        return new Transformers.Collector(this, arrayType, arrayLength);
     }
 
     /**
@@ -1287,12 +1307,15 @@ assertEquals("[three, thee, tee]", asListFix.invoke((Object)argv).toString());
         return handleKind;
     }
 
+    /** @hide */
     protected void transform(EmulatedStackFrame arguments) throws Throwable {
         throw new AssertionError("MethodHandle.transform should never be called.");
     }
 
     /**
      * Creates a copy of this method handle, copying all relevant data.
+     *
+     * @hide
      */
     protected MethodHandle duplicate() {
         try {

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2014 The Android Open Source Project
- * Copyright (c) 1999, 2009, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1999, 2013, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -122,6 +122,13 @@ public final class Matcher implements MatchResult {
 
     private static final NativeAllocationRegistry registry = new NativeAllocationRegistry(
             Matcher.class.getClassLoader(), getNativeFinalizer(), nativeSize());
+
+    /**
+     * Holds the original CharSequence for use in {@link #reset}. {@link #input} is used during
+     * matching. Note that CharSequence is mutable while String is not, so reset can cause the input
+     * to match to change.
+     */
+    private CharSequence originalInput;
 
     /**
      * Holds the input text.
@@ -444,7 +451,7 @@ public final class Matcher implements MatchResult {
      */
     public boolean matches() {
         synchronized (this) {
-            matchFound = matchesImpl(address, input, matchOffsets);
+            matchFound = matchesImpl(address, matchOffsets);
         }
         return matchFound;
     }
@@ -466,7 +473,7 @@ public final class Matcher implements MatchResult {
      */
     public boolean find() {
         synchronized (this) {
-            matchFound = findNextImpl(address, input, matchOffsets);
+            matchFound = findNextImpl(address, matchOffsets);
         }
         return matchFound;
     }
@@ -490,12 +497,13 @@ public final class Matcher implements MatchResult {
      *          pattern
      */
     public boolean find(int start) {
+        reset();
         if (start < 0 || start > input.length()) {
             throw new IndexOutOfBoundsException("start=" + start + "; length=" + input.length());
         }
 
         synchronized (this) {
-            matchFound = findImpl(address, input, start, matchOffsets);
+            matchFound = findImpl(address, start, matchOffsets);
         }
         return matchFound;
     }
@@ -516,7 +524,7 @@ public final class Matcher implements MatchResult {
      */
     public boolean lookingAt() {
         synchronized (this) {
-            matchFound = lookingAtImpl(address, input, matchOffsets);
+            matchFound = lookingAtImpl(address, matchOffsets);
         }
         return matchFound;
     }
@@ -820,7 +828,7 @@ public final class Matcher implements MatchResult {
      * @since 1.5
      */
     public Matcher region(int start, int end) {
-        return reset(input, start, end);
+        return reset(originalInput, start, end);
     }
 
     /**
@@ -1024,7 +1032,7 @@ public final class Matcher implements MatchResult {
      * @return  This matcher
      */
     public Matcher reset() {
-        return reset(input, 0, input.length());
+        return reset(originalInput, 0, originalInput.length());
     }
 
     /**
@@ -1070,6 +1078,7 @@ public final class Matcher implements MatchResult {
             throw new IndexOutOfBoundsException();
         }
 
+        this.originalInput = input;
         this.input = input.toString();
         this.regionStart = start;
         this.regionEnd = end;
@@ -1181,13 +1190,13 @@ public final class Matcher implements MatchResult {
     }
 
     private static native int getMatchedGroupIndex0(long patternAddr, String name);
-    private static native boolean findImpl(long addr, String s, int startIndex, int[] offsets);
-    private static native boolean findNextImpl(long addr, String s, int[] offsets);
+    private static native boolean findImpl(long addr, int startIndex, int[] offsets);
+    private static native boolean findNextImpl(long addr, int[] offsets);
     private static native long getNativeFinalizer();
     private static native int groupCountImpl(long addr);
     private static native boolean hitEndImpl(long addr);
-    private static native boolean lookingAtImpl(long addr, String s, int[] offsets);
-    private static native boolean matchesImpl(long addr, String s, int[] offsets);
+    private static native boolean lookingAtImpl(long addr, int[] offsets);
+    private static native boolean matchesImpl(long addr, int[] offsets);
     private static native int nativeSize();
     private static native long openImpl(long patternAddr);
     private static native boolean requireEndImpl(long addr);

@@ -26,14 +26,16 @@
 
 package java.net;
 
+import static android.system.OsConstants.SOL_SOCKET;
+import static android.system.OsConstants.SO_BINDTODEVICE;
+
+import android.system.ErrnoException;
 import java.io.FileDescriptor;
 import java.io.IOException;
 import java.nio.channels.DatagramChannel;
 import java.security.AccessController;
 import java.security.PrivilegedExceptionAction;
-import android.system.ErrnoException;
 import libcore.io.Libcore;
-import static android.system.OsConstants.*;
 
 /**
  * This class represents a socket for sending and receiving datagram packets.
@@ -117,9 +119,8 @@ class DatagramSocket implements java.io.Closeable {
     InetAddress connectedAddress = null;
     int connectedPort = -1;
 
-    // ----- BEGIN android -----
+    // Android-added: Store pending exception from connect
     private SocketException pendingConnectException;
-    // ----- END android -----
 
     /**
      * Connects this socket to a remote socket address (IP address + port number).
@@ -476,11 +477,10 @@ class DatagramSocket implements java.io.Closeable {
         try {
             connectInternal(address, port);
         } catch (SocketException se) {
-            // ----- BEGIN android -----
-            //throw new Error("connect failed", se);
+            // Android-changed: this method can't throw checked SocketException. Throw it later
+            // throw new Error("connect failed", se);
             // TODO: or just use SneakyThrow? There's a clear API bug here.
             pendingConnectException = se;
-            // ----- END android -----
         }
     }
 
@@ -677,11 +677,11 @@ class DatagramSocket implements java.io.Closeable {
     public void send(DatagramPacket p) throws IOException  {
         InetAddress packetAddress = null;
         synchronized (p) {
-            // ----- BEGIN android -----
+            // BEGIN Android-changed
             if (pendingConnectException != null) {
                 throw new SocketException("Pending connect failure", pendingConnectException);
             }
-            // ----- END android -----
+            // END Android-changed
             if (isClosed())
                 throw new SocketException("Socket is closed");
             checkAddress (p.getAddress(), "send");
@@ -758,11 +758,11 @@ class DatagramSocket implements java.io.Closeable {
             if (!isBound())
                 bind(new InetSocketAddress(0));
 
-            // ----- BEGIN android -----
+            // BEGIN Android-changed
             if (pendingConnectException != null) {
                 throw new SocketException("Pending connect failure", pendingConnectException);
             }
-            // ----- END android -----
+            // END Android-changed
 
             if (connectState == ST_NOT_CONNECTED) {
                 // check the address is ok with the security manager before every recv.
@@ -1347,28 +1347,12 @@ class DatagramSocket implements java.io.Closeable {
         factory = fac;
     }
 
-    /** @hide */
+    // Android-added: for testing and internal use.
+    /**
+     * @hide internal use only
+     */
     public FileDescriptor getFileDescriptor$() {
         return impl.fd;
     }
 
-    /**
-     * Sets the network interface used by this socket.  Any packets sent
-     * via this socket are transmitted via the specified interface.  Any
-     * packets received by this socket will come from the specified
-     * interface.  Broadcast datagrams received on this interface will
-     * be processed by this socket. This corresponds to Linux's SO_BINDTODEVICE.
-     *
-     * @hide used by GoogleTV for DHCP
-     */
-    public void setNetworkInterface(NetworkInterface netInterface) throws SocketException {
-        if (netInterface == null) {
-            throw new NullPointerException("netInterface == null");
-        }
-        try {
-            Libcore.os.setsockoptIfreq(impl.fd, SOL_SOCKET, SO_BINDTODEVICE, netInterface.getName());
-        } catch (ErrnoException errnoException) {
-            throw errnoException.rethrowAsSocketException();
-        }
-    }
 }

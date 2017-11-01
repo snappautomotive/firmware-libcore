@@ -18,11 +18,9 @@ package libcore.io;
 
 import android.system.ErrnoException;
 import android.system.StructGroupReq;
-import android.system.StructGroupSourceReq;
 import android.system.StructLinger;
 import android.system.StructPollfd;
 import android.system.StructTimeval;
-import android.util.MutableInt;
 import java.io.FileDescriptor;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -34,7 +32,9 @@ import java.net.Inet6Address;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.NetworkInterface;
+import java.net.NoRouteToHostException;
 import java.net.PortUnreachableException;
+import java.net.SocketAddress;
 import java.net.SocketException;
 import java.net.SocketOptions;
 import java.net.SocketTimeoutException;
@@ -42,6 +42,7 @@ import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.concurrent.TimeUnit;
+import libcore.util.MutableInt;
 
 import static android.system.OsConstants.*;
 
@@ -97,7 +98,12 @@ public final class IoBridge {
         try {
             Libcore.os.bind(fd, address, port);
         } catch (ErrnoException errnoException) {
-            throw new BindException(errnoException.getMessage(), errnoException);
+            if (errnoException.errno == EADDRINUSE || errnoException.errno == EADDRNOTAVAIL ||
+                errnoException.errno == EPERM || errnoException.errno == EACCES) {
+                throw new BindException(errnoException.getMessage(), errnoException);
+            } else {
+                throw new SocketException(errnoException.getMessage(), errnoException);
+            }
         }
     }
 
@@ -122,7 +128,13 @@ public final class IoBridge {
         try {
             connectErrno(fd, inetAddress, port, timeoutMs);
         } catch (ErrnoException errnoException) {
-            throw new ConnectException(connectDetail(fd, inetAddress, port, timeoutMs,
+            if (errnoException.errno == EHOSTUNREACH) {
+                throw new NoRouteToHostException("Host unreachable");
+            }
+            if (errnoException.errno == EADDRNOTAVAIL) {
+                throw new NoRouteToHostException("Address not available");
+            }
+            throw new ConnectException(createMessageForException(fd, inetAddress, port, timeoutMs,
                     errnoException), errnoException);
         } catch (SocketException ex) {
             throw ex; // We don't want to doubly wrap these.
@@ -135,7 +147,7 @@ public final class IoBridge {
 
     private static void connectErrno(FileDescriptor fd, InetAddress inetAddress, int port, int timeoutMs) throws ErrnoException, IOException {
         // With no timeout, just call connect(2) directly.
-        if (timeoutMs == 0) {
+        if (timeoutMs <= 0) {
             Libcore.os.connect(fd, inetAddress, port);
             return;
         }
@@ -169,20 +181,25 @@ public final class IoBridge {
             remainingTimeoutMs =
                     (int) TimeUnit.NANOSECONDS.toMillis(finishTimeNanos - System.nanoTime());
             if (remainingTimeoutMs <= 0) {
-                throw new SocketTimeoutException(connectDetail(fd, inetAddress, port, timeoutMs,
-                        null));
+                throw new SocketTimeoutException(
+                        createMessageForException(fd, inetAddress, port, timeoutMs, null));
             }
         } while (!IoBridge.isConnected(fd, inetAddress, port, timeoutMs, remainingTimeoutMs));
         IoUtils.setBlocking(fd, true); // 4. set the socket back to blocking.
     }
 
-    private static String connectDetail(FileDescriptor fd, InetAddress inetAddress, int port,
-            int timeoutMs, Exception cause) {
+    /**
+     * Constructs the message for an exception that the caller is about to throw.
+     */
+    private static String createMessageForException(FileDescriptor fd, InetAddress inetAddress,
+            int port, int timeoutMs, Exception causeOrNull) {
         // Figure out source address from fd.
         InetSocketAddress localAddress = null;
         try {
             localAddress = getLocalInetSocketAddress(fd);
-        } catch (SocketException ignored) { }
+        } catch (SocketException ignored) {
+            // The caller is about to throw an exception, so this one would only distract.
+        }
 
         StringBuilder sb = new StringBuilder("failed to connect")
               .append(" to ")
@@ -202,9 +219,9 @@ public final class IoBridge {
               .append(timeoutMs)
               .append("ms");
         }
-        if (cause != null) {
+        if (causeOrNull != null) {
             sb.append(": ")
-              .append(cause.getMessage());
+              .append(causeOrNull.getMessage());
         }
         return sb.toString();
     }
@@ -232,7 +249,8 @@ public final class IoBridge {
         }
     }
 
-    public static boolean isConnected(FileDescriptor fd, InetAddress inetAddress, int port, int timeoutMs, int remainingTimeoutMs) throws IOException {
+    public static boolean isConnected(FileDescriptor fd, InetAddress inetAddress, int port,
+            int timeoutMs, int remainingTimeoutMs) throws IOException {
         ErrnoException cause;
         try {
             StructPollfd[] pollFds = new StructPollfd[] { new StructPollfd() };
@@ -253,7 +271,7 @@ public final class IoBridge {
             }
             cause = errnoException;
         }
-        String detail = connectDetail(fd, inetAddress, port, timeoutMs, cause);
+        String detail = createMessageForException(fd, inetAddress, port, timeoutMs, cause);
         if (cause.errno == ETIMEDOUT) {
             throw new SocketTimeoutException(detail, cause);
         }
@@ -263,10 +281,6 @@ public final class IoBridge {
     // Socket options used by java.net but not exposed in SocketOptions.
     public static final int JAVA_MCAST_JOIN_GROUP = 19;
     public static final int JAVA_MCAST_LEAVE_GROUP = 20;
-    public static final int JAVA_MCAST_JOIN_SOURCE_GROUP = 21;
-    public static final int JAVA_MCAST_LEAVE_SOURCE_GROUP = 22;
-    public static final int JAVA_MCAST_BLOCK_SOURCE = 23;
-    public static final int JAVA_MCAST_UNBLOCK_SOURCE = 24;
     public static final int JAVA_IP_MULTICAST_TTL = 17;
     public static final int JAVA_IP_TTL = 25;
 
@@ -285,15 +299,14 @@ public final class IoBridge {
     private static Object getSocketOptionErrno(FileDescriptor fd, int option) throws ErrnoException, SocketException {
         switch (option) {
         case SocketOptions.IP_MULTICAST_IF:
-            // This is IPv4-only.
-            return Libcore.os.getsockoptInAddr(fd, IPPROTO_IP, IP_MULTICAST_IF);
         case SocketOptions.IP_MULTICAST_IF2:
-            // This is IPv6-only.
             return Libcore.os.getsockoptInt(fd, IPPROTO_IPV6, IPV6_MULTICAST_IF);
         case SocketOptions.IP_MULTICAST_LOOP:
             // Since setting this from java.net always sets IPv4 and IPv6 to the same value,
             // it doesn't matter which we return.
-            return booleanFromInt(Libcore.os.getsockoptInt(fd, IPPROTO_IPV6, IPV6_MULTICAST_LOOP));
+            // NOTE: getsockopt's return value means "isEnabled", while OpenJDK code java.net
+            // requires a value that means "isDisabled" so we NEGATE the system call value here.
+            return !booleanFromInt(Libcore.os.getsockoptInt(fd, IPPROTO_IPV6, IPV6_MULTICAST_LOOP));
         case IoBridge.JAVA_IP_MULTICAST_TTL:
             // Since setting this from java.net always sets IPv4 and IPv6 to the same value,
             // it doesn't matter which we return.
@@ -328,6 +341,8 @@ public final class IoBridge {
             return (int) Libcore.os.getsockoptTimeval(fd, SOL_SOCKET, SO_RCVTIMEO).toMillis();
         case SocketOptions.TCP_NODELAY:
             return booleanFromInt(Libcore.os.getsockoptInt(fd, IPPROTO_TCP, TCP_NODELAY));
+        case SocketOptions.SO_BINDADDR:
+            return ((InetSocketAddress) Libcore.os.getsockname(fd)).getAddress();
         default:
             throw new SocketException("Unknown socket option: " + option);
         }
@@ -356,7 +371,15 @@ public final class IoBridge {
     private static void setSocketOptionErrno(FileDescriptor fd, int option, Object value) throws ErrnoException, SocketException {
         switch (option) {
         case SocketOptions.IP_MULTICAST_IF:
-            throw new UnsupportedOperationException("Use IP_MULTICAST_IF2 on Android");
+            NetworkInterface nif = NetworkInterface.getByInetAddress((InetAddress) value);
+            if (nif == null) {
+                throw new SocketException(
+                        "bad argument for IP_MULTICAST_IF : address not bound to any interface");
+            }
+            // Although IPv6 was cleaned up to use int, IPv4 uses an ip_mreqn containing an int.
+            Libcore.os.setsockoptIpMreqn(fd, IPPROTO_IP, IP_MULTICAST_IF, nif.getIndex());
+            Libcore.os.setsockoptInt(fd, IPPROTO_IPV6, IPV6_MULTICAST_IF, nif.getIndex());
+            return;
         case SocketOptions.IP_MULTICAST_IF2:
             // Although IPv6 was cleaned up to use int, IPv4 uses an ip_mreqn containing an int.
             Libcore.os.setsockoptIpMreqn(fd, IPPROTO_IP, IP_MULTICAST_IF, (Integer) value);
@@ -364,8 +387,11 @@ public final class IoBridge {
             return;
         case SocketOptions.IP_MULTICAST_LOOP:
             // Although IPv6 was cleaned up to use int, IPv4 multicast loopback uses a byte.
-            Libcore.os.setsockoptByte(fd, IPPROTO_IP, IP_MULTICAST_LOOP, booleanToInt((Boolean) value));
-            Libcore.os.setsockoptInt(fd, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, booleanToInt((Boolean) value));
+            // NOTE: setsockopt's arguement value means "isEnabled", while OpenJDK code java.net
+            // uses a value that means "isDisabled" so we NEGATE the system call value here.
+            int enable = booleanToInt(!((Boolean) value));
+            Libcore.os.setsockoptByte(fd, IPPROTO_IP, IP_MULTICAST_LOOP, enable);
+            Libcore.os.setsockoptInt(fd, IPPROTO_IPV6, IPV6_MULTICAST_LOOP, enable);
             return;
         case IoBridge.JAVA_IP_MULTICAST_TTL:
             // Although IPv6 was cleaned up to use int, and IPv4 non-multicast TTL uses int,
@@ -426,36 +452,8 @@ public final class IoBridge {
             Libcore.os.setsockoptGroupReq(fd, level, op, groupReq);
             return;
         }
-        case IoBridge.JAVA_MCAST_JOIN_SOURCE_GROUP:
-        case IoBridge.JAVA_MCAST_LEAVE_SOURCE_GROUP:
-        case IoBridge.JAVA_MCAST_BLOCK_SOURCE:
-        case IoBridge.JAVA_MCAST_UNBLOCK_SOURCE:
-        {
-            StructGroupSourceReq groupSourceReq = (StructGroupSourceReq) value;
-            int level = (groupSourceReq.gsr_group instanceof Inet4Address)
-                ? IPPROTO_IP : IPPROTO_IPV6;
-            int op = getGroupSourceReqOp(option);
-            Libcore.os.setsockoptGroupSourceReq(fd, level, op, groupSourceReq);
-            return;
-        }
         default:
             throw new SocketException("Unknown socket option: " + option);
-        }
-    }
-
-    private static int getGroupSourceReqOp(int javaValue) {
-        switch (javaValue) {
-            case IoBridge.JAVA_MCAST_JOIN_SOURCE_GROUP:
-                return MCAST_JOIN_SOURCE_GROUP;
-            case IoBridge.JAVA_MCAST_LEAVE_SOURCE_GROUP:
-                return MCAST_LEAVE_SOURCE_GROUP;
-            case IoBridge.JAVA_MCAST_BLOCK_SOURCE:
-                return MCAST_BLOCK_SOURCE;
-            case IoBridge.JAVA_MCAST_UNBLOCK_SOURCE:
-                return MCAST_UNBLOCK_SOURCE;
-            default:
-                throw new AssertionError(
-                        "Unknown java value for setsocketopt op lookup: " + javaValue);
         }
     }
 
@@ -562,10 +560,11 @@ public final class IoBridge {
         return result;
     }
 
-    private static int maybeThrowAfterSendto(boolean isDatagram, ErrnoException errnoException) throws SocketException {
+    private static int maybeThrowAfterSendto(boolean isDatagram, ErrnoException errnoException)
+            throws IOException {
         if (isDatagram) {
-            if (errnoException.errno == ECONNRESET || errnoException.errno == ECONNREFUSED) {
-                return 0;
+            if (errnoException.errno == ECONNREFUSED) {
+                throw new PortUnreachableException("ICMP Port Unreachable");
             }
         } else {
             if (errnoException.errno == EAGAIN) {
@@ -574,7 +573,7 @@ public final class IoBridge {
                 return 0;
             }
         }
-        throw errnoException.rethrowAsSocketException();
+        throw errnoException.rethrowAsIOException();
     }
 
     public static int recvfrom(boolean isRead, FileDescriptor fd, byte[] bytes, int byteOffset, int byteCount, int flags, DatagramPacket packet, boolean isConnected) throws IOException {
@@ -607,8 +606,12 @@ public final class IoBridge {
         }
         if (packet != null) {
             packet.setReceivedLength(byteCount);
-            packet.setAddress(srcAddress.getAddress());
             packet.setPort(srcAddress.getPort());
+
+            // packet.address should only be changed when it is different from srcAddress.
+            if (!srcAddress.getAddress().equals(packet.getAddress())) {
+                packet.setAddress(srcAddress.getAddress());
+            }
         }
         return byteCount;
     }
@@ -622,7 +625,7 @@ public final class IoBridge {
             }
         } else {
             if (isConnected && errnoException.errno == ECONNREFUSED) {
-                throw new PortUnreachableException("", errnoException);
+                throw new PortUnreachableException("ICMP Port Unreachable", errnoException);
             } else if (errnoException.errno == EAGAIN) {
                 throw new SocketTimeoutException(errnoException);
             } else {
@@ -665,9 +668,24 @@ public final class IoBridge {
         }
     }
 
-    public static InetSocketAddress getLocalInetSocketAddress(FileDescriptor fd) throws SocketException {
+    /**
+     * @throws SocketException if fd is not currently bound to an InetSocketAddress
+     */
+    public static InetSocketAddress getLocalInetSocketAddress(FileDescriptor fd)
+            throws SocketException {
         try {
-            return (InetSocketAddress) Libcore.os.getsockname(fd);
+            SocketAddress socketAddress = Libcore.os.getsockname(fd);
+            // When a Socket is pending closure because socket.close() was called but other threads
+            // are still using it, the FileDescriptor can be dup2'ed to an AF_UNIX one; see the
+            // deferred close logic in PlainSocketImpl.socketClose0(true) for details.
+            // If socketAddress is not the expected type then we assume that the socket is being
+            // closed, so we throw a SocketException (just like in the case of an ErrnoException).
+            // http://b/64209834
+            if ((socketAddress != null) && !(socketAddress instanceof InetSocketAddress)) {
+                throw new SocketException("Socket assumed to be pending closure: Expected sockname "
+                        + "to be an InetSocketAddress, got " + socketAddress.getClass());
+            }
+            return (InetSocketAddress) socketAddress;
         } catch (ErrnoException errnoException) {
             throw errnoException.rethrowAsSocketException();
         }

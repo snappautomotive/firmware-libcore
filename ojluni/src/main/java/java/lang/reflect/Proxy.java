@@ -27,6 +27,7 @@
 package java.lang.reflect;
 
 
+import dalvik.annotation.optimization.FastNative;
 import java.lang.ref.Reference;
 import java.lang.ref.WeakReference;
 import java.security.Permission;
@@ -893,7 +894,7 @@ public class Proxy implements java.io.Serializable {
 
         final Proxy p = (Proxy) proxy;
         final InvocationHandler ih = p.h;
-        // Android changed, System.getSecurityManager() is always null
+        // Android-changed, System.getSecurityManager() is always null
         // if (System.getSecurityManager() != null) {
         //     Class<?> ihClass = ih.getClass();
         //     Class<?> caller = Reflection.getCallerClass();
@@ -912,6 +913,7 @@ public class Proxy implements java.io.Serializable {
         return h.invoke(proxy, method, args);
     }
 
+    @FastNative
     private static native Class<?> generateProxy(String name, Class<?>[] interfaces,
                                                  ClassLoader loader, Method[] methods,
                                                  Class<?>[][] exceptions);

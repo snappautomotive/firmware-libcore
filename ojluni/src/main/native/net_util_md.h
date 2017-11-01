@@ -60,7 +60,6 @@ extern int NET_Poll(struct pollfd *ufds, unsigned int nfds, int timeout);
 #endif
 
 extern int tagSocket(JNIEnv* env, int fd);
-extern void untagSocket(JNIEnv* env, int fd);
 
 #else
 
@@ -79,7 +78,6 @@ extern void untagSocket(JNIEnv* env, int fd);
 #define NET_Poll        poll
 
 #define tagSocket(env,fd)    (void)0
-#define untagSocket(env,fd)  (void)0
 
 #endif
 
@@ -112,7 +110,10 @@ extern jboolean NET_addrtransAvailable();
 #define NET_WAIT_WRITE  0x02
 #define NET_WAIT_CONNECT        0x04
 
+// Android-removed: unused
+#if 0
 extern jint NET_Wait(JNIEnv *env, jint fd, jint flags, jint timeout);
+#endif
 
 /************************************************************************
  * Macros and constants
@@ -149,9 +150,12 @@ extern jint NET_Wait(JNIEnv *env, jint fd, jint flags, jint timeout);
 /************************************************************************
  *  Utilities
  */
+// Android-removed: unused
+#if 0
 #ifdef __linux__
 extern int kernelIsV22();
 extern int kernelIsV24();
+#endif
 #endif
 
 void NET_ThrowByNameWithLastError(JNIEnv *env, const char *name,

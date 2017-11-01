@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2014 The Android Open Source Project
- * Copyright (c) 1998, 2011, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1998, 2014, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -34,9 +34,6 @@ import java.security.spec.AlgorithmParameterSpec;
 
 import java.nio.ByteBuffer;
 
-/* ANDROID-REMOVED: this debugging mechanism is not used in Android.
-import sun.security.util.Debug;
-*/
 import sun.security.jca.*;
 import sun.security.jca.GetInstance.Instance;
 
@@ -56,76 +53,92 @@ import sun.security.jca.GetInstance.Instance;
  * e.g., MD5 or SHA-1, in combination with a secret shared key. HMAC is
  * specified in RFC 2104.
  *
- * <p> Android provides the following <code>Mac</code> algorithms
+ * <p> Android provides the following <code>Mac</code> algorithms:
  * <table>
- *     <thead>
- *         <tr>
- *             <th>Name</th>
- *             <th>Supported (API Levels)</th>
- *         </tr>
- *     </thead>
- *     <tbody>
- *         <tr>
- *             <td>DESedeMAC</td>
- *             <td>1&ndash;8</td>
- *         </tr>
- *         <tr>
- *             <td>DESedeMAC/CFB8</td>
- *             <td>1&ndash;8</td>
- *         </tr>
- *         <tr>
- *             <td>DESedeMAC64</td>
- *             <td>1&ndash;8</td>
- *         </tr>
- *         <tr>
- *             <td>DESMAC</td>
- *             <td>1&ndash;8</td>
- *         </tr>
- *         <tr>
- *             <td>DESMAC/CFB8</td>
- *             <td>1&ndash;8</td>
- *         </tr>
- *         <tr>
- *             <td>DESwithISO9797</td>
- *             <td>1&ndash;8</td>
- *         </tr>
- *         <tr>
- *             <td>HmacMD5</td>
- *             <td>1+</td>
- *         </tr>
- *         <tr>
- *             <td>HmacSHA1</td>
- *             <td>1+</td>
- *         </tr>
- *         <tr>
- *             <td>HmacSHA224</td>
- *             <td>1&ndash;8, 22+</td>
- *         </tr>
- *         <tr>
- *             <td>HmacSHA256</td>
- *             <td>1+</td>
- *         </tr>
- *         <tr>
- *             <td>HmacSHA384</td>
- *             <td>1+</td>
- *         </tr>
- *         <tr>
- *             <td>HmacSHA512</td>
- *             <td>1+</td>
- *         </tr>
- *         <tr>
- *             <td>ISO9797ALG3MAC</td>
- *             <td>1&ndash;8</td>
- *         </tr>
- *         <tr>
- *             <td>PBEwithHmacSHA</td>
- *             <td>1+</td>
- *         </tr>
- *         <tr>
- *             <td>PBEwithHmacSHA1</td>
- *             <td>1+</td>
- *         </tr>
- *     </tbody>
+ *   <thead>
+ *     <tr>
+ *       <th>Algorithm</th>
+ *       <th>Supported API Levels</th>
+ *     </tr>
+ *   </thead>
+ *   <tbody>
+ *     <tr class="deprecated">
+ *       <td>DESMAC</td>
+ *       <td>1-8</td>
+ *     </tr>
+ *     <tr class="deprecated">
+ *       <td>DESMAC/CFB8</td>
+ *       <td>1-8</td>
+ *     </tr>
+ *     <tr class="deprecated">
+ *       <td>DESedeMAC</td>
+ *       <td>1-8</td>
+ *     </tr>
+ *     <tr class="deprecated">
+ *       <td>DESedeMAC/CFB8</td>
+ *       <td>1-8</td>
+ *     </tr>
+ *     <tr class="deprecated">
+ *       <td>DESedeMAC64</td>
+ *       <td>1-8</td>
+ *     </tr>
+ *     <tr class="deprecated">
+ *       <td>DESwithISO9797</td>
+ *       <td>1-8</td>
+ *     </tr>
+ *     <tr>
+ *       <td>HmacMD5</td>
+ *       <td>1+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>HmacSHA1</td>
+ *       <td>1+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>HmacSHA224</td>
+ *       <td>1-8,22+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>HmacSHA256</td>
+ *       <td>1+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>HmacSHA384</td>
+ *       <td>1+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>HmacSHA512</td>
+ *       <td>1+</td>
+ *     </tr>
+ *     <tr class="deprecated">
+ *       <td>ISO9797ALG3MAC</td>
+ *       <td>1-8</td>
+ *     </tr>
+ *     <tr>
+ *       <td>PBEwithHmacSHA</td>
+ *       <td>1+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>PBEwithHmacSHA1</td>
+ *       <td>1+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>PBEwithHmacSHA224</td>
+ *       <td>26+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>PBEwithHmacSHA256</td>
+ *       <td>26+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>PBEwithHmacSHA384</td>
+ *       <td>26+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>PBEwithHmacSHA512</td>
+ *       <td>26+</td>
+ *     </tr>
+ *   </tbody>
  * </table>
  *
  * These algorithms are described in the
@@ -140,7 +153,11 @@ import sun.security.jca.GetInstance.Instance;
 
 public class Mac implements Cloneable {
 
-    /* ANDROID-REMOVED: this debugging mechanism is not used in Android.
+    // Android-removed: this debugging mechanism is not used in Android.
+    /*
+    private static final Debug debug =
+                        Debug.getInstance("jca", "Mac");
+
     private static final Debug pdebug =
                         Debug.getInstance("provider", "Provider");
     private static final boolean skipDebug =
@@ -159,6 +176,23 @@ public class Mac implements Cloneable {
     // Has this object been initialized?
     private boolean initialized = false;
 
+    // BEGIN Android-removed: Redo the provider selection logic to allow reselecting provider.
+    // When only the algorithm is specified, we want to allow the Mac provider for that
+    // algorithm to change if multiple providers exist and they support different subsets of
+    // keys.  To that end, we don't hold an iterator and exhaust it when we need to choose
+    // a provider like the upstream implementation, we reestablish the list of providers
+    // each time.
+    /*
+    // next service to try in provider selection
+    // null once provider is selected
+    private Service firstService;
+
+    // remaining services to try in provider selection
+    // null once provider is selected
+    private Iterator<Service> serviceIterator;
+    */
+    // END Android-removed: Redo the provider selection logic to allow reselecting provider.
+
     private final Object lock;
 
     /**
@@ -175,6 +209,7 @@ public class Mac implements Cloneable {
         lock = null;
     }
 
+    // Android-changed: Remove Service and Iterator from constructor args.
     private Mac(String algorithm) {
         this.algorithm = algorithm;
         lock = new Object();
@@ -230,6 +265,8 @@ public class Mac implements Cloneable {
             if (JceSecurity.canUseProvider(s.getProvider()) == false) {
                 continue;
             }
+            // Android-changed: Remove Service and Iterator from constructor args.
+            // return new Mac(s, t, algorithm);
             return new Mac(algorithm);
         }
         throw new NoSuchAlgorithmException
@@ -272,6 +309,8 @@ public class Mac implements Cloneable {
      */
     public static final Mac getInstance(String algorithm, String provider)
             throws NoSuchAlgorithmException, NoSuchProviderException {
+        // Android-added: Check for Bouncy Castle deprecation
+        Providers.checkBouncyCastleDeprecation(provider, "Mac", algorithm);
         Instance instance = JceSecurity.getInstance
                 ("Mac", MacSpi.class, algorithm, provider);
         return new Mac((MacSpi)instance.impl, instance.provider, algorithm);
@@ -307,6 +346,8 @@ public class Mac implements Cloneable {
      */
     public static final Mac getInstance(String algorithm, Provider provider)
             throws NoSuchAlgorithmException {
+        // Android-added: Check for Bouncy Castle deprecation
+        Providers.checkBouncyCastleDeprecation(provider, "Mac", algorithm);
         Instance instance = JceSecurity.getInstance
                 ("Mac", MacSpi.class, algorithm, provider);
         return new Mac((MacSpi)instance.impl, instance.provider, algorithm);
@@ -321,6 +362,8 @@ public class Mac implements Cloneable {
      * is not the first method called.
      */
     void chooseFirstProvider() {
+        // Android-changed: Check if lock is null rather than removed serviceIterator field.
+        // if ((spi != null) || (serviceIterator == null)) {
         if (spi != null || lock == null) {
             return;
         }
@@ -328,7 +371,8 @@ public class Mac implements Cloneable {
             if (spi != null) {
                 return;
             }
-            /* ANDROID-REMOVED: this debugging mechanism is not used in Android.
+            // Android-removed: this debugging mechanism is not used in Android.
+            /*
             if (debug != null) {
                 int w = --warnCount;
                 if (w >= 0) {
@@ -343,6 +387,7 @@ public class Mac implements Cloneable {
             }
             */
             Exception lastException = null;
+            // Android-changed: Provider selection; loop over a new list each time.
             for (Service s : GetInstance.getServices("Mac", algorithm)) {
                 if (JceSecurity.canUseProvider(s.getProvider()) == false) {
                     continue;
@@ -354,6 +399,12 @@ public class Mac implements Cloneable {
                     }
                     spi = (MacSpi)obj;
                     provider = s.getProvider();
+                    // Android-removed: Provider selection; loop over a new list each time.
+                    /*
+                    // not needed any more
+                    firstService = null;
+                    serviceIterator = null;
+                    */
                     return;
                 } catch (NoSuchAlgorithmException e) {
                     lastException = e;
@@ -371,11 +422,14 @@ public class Mac implements Cloneable {
     private void chooseProvider(Key key, AlgorithmParameterSpec params)
             throws InvalidKeyException, InvalidAlgorithmParameterException {
         synchronized (lock) {
+            // Android-changed: Use the currently-selected provider only if no key was provided.
+            // if (spi != null) {
             if (spi != null && (key == null || lock == null)) {
                 spi.engineInit(key, params);
                 return;
             }
             Exception lastException = null;
+            // Android-changed: Provider selection; loop over a new list each time.
             for (Service s : GetInstance.getServices("Mac", algorithm)) {
                 // if provider says it does not support this key, ignore it
                 if (s.supportsParameter(key) == false) {
@@ -389,6 +443,11 @@ public class Mac implements Cloneable {
                     spi.engineInit(key, params);
                     provider = s.getProvider();
                     this.spi = spi;
+                    // Android-removed: Provider selection; loop over a new list each time.
+                    /*
+                    firstService = null;
+                    serviceIterator = null;
+                    */
                     return;
                 } catch (Exception e) {
                     // NoSuchAlgorithmException from newInstance()
@@ -446,6 +505,8 @@ public class Mac implements Cloneable {
      */
     public final void init(Key key) throws InvalidKeyException {
         try {
+            // Android-changed: Use the currently-selected provider only if no key was provided.
+            // if (spi != null) {
             if (spi != null && (key == null || lock == null)) {
                 spi.engineInit(key, null);
             } else {
@@ -456,7 +517,8 @@ public class Mac implements Cloneable {
         }
         initialized = true;
 
-        /* ANDROID-REMOVED: this debugging mechanism is not used in Android.
+        // Android-removed: this debugging mechanism is not used in Android.
+        /*
         if (!skipDebug && pdebug != null) {
             pdebug.println("Mac." + algorithm + " algorithm from: " +
                 this.provider.getName());
@@ -478,6 +540,8 @@ public class Mac implements Cloneable {
      */
     public final void init(Key key, AlgorithmParameterSpec params)
             throws InvalidKeyException, InvalidAlgorithmParameterException {
+        // Android-changed: Use the currently-selected provider only if no key was provided.
+        // if (spi != null) {
         if (spi != null && (key == null || lock == null)) {
             spi.engineInit(key, params);
         } else {
@@ -485,7 +549,8 @@ public class Mac implements Cloneable {
         }
         initialized = true;
 
-        /* ANDROID-REMOVED: this debugging mechanism is not used in Android.
+        // Android-removed: this debugging mechanism is not used in Android.
+        /*
         if (!skipDebug && pdebug != null) {
             pdebug.println("Mac." + algorithm + " algorithm from: " +
                 this.provider.getName());
@@ -711,6 +776,7 @@ public class Mac implements Cloneable {
         return that;
     }
 
+    // BEGIN Android-added: Allow access to the current SPI for testing purposes.
     /**
      * Returns the {@code MacSpi} backing this {@code Mac} or {@code null} if no {@code MacSpi} is
      * backing this {@code Mac}.
@@ -720,4 +786,5 @@ public class Mac implements Cloneable {
     public MacSpi getCurrentSpi() {
         return spi;
     }
+    // END Android-added: Allow access to the current SPI for testing purposes.
 }

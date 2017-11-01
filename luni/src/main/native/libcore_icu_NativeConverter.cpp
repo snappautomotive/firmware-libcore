@@ -22,16 +22,16 @@
 #include <vector>
 
 #include <android/log.h>
+#include <nativehelper/JNIHelp.h>
+#include <nativehelper/JniConstants.h>
+#include <nativehelper/ScopedLocalRef.h>
+#include <nativehelper/ScopedPrimitiveArray.h>
+#include <nativehelper/ScopedStringChars.h>
+#include <nativehelper/ScopedUtfChars.h>
+#include <nativehelper/toStringArray.h>
 
 #include "IcuUtilities.h"
-#include "JNIHelp.h"
-#include "JniConstants.h"
 #include "JniException.h"
-#include "ScopedLocalRef.h"
-#include "ScopedPrimitiveArray.h"
-#include "ScopedStringChars.h"
-#include "ScopedUtfChars.h"
-#include "toStringArray.h"
 #include "unicode/ucnv.h"
 #include "unicode/ucnv_cb.h"
 #include "unicode/uniset.h"
@@ -157,14 +157,42 @@ static jstring getJavaCanonicalName(JNIEnv* env, const char* icuCanonicalName) {
   return env->NewStringUTF(&result[0]);
 }
 
+// Returns a canonical ICU converter name which may have a version number appended to it, based on
+// the normal canonical name. This is used to determine the actual native converter to use (the
+// normal unversioned name is used to determine the aliases and the Java name).
+static char const * getVersionedIcuCanonicalName(char const * icuCanonicalName) {
+  if (strcmp(icuCanonicalName, "UTF-16") == 0) {
+    // The ICU UTF-16 converter encodes strings as platform-endian bytes with a BOM. The
+    // UTF-16,version=2 one encodes as big-endian with a BOM, as what the Charset javadoc requires.
+    return "UTF-16,version=2";
+  } else {
+    return icuCanonicalName;
+  }
+}
+
 static jlong NativeConverter_openConverter(JNIEnv* env, jclass, jstring converterName) {
     ScopedUtfChars converterNameChars(env, converterName);
     if (converterNameChars.c_str() == NULL) {
+        // Extra debugging check that we do have an exception if the we could not
+        // create a string. See b/62612946.
+        if (env->ExceptionCheck()) {
+            return 0;
+        }
+        maybeThrowIcuException(env, "openConverter", U_ILLEGAL_ARGUMENT_ERROR);
         return 0;
     }
     UErrorCode status = U_ZERO_ERROR;
     UConverter* cnv = ucnv_open(converterNameChars.c_str(), &status);
     maybeThrowIcuException(env, "ucnv_open", status);
+    if (env->ExceptionCheck()) {
+        return 0;
+    }
+    if (cnv == NULL) {
+        // Extra debugging exception in case cnv is null but ICU did not report
+        // an error. See b/62612946.
+        maybeThrowIcuException(env, "openConverter", U_ILLEGAL_ARGUMENT_ERROR);
+        return 0;
+    }
     return reinterpret_cast<uintptr_t>(cnv);
 }
 
@@ -209,11 +237,11 @@ static jint NativeConverter_encode(JNIEnv* env, jclass, jlong address,
     jint* sourceOffset = &myData[0];
     jint* targetOffset = &myData[1];
     const jchar* mySource = uSource.get() + *sourceOffset;
-    const UChar* mySourceLimit= uSource.get() + sourceEnd;
+    const UChar* mySourceLimit= reinterpret_cast<const UChar*>(uSource.get()) + sourceEnd;
     char* cTarget = reinterpret_cast<char*>(uTarget.get() + *targetOffset);
     const char* cTargetLimit = reinterpret_cast<const char*>(uTarget.get() + targetEnd);
     UErrorCode errorCode = U_ZERO_ERROR;
-    ucnv_fromUnicode(cnv , &cTarget, cTargetLimit, &mySource, mySourceLimit, NULL, (UBool) flush, &errorCode);
+    ucnv_fromUnicode(cnv, &cTarget, cTargetLimit, reinterpret_cast<const UChar**>(&mySource), mySourceLimit, NULL, (UBool) flush, &errorCode);
     *sourceOffset = (mySource - uSource.get()) - *sourceOffset;
     *targetOffset = (reinterpret_cast<jbyte*>(cTarget) - uTarget.get());
 
@@ -266,12 +294,12 @@ static jint NativeConverter_decode(JNIEnv* env, jclass, jlong address,
     jint* targetOffset = &myData[1];
     const char* mySource = reinterpret_cast<const char*>(uSource.get() + *sourceOffset);
     const char* mySourceLimit = reinterpret_cast<const char*>(uSource.get() + sourceEnd);
-    UChar* cTarget = uTarget.get() + *targetOffset;
-    const UChar* cTargetLimit = uTarget.get() + targetEnd;
+    UChar* cTarget = reinterpret_cast<UChar*>(uTarget.get()) + *targetOffset;
+    const UChar* cTargetLimit = reinterpret_cast<UChar*>(uTarget.get()) + targetEnd;
     UErrorCode errorCode = U_ZERO_ERROR;
     ucnv_toUnicode(cnv, &cTarget, cTargetLimit, &mySource, mySourceLimit, NULL, flush, &errorCode);
     *sourceOffset = mySource - reinterpret_cast<const char*>(uSource.get()) - *sourceOffset;
-    *targetOffset = cTarget - uTarget.get() - *targetOffset;
+    *targetOffset = cTarget - reinterpret_cast<UChar*>(uTarget.get()) - *targetOffset;
 
     // If there was an error, count the problematic bytes.
     if (errorCode == U_ILLEGAL_CHAR_FOUND || errorCode == U_INVALID_CHAR_FOUND ||
@@ -399,8 +427,13 @@ static void NativeConverter_setCallbackEncode(JNIEnv* env, jclass, jlong address
 
     EncoderCallbackContext* callbackContext = const_cast<EncoderCallbackContext*>(
             reinterpret_cast<const EncoderCallbackContext*>(oldCallbackContext));
+    // Hold the reference to any new callbackContext we create in a unique_ptr
+    // so that the default behavior is to collect it automatically if we exit
+    // early.
+    std::unique_ptr<EncoderCallbackContext> callbackContextDeleter;
     if (callbackContext == NULL) {
         callbackContext = new EncoderCallbackContext;
+        callbackContextDeleter.reset(callbackContext);
     }
 
     callbackContext->onMalformedInput = getFromUCallback(onMalformedInput);
@@ -416,6 +449,10 @@ static void NativeConverter_setCallbackEncode(JNIEnv* env, jclass, jlong address
 
     UErrorCode errorCode = U_ZERO_ERROR;
     ucnv_setFromUCallBack(cnv, CHARSET_ENCODER_CALLBACK, callbackContext, NULL, NULL, &errorCode);
+    // Iff callbackContextDeleter holds a reference to a callbackContext we can
+    // prevent it being automatically deleted here as responsibility for deletion
+    // has passed to the code that closes the NativeConverter.
+    callbackContextDeleter.release();
     maybeThrowIcuException(env, "ucnv_setFromUCallBack", errorCode);
 }
 
@@ -483,8 +520,13 @@ static void NativeConverter_setCallbackDecode(JNIEnv* env, jclass, jlong address
 
     DecoderCallbackContext* callbackContext = const_cast<DecoderCallbackContext*>(
             reinterpret_cast<const DecoderCallbackContext*>(oldCallbackContext));
+    // Hold the reference to any new callbackContext we create in a unique_ptr
+    // so that the default behavior is to collect it automatically if we exit
+    // early.
+    std::unique_ptr<DecoderCallbackContext> callbackContextDeleter;
     if (callbackContext == NULL) {
         callbackContext = new DecoderCallbackContext;
+        callbackContextDeleter.reset(callbackContext);
     }
 
     callbackContext->onMalformedInput = getToUCallback(onMalformedInput);
@@ -495,11 +537,15 @@ static void NativeConverter_setCallbackDecode(JNIEnv* env, jclass, jlong address
         maybeThrowIcuException(env, "replacement", U_ILLEGAL_ARGUMENT_ERROR);
         return;
     }
-    u_strncpy(callbackContext->replacementChars, replacement.get(), replacement.size());
+    u_strncpy(callbackContext->replacementChars, reinterpret_cast<const UChar*>(replacement.get()), replacement.size());
     callbackContext->replacementCharCount = replacement.size();
 
     UErrorCode errorCode = U_ZERO_ERROR;
     ucnv_setToUCallBack(cnv, CHARSET_DECODER_CALLBACK, callbackContext, NULL, NULL, &errorCode);
+    // Iff callbackContextDeleter holds a reference to a callbackContext we can
+    // prevent it being automatically deleted here as responsibility for deletion
+    // has passed to the code that closes the NativeConverter.
+    callbackContextDeleter.release();
     maybeThrowIcuException(env, "ucnv_setToUCallBack", errorCode);
 }
 
@@ -603,13 +649,14 @@ static jobject NativeConverter_charsetForName(JNIEnv* env, jclass, jstring chars
         return NULL;
     }
 
-    jstring icuCanonicalNameStr = env->NewStringUTF(icuCanonicalName);
+    char const * versionedIcuCanonicalName = getVersionedIcuCanonicalName(icuCanonicalName);
+    jstring versionedIcuCanonicalNameStr = env->NewStringUTF(versionedIcuCanonicalName);
     if (env->ExceptionCheck()) {
         return NULL;
     }
 
     return env->NewObject(JniConstants::charsetICUClass, charsetConstructor,
-            javaCanonicalName, icuCanonicalNameStr, javaAliases);
+            javaCanonicalName, versionedIcuCanonicalNameStr, javaAliases);
 }
 
 static void FreeNativeConverter(void *converter) {

@@ -18,6 +18,7 @@ package dalvik.system;
 
 import java.io.File;
 import java.net.URL;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
@@ -45,12 +46,14 @@ public class BaseDexClassLoader extends ClassLoader {
 
     /**
      * Constructs an instance.
+     * Note that all the *.jar and *.apk files from {@code dexPath} might be
+     * first extracted in-memory before the code is loaded. This can be avoided
+     * by passing raw dex files (*.dex) in the {@code dexPath}.
      *
      * @param dexPath the list of jar/apk files containing classes and
      * resources, delimited by {@code File.pathSeparator}, which
-     * defaults to {@code ":"} on Android
-     * @param optimizedDirectory directory where optimized dex files
-     * should be written; may be {@code null}
+     * defaults to {@code ":"} on Android.
+     * @param optimizedDirectory this parameter is deprecated and has no effect since API level 26.
      * @param librarySearchPath the list of directories containing native
      * libraries, delimited by {@code File.pathSeparator}; may be
      * {@code null}
@@ -59,11 +62,59 @@ public class BaseDexClassLoader extends ClassLoader {
     public BaseDexClassLoader(String dexPath, File optimizedDirectory,
             String librarySearchPath, ClassLoader parent) {
         super(parent);
-        this.pathList = new DexPathList(this, dexPath, librarySearchPath, optimizedDirectory);
+        this.pathList = new DexPathList(this, dexPath, librarySearchPath, null);
 
         if (reporter != null) {
-            reporter.report(this.pathList.getDexPaths());
+            reportClassLoaderChain();
         }
+    }
+
+    /**
+     * Reports the current class loader chain to the registered {@code reporter}.
+     * The chain is reported only if all its elements are {@code BaseDexClassLoader}.
+     */
+    private void reportClassLoaderChain() {
+        ArrayList<BaseDexClassLoader> classLoadersChain = new ArrayList<>();
+        ArrayList<String> classPaths = new ArrayList<>();
+
+        classLoadersChain.add(this);
+        classPaths.add(String.join(File.pathSeparator, pathList.getDexPaths()));
+
+        boolean onlySawSupportedClassLoaders = true;
+        ClassLoader bootClassLoader = ClassLoader.getSystemClassLoader().getParent();
+        ClassLoader current = getParent();
+
+        while (current != null && current != bootClassLoader) {
+            if (current instanceof BaseDexClassLoader) {
+                BaseDexClassLoader bdcCurrent = (BaseDexClassLoader) current;
+                classLoadersChain.add(bdcCurrent);
+                classPaths.add(String.join(File.pathSeparator, bdcCurrent.pathList.getDexPaths()));
+            } else {
+                onlySawSupportedClassLoaders = false;
+                break;
+            }
+            current = current.getParent();
+        }
+
+        if (onlySawSupportedClassLoaders) {
+            reporter.report(classLoadersChain, classPaths);
+        }
+    }
+
+    /**
+     * Constructs an instance.
+     *
+     * dexFile must be an in-memory representation of a full dexFile.
+     *
+     * @param dexFiles the array of in-memory dex files containing classes.
+     * @param parent the parent class loader
+     *
+     * @hide
+     */
+    public BaseDexClassLoader(ByteBuffer[] dexFiles, ClassLoader parent) {
+        // TODO We should support giving this a library search path maybe.
+        super(parent);
+        this.pathList = new DexPathList(this, dexFiles);
     }
 
     @Override
@@ -71,7 +122,8 @@ public class BaseDexClassLoader extends ClassLoader {
         List<Throwable> suppressedExceptions = new ArrayList<Throwable>();
         Class c = pathList.findClass(name, suppressedExceptions);
         if (c == null) {
-            ClassNotFoundException cnfe = new ClassNotFoundException("Didn't find class \"" + name + "\" on path: " + pathList);
+            ClassNotFoundException cnfe = new ClassNotFoundException(
+                    "Didn't find class \"" + name + "\" on path: " + pathList);
             for (Throwable t : suppressedExceptions) {
                 cnfe.addSuppressed(t);
             }
@@ -186,6 +238,19 @@ public class BaseDexClassLoader extends ClassLoader {
      * @hide
      */
     public interface Reporter {
-        public void report(List<String> dexPaths);
+        /**
+         * Reports the construction of a BaseDexClassLoader and provides information about the
+         * class loader chain.
+         * Note that this only reports if all class loader in the chain are BaseDexClassLoader.
+         *
+         * @param classLoadersChain the chain of class loaders used during the construction of the
+         *     class loader. The first element is the BaseDexClassLoader being constructed,
+         *     the second element is its parent, and so on.
+         * @param classPaths the class paths of the class loaders present in
+         *     {@param classLoadersChain}. The first element corresponds to the first class
+         *     loader and so on. A classpath is represented as a list of dex files separated by
+         *     {@code File.pathSeparator}.
+         */
+        void report(List<BaseDexClassLoader> classLoadersChain, List<String> classPaths);
     }
 }

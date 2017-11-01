@@ -20,6 +20,8 @@ import android.system.ErrnoException;
 import android.system.NetlinkSocketAddress;
 import android.system.OsConstants;
 import android.system.PacketSocketAddress;
+import android.system.StructRlimit;
+import android.system.StructStat;
 import android.system.StructTimeval;
 import android.system.StructUcred;
 import android.system.UnixSocketAddress;
@@ -45,6 +47,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicReference;
 import junit.framework.TestCase;
+import libcore.util.MutableLong;
 
 import static android.system.OsConstants.*;
 
@@ -629,14 +632,16 @@ public class OsTest extends TestCase {
     }
 
     // ENOTSUP, Extended attributes are not supported by the filesystem, or are disabled.
-    final boolean root = (Libcore.os.getuid() == 0);
+    // Since kernel version 4.9 (or some other version after 4.4), *xattr() methods
+    // may set errno to EACCESS instead. This behavior change is likely related to
+    // https://patchwork.kernel.org/patch/9294421/ which reimplemented getxattr, setxattr,
+    // and removexattr on top of generic handlers.
     final String path = "/proc/self/stat";
     try {
       Libcore.os.setxattr(path, NAME_TEST, VALUE_CAKE, OsConstants.XATTR_CREATE);
       fail();
     } catch (ErrnoException e) {
-      // setxattr(2) requires root permission for writing to this file, will get EACCES otherwise.
-      assertEquals(root ? ENOTSUP : EACCES, e.errno);
+      assertTrue("Unexpected errno: " + e.errno, e.errno == ENOTSUP || e.errno == EACCES);
     }
     try {
       Libcore.os.getxattr(path, NAME_TEST);
@@ -654,7 +659,7 @@ public class OsTest extends TestCase {
       Libcore.os.removexattr(path, NAME_TEST);
       fail();
     } catch (ErrnoException e) {
-      assertEquals(ENOTSUP, e.errno);
+      assertTrue("Unexpected errno: " + e.errno, e.errno == ENOTSUP || e.errno == EACCES);
     }
   }
 
@@ -751,19 +756,21 @@ public class OsTest extends TestCase {
   }
 
   public void test_readlink() throws Exception {
-    String tmpDir = System.getProperty("java.io.tmpdir");
-    String path =  tmpDir + "/symlink";
-    try {
-      // ext2 and ext4 have PAGE_SIZE limits on symlink targets.
-      String xs = "";
-      for (int i = 0; i < (4096 - 1); ++i) xs += "x";
+    File path = new File(IoUtils.createTemporaryDirectory("test_readlink"), "symlink");
 
-      Libcore.os.symlink(xs, path);
+    // ext2 and ext4 have PAGE_SIZE limits on symlink targets.
+    // If file encryption is enabled, there's extra overhead to store the
+    // size of the encrypted symlink target. There's also an off-by-one
+    // in current kernels (and marlin/sailfish where we're seeing this
+    // failure are still on 3.18, far from current). Given that we don't
+    // really care here, just use 2048 instead. http://b/33306057.
+    int size = 2048;
+    String xs = "";
+    for (int i = 0; i < size - 1; ++i) xs += "x";
 
-      assertEquals(xs, Libcore.os.readlink(path));
-    } finally {
-      assertTrue("Could not delete symlink: " + path, new File(path).delete());
-    }
+    Libcore.os.symlink(xs, path.getPath());
+
+    assertEquals(xs, Libcore.os.readlink(path.getPath()));
   }
 
   // Address should be correctly set for empty packets. http://b/33481605
@@ -779,6 +786,54 @@ public class OsTest extends TestCase {
       assertEquals(0, recvCount);
       assertTrue(address.getAddress().isLoopbackAddress());
       assertEquals(srcSock.getLocalPort(), address.getPort());
+    }
+  }
+
+  public void test_fstat_times() throws Exception {
+    File file = File.createTempFile("OsTest", "fstattest");
+    FileOutputStream fos = new FileOutputStream(file);
+    StructStat structStat1 = Libcore.os.fstat(fos.getFD());
+    assertEquals(structStat1.st_mtim.tv_sec, structStat1.st_mtime);
+    assertEquals(structStat1.st_ctim.tv_sec, structStat1.st_ctime);
+    assertEquals(structStat1.st_atim.tv_sec, structStat1.st_atime);
+    Thread.sleep(100);
+    fos.write(new byte[]{1,2,3});
+    fos.flush();
+    StructStat structStat2 = Libcore.os.fstat(fos.getFD());
+    fos.close();
+
+    assertEquals(-1, structStat1.st_mtim.compareTo(structStat2.st_mtim));
+    assertEquals(-1, structStat1.st_ctim.compareTo(structStat2.st_ctim));
+    assertEquals(0, structStat1.st_atim.compareTo(structStat2.st_atim));
+  }
+
+  public void test_getrlimit() throws Exception {
+    StructRlimit rlimit = Libcore.os.getrlimit(OsConstants.RLIMIT_NOFILE);
+    // We can't really make any assertions about these values since they might vary from
+    // device to device and even process to process. We do know that they will be greater
+    // than zero, though.
+    assertTrue(rlimit.rlim_cur > 0);
+    assertTrue(rlimit.rlim_max > 0);
+  }
+
+  // http://b/65051835
+  public void test_pipe2_errno() throws Exception {
+    try {
+        // flag=-1 is not a valid value for pip2, will EINVAL
+        Libcore.os.pipe2(-1);
+        fail();
+    } catch(ErrnoException expected) {
+    }
+  }
+
+  // http://b/65051835
+  public void test_sendfile_errno() throws Exception {
+    try {
+        // FileDescriptor.out is not open for input, will cause EBADF
+        MutableLong offset = new MutableLong(10);
+        Libcore.os.sendfile(FileDescriptor.out, FileDescriptor.out, offset, 10);
+        fail();
+    } catch(ErrnoException expected) {
     }
   }
 }

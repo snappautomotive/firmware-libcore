@@ -35,6 +35,12 @@ public class EmulatedStackFrame {
     private final MethodType type;
 
     /**
+     * The type of the callsite that produced this stack frame. This contains the types of
+     * the original arguments, before any conversions etc. were performed.
+     */
+    private final MethodType callsiteType;
+
+    /**
      * All reference arguments and reference return values that belong to this argument array.
      *
      * If the return type is a reference, it will be the last element of this array.
@@ -74,8 +80,10 @@ public class EmulatedStackFrame {
      */
     private final byte[] stackFrame;
 
-    private EmulatedStackFrame(MethodType type, Object[] references, byte[] stackFrame) {
+    private EmulatedStackFrame(MethodType type, MethodType callsiteType, Object[] references,
+                               byte[] stackFrame) {
         this.type = type;
+        this.callsiteType = callsiteType;
         this.references = references;
         this.stackFrame = stackFrame;
     }
@@ -84,6 +92,11 @@ public class EmulatedStackFrame {
      * Returns the {@code MethodType} that the frame was created for.
      */
     public final MethodType getMethodType() { return type; }
+
+    /**
+     * Returns the {@code MethodType} corresponding to the callsite of the
+     */
+    public final MethodType getCallsiteType() { return callsiteType; }
 
     /**
      * Represents a range of arguments on an {@code EmulatedStackFrame}.
@@ -159,7 +172,8 @@ public class EmulatedStackFrame {
             frameSize += getSize(rtype);
         }
 
-        return new EmulatedStackFrame(frameType, new Object[numRefs], new byte[frameSize]);
+        return new EmulatedStackFrame(frameType, frameType, new Object[numRefs],
+                new byte[frameSize]);
     }
 
     /**
@@ -184,7 +198,7 @@ public class EmulatedStackFrame {
     public <T> T getReference(int idx, Class<T> referenceType) {
         if (referenceType != type.ptypes()[idx]) {
             throw new IllegalArgumentException("Argument: " + idx +
-                    " is not of type " + referenceType);
+                    " is of type " + type.ptypes()[idx] + " expected " + referenceType + "");
         }
 
         return (T) references[idx];
@@ -249,7 +263,7 @@ public class EmulatedStackFrame {
      * Returns the size (in bytes) occupied by a given primitive type on an
      * {@code EmulatedStackFrame}.
      */
-    private static int getSize(Class<?> type) {
+    public static int getSize(Class<?> type) {
         if (!type.isPrimitive()) {
             throw new IllegalArgumentException("type.isPrimitive() == false: " + type);
         }
@@ -313,12 +327,21 @@ public class EmulatedStackFrame {
          * values to it. Also resets all state associated with the current accessor.
          */
         public StackFrameAccessor attach(EmulatedStackFrame stackFrame) {
+            return attach(stackFrame, 0 /* argumentIdx */, 0 /* referencesOffset */,
+                    0 /* frameOffset */);
+        }
+
+        public StackFrameAccessor attach(EmulatedStackFrame stackFrame, int argumentIdx,
+                                         int referencesOffset, int frameOffset) {
             frame = stackFrame;
             frameBuf = ByteBuffer.wrap(frame.stackFrame).order(ByteOrder.LITTLE_ENDIAN);
             numArgs = frame.type.ptypes().length;
+            if (frameOffset != 0) {
+                frameBuf.position(frameOffset);
+            }
 
-            referencesOffset = 0;
-            argumentIdx = 0;
+            this.referencesOffset = referencesOffset;
+            this.argumentIdx = argumentIdx;
 
             return this;
         }
@@ -352,6 +375,29 @@ public class EmulatedStackFrame {
                 frameBuf.position(frameBuf.capacity() - getSize(rtype));
             } else {
                 referencesOffset = frame.references.length - 1;
+            }
+        }
+
+        public static void copyNext(StackFrameReader reader, StackFrameWriter writer,
+                                    Class<?> type) {
+            if (!type.isPrimitive()) {
+                writer.putNextReference(reader.nextReference(type), type);
+            } else if (type == boolean.class) {
+                writer.putNextBoolean(reader.nextBoolean());
+            } else if (type == byte.class) {
+                writer.putNextByte(reader.nextByte());
+            } else if (type == char.class) {
+                writer.putNextChar(reader.nextChar());
+            } else if (type == short.class) {
+                writer.putNextShort(reader.nextShort());
+            } else if (type == int.class) {
+                writer.putNextInt(reader.nextInt());
+            } else if (type == long.class) {
+                writer.putNextLong(reader.nextLong());
+            } else if (type == float.class) {
+                writer.putNextFloat(reader.nextFloat());
+            } else if (type == double.class) {
+                writer.putNextDouble(reader.nextDouble());
             }
         }
     }

@@ -37,10 +37,6 @@ import javax.crypto.SecretKey;
 import javax.security.auth.DestroyFailedException;
 import javax.security.auth.callback.*;
 
-/* BEGIN ANDROID-REMOVED: this debugging mechanism is not supported in Android.
-import sun.security.util.Debug;
-*/
-
 /**
  * This class represents a storage facility for cryptographic
  * keys and certificates.
@@ -160,42 +156,42 @@ import sun.security.util.Debug;
  *
  * <p> Android provides the following <code>KeyStore</code> types:
  * <table>
- *     <thead>
- *         <tr>
- *             <th>Name</th>
- *             <th>Supported (API Levels)</th>
- *         </tr>
- *     </thead>
- *     <tbody>
- *         <tr>
- *             <td>AndroidCAStore</td>
- *             <td>14+</td>
- *         </tr>
- *         <tr>
- *             <td>AndroidKeyStore</td>
- *             <td>18+</td>
- *         </tr>
- *         <tr>
- *             <td>BCPKCS12</td>
- *             <td>1&ndash;8</td>
- *         </tr>
- *         <tr>
- *             <td>BKS</td>
- *             <td>1+</td>
- *         </tr>
- *         <tr>
- *             <td>BouncyCastle</td>
- *             <td>1+</td>
- *         </tr>
- *         <tr>
- *             <td>PKCS12</td>
- *             <td>1+</td>
- *         </tr>
- *         <tr>
- *             <td>PKCS12-DEF</td>
- *             <td>1&ndash;8</td>
- *         </tr>
- *     </tbody>
+ *   <thead>
+ *     <tr>
+ *       <th>Algorithm</th>
+ *       <th>Supported API Levels</th>
+ *     </tr>
+ *   </thead>
+ *   <tbody>
+ *     <tr>
+ *       <td>AndroidCAStore</td>
+ *       <td>14+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>AndroidKeyStore</td>
+ *       <td>18+</td>
+ *     </tr>
+ *     <tr class="deprecated">
+ *       <td>BCPKCS12</td>
+ *       <td>1-8</td>
+ *     </tr>
+ *     <tr>
+ *       <td>BKS</td>
+ *       <td>1+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>BouncyCastle</td>
+ *       <td>1+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>PKCS12</td>
+ *       <td>1+</td>
+ *     </tr>
+ *     <tr class="deprecated">
+ *       <td>PKCS12-DEF</td>
+ *       <td>1-8</td>
+ *     </tr>
+ *   </tbody>
  * </table>
  *
  * These types are described in the <a href=
@@ -214,12 +210,14 @@ import sun.security.util.Debug;
 
 public class KeyStore {
 
-    /* BEGIN ANDROID-REMOVED: this debugging mechanism is not supported in Android.
+    // BEGIN Android-removed: this debugging mechanism is not supported in Android.
+    /*
     private static final Debug pdebug =
                         Debug.getInstance("provider", "Provider");
     private static final boolean skipDebug =
         Debug.isOn("engine=") && !Debug.isOn("keystore");
     */
+    // END Android-removed: this debugging mechanism is not supported in Android.
 
     /*
      * Constant to lookup in the Security properties file to determine
@@ -846,12 +844,14 @@ public class KeyStore {
         this.provider = provider;
         this.type = type;
 
-        /* BEGIN ANDROID-REMOVED: this debugging mechanism is not supported in Android.
+        // BEGIN Android-removed: this debugging mechanism is not supported in Android.
+        /*
         if (!skipDebug && pdebug != null) {
             pdebug.println("KeyStore." + type.toUpperCase() + " type from: " +
                 this.provider.getName());
         }
         */
+        // END Android-removed: this debugging mechanism is not supported in Android.
     }
 
     /**

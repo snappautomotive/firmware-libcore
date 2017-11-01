@@ -19,6 +19,7 @@ package libcore.java.util;
 import junit.framework.TestCase;
 
 import java.text.SimpleDateFormat;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
@@ -147,7 +148,15 @@ public class TimeZoneTest extends TestCase {
     // http://code.google.com/p/android/issues/detail?id=24036
     public void testNullId() throws Exception {
         try {
-            TimeZone.getTimeZone(null);
+            TimeZone.getTimeZone((String) null);
+            fail();
+        } catch (NullPointerException expected) {
+        }
+    }
+
+    public void testNullZoneId() throws Exception {
+        try {
+            TimeZone.getTimeZone((ZoneId) null);
             fail();
         } catch (NullPointerException expected) {
         }
@@ -207,15 +216,26 @@ public class TimeZoneTest extends TestCase {
 
     // http://b/7955614 and http://b/8026776.
     public void testDisplayNames() throws Exception {
+        checkDisplayNames(Locale.US);
+    }
+
+    public void testDisplayNames_nonUS() throws Exception {
+        // run checkDisplayNames with an arbitrary set of Locales.
+        checkDisplayNames(Locale.CHINESE);
+        checkDisplayNames(Locale.FRENCH);
+        checkDisplayNames(Locale.forLanguageTag("bn-BD"));
+    }
+
+    public void checkDisplayNames(Locale locale) throws Exception {
         // Check that there are no time zones that use DST but have the same display name for
         // both standard and daylight time.
         StringBuilder failures = new StringBuilder();
         for (String id : TimeZone.getAvailableIDs()) {
             TimeZone tz = TimeZone.getTimeZone(id);
-            String longDst = tz.getDisplayName(true, TimeZone.LONG, Locale.US);
-            String longStd = tz.getDisplayName(false, TimeZone.LONG, Locale.US);
-            String shortDst = tz.getDisplayName(true, TimeZone.SHORT, Locale.US);
-            String shortStd = tz.getDisplayName(false, TimeZone.SHORT, Locale.US);
+            String longDst = tz.getDisplayName(true, TimeZone.LONG, locale);
+            String longStd = tz.getDisplayName(false, TimeZone.LONG, locale);
+            String shortDst = tz.getDisplayName(true, TimeZone.SHORT, locale);
+            String shortStd = tz.getDisplayName(false, TimeZone.SHORT, locale);
 
             if (tz.useDaylightTime()) {
                 // The long std and dst strings must differ!
@@ -320,15 +340,6 @@ public class TimeZoneTest extends TestCase {
         return String.format("GMT%c%02d:%02d", sign, offset / 60, offset % 60);
     }
 
-    public void testAllDisplayNames() throws Exception {
-      for (Locale locale : Locale.getAvailableLocales()) {
-        for (String id : TimeZone.getAvailableIDs()) {
-          TimeZone tz = TimeZone.getTimeZone(id);
-          assertNotNull(tz.getDisplayName(false, TimeZone.LONG, locale));
-        }
-      }
-    }
-
     // http://b/18839557
     public void testOverflowing32BitUnixDates() {
         final TimeZone tz = TimeZone.getTimeZone("America/New_York");
@@ -371,6 +382,18 @@ public class TimeZoneTest extends TestCase {
         } finally {
             TimeZone.setDefault(origTz);
         }
+    }
+
+    // http://b/33197219
+    public void testDisplayNameForNonCanonicalTimezones() {
+        TimeZone canonical = TimeZone.getTimeZone("Europe/London");
+        TimeZone nonCanonical = TimeZone.getTimeZone("GB");
+
+        // verify that GB is actually an alias for Europe/London
+        assertTrue(canonical.hasSameRules(nonCanonical));
+
+        assertEquals(canonical.getDisplayName(true, TimeZone.LONG, Locale.ENGLISH),
+                nonCanonical.getDisplayName(true, TimeZone.LONG, Locale.ENGLISH));
     }
 
     // http://b/30937209
@@ -455,9 +478,9 @@ public class TimeZoneTest extends TestCase {
         clearer.start();
         getter.start();
 
-        // 2 seconds is plenty: If successful, we usually complete much faster.
-        clearer.join(1000);
-        getter.join(1000);
+        // 20 seconds is plenty: If successful, we usually complete much faster.
+        clearer.join(10000);
+        getter.join(10000);
 
         if (!exceptions.isEmpty()) {
             Throwable firstException = exceptions.get(0);

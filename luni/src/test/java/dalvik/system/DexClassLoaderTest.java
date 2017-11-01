@@ -16,13 +16,12 @@
 
 package dalvik.system;
 
-import java.io.FilenameFilter;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.io.InputStream;
+import java.util.Arrays;
+import java.util.Map;
+
 import libcore.io.Streams;
 import junit.framework.TestCase;
 
@@ -30,81 +29,31 @@ import junit.framework.TestCase;
  * Tests for the class {@link DexClassLoader}.
  */
 public class DexClassLoaderTest extends TestCase {
-    private static final String PACKAGE_PATH = "dalvik/system/";
 
-    private File srcDir;
     private File dex1;
     private File dex2;
     private File jar1;
     private File jar2;
-    private File optimizedDir;
+
+    private Map<String, File> resourcesMap;
 
     protected void setUp() throws Exception {
-        srcDir = File.createTempFile("src", "");
-        assertTrue(srcDir.delete());
-        assertTrue(srcDir.mkdirs());
+        resourcesMap = ClassLoaderTestSupport.setupAndCopyResources(Arrays.asList(
+                "loading-test.dex", "loading-test2.dex", "loading-test.jar", "loading-test2.jar"));
 
-        dex1 = new File(srcDir, "loading-test.dex");
-        dex2 = new File(srcDir, "loading-test2.dex");
-        jar1 = new File(srcDir, "loading-test.jar");
-        jar2 = new File(srcDir, "loading-test2.jar");
-
-        copyResource("loading-test.dex", dex1);
-        copyResource("loading-test2.dex", dex2);
-        copyResource("loading-test.jar", jar1);
-        copyResource("loading-test2.jar", jar2);
-
-        optimizedDir = File.createTempFile("optimized", "");
-        assertTrue(optimizedDir.delete());
-        assertTrue(optimizedDir.mkdirs());
+        dex1 = resourcesMap.get("loading-test.dex");
+        assertNotNull(dex1);
+        dex2 = resourcesMap.get("loading-test2.dex");
+        assertNotNull(dex2);
+        jar1 = resourcesMap.get("loading-test.jar");
+        assertNotNull(jar1);
+        jar2 = resourcesMap.get("loading-test2.jar");
+        assertNotNull(jar2);
     }
 
     protected void tearDown() {
-        cleanUpDir(srcDir);
-        cleanUpDir(optimizedDir);
+        ClassLoaderTestSupport.cleanUpResources(resourcesMap);
     }
-
-    private static void cleanUpDir(File dir) {
-        if (!dir.isDirectory()) {
-            return;
-        }
-        File[] files = dir.listFiles();
-        for (File file : files) {
-            if (file.isDirectory()) {
-                cleanUpDir(file);
-            } else {
-                assertTrue(file.delete());
-            }
-        }
-        assertTrue(dir.delete());
-    }
-
-    /**
-     * Copy a resource in the package directory to the indicated
-     * target file.
-     */
-    private static void copyResource(String resourceName,
-            File destination) throws IOException {
-        ClassLoader loader = DexClassLoaderTest.class.getClassLoader();
-        assertFalse(destination.exists());
-        InputStream in = loader.getResourceAsStream(PACKAGE_PATH + resourceName);
-        if (in == null) {
-            throw new IllegalStateException("Resource not found: " + PACKAGE_PATH + resourceName);
-        }
-
-        try (FileOutputStream out = new FileOutputStream(destination)) {
-            Streams.copy(in, out);
-        } finally {
-            in.close();
-        }
-    }
-
-    static final FilenameFilter DEX_FILE_NAME_FILTER = new FilenameFilter() {
-        @Override
-        public boolean accept(File file, String s) {
-            return s.endsWith(".dex");
-        }
-    };
 
     /**
      * Helper to construct a DexClassLoader instance to test.
@@ -118,7 +67,7 @@ public class DexClassLoaderTest extends TestCase {
         for (int i = 1; i < files.length; i++) {
             path += File.pathSeparator + files[i].getAbsolutePath();
         }
-        return new DexClassLoader(path, optimizedDir.getAbsolutePath(), null,
+        return new DexClassLoader(path, null, null,
             ClassLoader.getSystemClassLoader());
     }
 
@@ -169,9 +118,6 @@ public class DexClassLoaderTest extends TestCase {
      */
     public void test_oneJar_init() throws Exception {
         ClassLoader cl = createLoader(jar1);
-        File[] files = optimizedDir.listFiles(DEX_FILE_NAME_FILTER);
-        assertNotNull(files);
-        assertEquals(1, files.length);
     }
 
     /**
@@ -212,9 +158,6 @@ public class DexClassLoaderTest extends TestCase {
 
     public void test_oneDex_init() throws Exception {
         ClassLoader cl = createLoader(dex1);
-        File[] files = optimizedDir.listFiles(DEX_FILE_NAME_FILTER);
-        assertNotNull(files);
-        assertEquals(1, files.length);
     }
 
     public void test_oneDex_simpleUse() throws Exception {
@@ -246,9 +189,6 @@ public class DexClassLoaderTest extends TestCase {
 
     public void test_twoJar_init() throws Exception {
         ClassLoader cl = createLoader(jar1, jar2);
-        File[] files = optimizedDir.listFiles(DEX_FILE_NAME_FILTER);
-        assertNotNull(files);
-        assertEquals(2, files.length);
     }
 
     public void test_twoJar_simpleUse() throws Exception {
@@ -300,9 +240,6 @@ public class DexClassLoaderTest extends TestCase {
 
     public void test_twoDex_init() throws Exception {
         ClassLoader cl = createLoader(dex1, dex2);
-        File[] files = optimizedDir.listFiles(DEX_FILE_NAME_FILTER);
-        assertNotNull(files);
-        assertEquals(2, files.length);
     }
 
     public void test_twoDex_simpleUse() throws Exception {
@@ -397,40 +334,5 @@ public class DexClassLoaderTest extends TestCase {
      */
     public void test_twoJar_diff_getResourceAsStream() throws Exception {
         createLoaderAndCallMethod("test.TestMethods", "test_diff_getResourceAsStream", jar1, jar2);
-    }
-
-    /**
-     * Test that a DexClassLoader can be used to generate optimized code, then
-     * a subsequent PathClassLoader can be used to load the optimized code.
-     * (b/19937016).
-     */
-    public void testDexThenPathClassLoader() throws Exception {
-        // Use a DexClassLoader to create optimized code.
-        File dex = new File(srcDir, "dex-then-path.dex");
-        copyResource("loading-test.dex", dex);
-
-        File oatDir = new File(new File(srcDir, "oat"), VMRuntime.getCurrentInstructionSet());
-        assertTrue(oatDir.mkdirs());
-
-        DexClassLoader dexloader = new DexClassLoader(dex.getAbsolutePath(),
-                oatDir.getAbsolutePath(), null, ClassLoader.getSystemClassLoader());
-        Class c1 = dexloader.loadClass("test.Test1");
-        Method m1 = c1.getMethod("test", (Class[]) null);
-        assertSame("blort", m1.invoke(null, (Object[]) null));
-
-        // Move the optimized code to the right location to be used by a
-        // PathClassLoader.
-        File odexForDexClassLoader = new File(oatDir, "dex-then-path.dex");
-        File odexForPathClassLoader = new File(oatDir, "dex-then-path.odex");
-        assertTrue(DexFile.isDexOptNeeded(dex.getAbsolutePath()));
-        assertTrue(odexForDexClassLoader.renameTo(odexForPathClassLoader));
-        assertFalse(DexFile.isDexOptNeeded(dex.getAbsolutePath()));
-
-        // Use a PathClassLoader that loads and runs the optimized code.
-        PathClassLoader pathloader = new PathClassLoader(dex.getAbsolutePath(),
-                ClassLoader.getSystemClassLoader());
-        Class c2 = pathloader.loadClass("test.Test1");
-        Method m2 = c2.getMethod("test", (Class[]) null);
-        assertSame("blort", m2.invoke(null, (Object[]) null));
     }
 }

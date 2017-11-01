@@ -53,6 +53,7 @@ extern jclass ia_class;
 extern jfieldID iac_addressID;
 extern jfieldID iac_familyID;
 extern jfieldID iac_hostNameID;
+extern jfieldID iac_origHostNameID;
 extern jfieldID ia_preferIPv6AddressID;
 
 /** (Inet6Address accessors)
@@ -78,6 +79,8 @@ extern jobject getInetAddress_hostName(JNIEnv *env, jobject iaObj);
 extern jclass ia4_class;
 extern jmethodID ia4_ctrID;
 
+/* Android-removed: NetworkInterface moved away fro JNI */
+#if 0
 /* NetworkInterface fields */
 extern jclass ni_class;
 extern jfieldID ni_nameID;
@@ -85,14 +88,20 @@ extern jfieldID ni_indexID;
 extern jfieldID ni_addrsID;
 extern jfieldID ni_descID;
 extern jmethodID ni_ctrID;
+#endif
 
+/* Android-removed: PlainSocketImpl moved away fro JNI */
+#if 0
 /* PlainSocketImpl fields */
 extern jfieldID psi_timeoutID;
 extern jfieldID psi_fdID;
 extern jfieldID psi_addressID;
 extern jfieldID psi_portID;
 extern jfieldID psi_localportID;
+#endif
 
+/* Android-removed: DatagramSocket moved away from JNI */
+#if 0
 /* DatagramPacket fields */
 extern jfieldID dp_addressID;
 extern jfieldID dp_portID;
@@ -100,6 +109,7 @@ extern jfieldID dp_bufID;
 extern jfieldID dp_offsetID;
 extern jfieldID dp_lengthID;
 extern jfieldID dp_bufLengthID;
+#endif
 
 /* Inet6Address fields */
 extern jclass ia6_class;
@@ -135,8 +145,11 @@ NET_SockaddrToInetAddress(JNIEnv *env, struct sockaddr *him, int *port);
 void initLocalAddrTable ();
 void parseExclusiveBindProperty(JNIEnv *env);
 
+// Android-removed: unused
+#if 0
 void
 NET_SetTrafficClass(struct sockaddr *him, int trafficClass);
+#endif
 
 JNIEXPORT jint JNICALL
 NET_GetPortFromSockaddr(struct sockaddr *him);
@@ -153,8 +166,11 @@ NET_IPv4MappedToIPv4(jbyte* caddr);
 int
 NET_IsEqual(jbyte* caddr1, jbyte* caddr2);
 
+// Android-removed: unused
+#if 0
 int
 NET_IsZeroAddr(jbyte* caddr);
+#endif
 
 /* Socket operations
  *
@@ -171,11 +187,14 @@ NET_SetSockOpt(int fd, int level, int opt, const void *arg, int len);
 JNIEXPORT int JNICALL
 NET_Bind(int fd, struct sockaddr *him, int len);
 
+// Android-removed: unused
+#if 0
 JNIEXPORT int JNICALL
 NET_MapSocketOption(jint cmd, int *level, int *optname);
 
 JNIEXPORT int JNICALL
 NET_MapSocketOptionV6(jint cmd, int *level, int *optname);
+#endif
 
 int getScopeID (struct sockaddr *);
 

@@ -46,7 +46,11 @@ public class LinuxFileSystemProvider extends UnixFileSystemProvider {
 
     @Override
     LinuxFileStore getFileStore(UnixPath path) throws IOException {
-        return new LinuxFileStore(path);
+        // Android-changed: Complete information about file systems is neither available to regular
+        // apps nor the system server due to SELinux policies.
+        // return new LinuxFileStore(path);
+
+        throw new SecurityException("getFileStore");
     }
 
     @Override
@@ -55,6 +59,9 @@ public class LinuxFileSystemProvider extends UnixFileSystemProvider {
                                                                 Class<V> type,
                                                                 LinkOption... options)
     {
+        // Android-changed: Delegate to UnixFileSystemProvider, remove support for "dos" and
+        // "user" file attribute views which are not supported.
+        /*
         if (type == DosFileAttributeView.class) {
             return (V) new LinuxDosFileAttributeView(UnixPath.toUnixPath(obj),
                                                      Util.followLinks(options));
@@ -63,6 +70,7 @@ public class LinuxFileSystemProvider extends UnixFileSystemProvider {
             return (V) new LinuxUserDefinedFileAttributeView(UnixPath.toUnixPath(obj),
                                                              Util.followLinks(options));
         }
+        */
         return super.getFileAttributeView(obj, type, options);
     }
 
@@ -71,6 +79,9 @@ public class LinuxFileSystemProvider extends UnixFileSystemProvider {
                                                          String name,
                                                          LinkOption... options)
     {
+        // Android-changed: Delegate to UnixFileSystemProvider, remove support for "dos" and
+        // "user" file attribute views which are not supported.
+        /*
         if (name.equals("dos")) {
             return new LinuxDosFileAttributeView(UnixPath.toUnixPath(obj),
                                                  Util.followLinks(options));
@@ -79,6 +90,7 @@ public class LinuxFileSystemProvider extends UnixFileSystemProvider {
             return new LinuxUserDefinedFileAttributeView(UnixPath.toUnixPath(obj),
                                                          Util.followLinks(options));
         }
+        */
         return super.getFileAttributeView(obj, name, options);
     }
 
@@ -89,6 +101,9 @@ public class LinuxFileSystemProvider extends UnixFileSystemProvider {
                                                             LinkOption... options)
         throws IOException
     {
+        // Android-changed: Delegate to UnixFileSystemProvider, remove support for "dos" and
+        // "user" file attribute views which are not supported.
+        /*
         if (type == DosFileAttributes.class) {
             DosFileAttributeView view =
                 getFileAttributeView(file, DosFileAttributeView.class, options);
@@ -96,6 +111,8 @@ public class LinuxFileSystemProvider extends UnixFileSystemProvider {
         } else {
             return super.readAttributes(file, type, options);
         }
+        */
+        return super.readAttributes(file, type, options);
     }
 
     @Override
@@ -103,6 +120,16 @@ public class LinuxFileSystemProvider extends UnixFileSystemProvider {
         // Android-changed: As libgio & libmagic is not available, GnomeFileTypeDetector and
         // MagicFileTypeDetector have been removed. MimeTypeFileDetector detects file type based
         // on the file extension, which may give false results.
+        /*
+        Path userMimeTypes = Paths.get(AccessController.doPrivileged(
+            new GetPropertyAction("user.home")), ".mime.types");
+        Path etcMimeTypes = Paths.get("/etc/mime.types");
+
+        return chain(new GnomeFileTypeDetector(),
+                     new MimeTypesFileTypeDetector(userMimeTypes),
+                     new MimeTypesFileTypeDetector(etcMimeTypes),
+                     new MagicFileTypeDetector());
+        */
         return new MimeTypesFileTypeDetector();
     }
 }

@@ -70,7 +70,7 @@ class ZipFile implements ZipConstants, Closeable {
 
     private final CloseGuard guard = CloseGuard.get();
 
-    // Android changed, needed for alternative OPEN_DELETE implementation
+    // Android-changed, needed for alternative OPEN_DELETE implementation
     // that doesn't use unlink before closing the file.
     private final File fileToRemoveOnClose;
 
@@ -215,7 +215,7 @@ class ZipFile implements ZipConstants, Closeable {
             }
         }
 
-        // Android changed, handle OPEN_DELETE case in #close().
+        // Android-changed, handle OPEN_DELETE case in #close().
         fileToRemoveOnClose = ((mode & OPEN_DELETE) != 0) ? file : null;
 
         String name = file.getPath();
@@ -396,7 +396,9 @@ class ZipFile implements ZipConstants, Closeable {
             case DEFLATED:
                 // MORE: Compute good size for inflater stream:
                 long size = getEntrySize(jzentry) + 2; // Inflater likes a bit of slack
-                if (size > 65536) size = 8192;
+                // Android-changed: Use 64k buffer size, performs better than 8k.
+                // if (size > 65536) size = 8192;
+                if (size > 65536) size = 65536;
                 if (size <= 0) size = 4096;
                 Inflater inf = getInflater();
                 InputStream is =
@@ -722,7 +724,7 @@ class ZipFile implements ZipConstants, Closeable {
      * (possibly compressed) zip file entry.
      */
    private class ZipFileInputStream extends InputStream {
-        private volatile boolean closeRequested = false;
+        private volatile boolean zfisCloseRequested = false;
         protected long jzentry; // address of jzentry data
         private   long pos;     // current position within entry data
         protected long rem;     // number of remaining bytes within entry
@@ -736,7 +738,7 @@ class ZipFile implements ZipConstants, Closeable {
         }
 
         public int read(byte b[], int off, int len) throws IOException {
-            // Android-changed : Always throw an exception on read if the zipfile
+            // Android-changed: Always throw an exception on read if the zipfile
             // has already been closed.
             ensureOpenOrZipException();
 
@@ -797,9 +799,9 @@ class ZipFile implements ZipConstants, Closeable {
         }
 
         public void close() {
-            if (closeRequested)
+            if (zfisCloseRequested)
                 return;
-            closeRequested = true;
+            zfisCloseRequested = true;
 
             rem = 0;
             synchronized (ZipFile.this) {

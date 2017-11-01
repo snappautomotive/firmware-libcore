@@ -44,17 +44,13 @@ class Void {
      * The {@code Class} object representing the pseudo-type corresponding to
      * the keyword {@code void}.
      */
+    // BEGIN Android-changed: Avoid use of removed Class.getPrimitiveClass method.
+    // public static final Class<Void> TYPE = (Class<Void>) Class.getPrimitiveClass("void");
     public static final Class<Void> TYPE = lookupType();
 
-    @SuppressWarnings("unchecked")
-    private static Class<Void> lookupType() {
-        try {
-            Method method = Runnable.class.getMethod("run", EmptyArray.CLASS);
-            return (Class<Void>) method.getReturnType();
-        } catch (Exception e) {
-            throw new AssertionError(e);
-        }
-    }
+    @dalvik.annotation.optimization.FastNative
+    private static native Class<Void> lookupType();
+    // END Android-changed: Avoid use of removed Class.getPrimitiveClass method.
 
     /*
      * The Void class cannot be instantiated.

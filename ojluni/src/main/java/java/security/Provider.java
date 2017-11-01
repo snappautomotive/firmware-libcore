@@ -95,6 +95,10 @@ public abstract class Provider extends Properties {
     // Declare serialVersionUID to be compatible with JDK1.1
     static final long serialVersionUID = -4298000515446427739L;
 
+    // Android-added: Provider registration
+    // Marking a provider as "registered" makes it change the security version when
+    // changes to it are made.  As of 2017-05-22 this is only used in ProviderTest.
+    // TODO: Change ProviderTest to no longer require this mechanism
     private volatile boolean registered = false;
 
     private static final sun.security.util.Debug debug =
@@ -699,6 +703,7 @@ public abstract class Provider extends Properties {
 
     private void readObject(ObjectInputStream in)
                 throws IOException, ClassNotFoundException {
+        // Android-added: Provider registration
         registered = false;
         Map<Object,Object> copy = new HashMap<>();
         for (Map.Entry<Object,Object> entry : super.entrySet()) {
@@ -712,6 +717,7 @@ public abstract class Provider extends Properties {
     }
 
     private boolean checkLegacy(Object key) {
+        // Android-added: Provider registration
         if (registered) {
             Security.increaseVersion();
         }
@@ -736,6 +742,7 @@ public abstract class Provider extends Properties {
         for (Map.Entry<?,?> e : t.entrySet()) {
             implPut(e.getKey(), e.getValue());
         }
+        // Android-added: Provider registration
         if (registered) {
             Security.increaseVersion();
         }
@@ -810,14 +817,14 @@ public abstract class Provider extends Properties {
             if (!checkLegacy(key)) {
                 return null;
             }
-            // BEGIN ANDROID-CHANGED: was
+            // BEGIN Android-changed: was
             // legacyStrings.computeIfAbsent((String) key,
             //         (Function<? super String, ? extends String>) remappingFunction);
             // which cannot ever succeed as the cast from BiFunction to Function always fails
             legacyStrings.compute((String) key,
                     (BiFunction<? super String, ? super String, ? extends String>)
                             remappingFunction);
-            // END ANDROID-CHANGED
+            // END Android-changed
         }
         return super.compute(key, remappingFunction);
     }
@@ -879,6 +886,7 @@ public abstract class Provider extends Properties {
         serviceSet = null;
         super.clear();
         putId();
+        // Android-added: Provider registration
         if (registered) {
           Security.increaseVersion();
         }
@@ -977,7 +985,7 @@ public abstract class Provider extends Properties {
             if (typeAndAlg == null) {
                 return;
             }
-            String type = typeAndAlg[0];
+            String type = getEngineName(typeAndAlg[0]);
             String aliasAlg = typeAndAlg[1].intern();
             ServiceKey key = new ServiceKey(type, stdAlg, true);
             Service s = legacyMap.get(key);
@@ -997,7 +1005,7 @@ public abstract class Provider extends Properties {
             int i = typeAndAlg[1].indexOf(' ');
             if (i == -1) {
                 // e.g. put("MessageDigest.SHA-1", "sun.security.provider.SHA");
-                String type = typeAndAlg[0];
+                String type = getEngineName(typeAndAlg[0]);
                 String stdAlg = typeAndAlg[1].intern();
                 String className = value;
                 ServiceKey key = new ServiceKey(type, stdAlg, true);
@@ -1012,7 +1020,7 @@ public abstract class Provider extends Properties {
             } else { // attribute
                 // e.g. put("MessageDigest.SHA-1 ImplementedIn", "Software");
                 String attributeValue = value;
-                String type = typeAndAlg[0];
+                String type = getEngineName(typeAndAlg[0]);
                 String attributeString = typeAndAlg[1];
                 String stdAlg = attributeString.substring(0, i).intern();
                 String attributeName = attributeString.substring(i + 1);
@@ -1183,6 +1191,7 @@ public abstract class Provider extends Properties {
             String key = type + "." + algorithm + " " + entry.getKey();
             super.put(key, entry.getValue());
         }
+        // Android-added: Provider registration
         if (registered) {
             Security.increaseVersion();
         }
@@ -1204,6 +1213,7 @@ public abstract class Provider extends Properties {
             String key = type + "." + algorithm + " " + entry.getKey();
             super.remove(key);
         }
+        // Android-added: Provider registration
         if (registered) {
           Security.increaseVersion();
         }
@@ -1324,10 +1334,8 @@ public abstract class Provider extends Properties {
 
     private static void addEngine(String name, boolean sp, String paramName) {
         EngineDescription ed = new EngineDescription(name, sp, paramName);
-        // NOTE: The original OpenJDK code supported case-insensitive lookups on the list
-        // of known engines.
-        //
-        // knownEngines.put(name.toLowerCase(ENGLISH), ed);
+        // also index by canonical name to avoid toLowerCase() for some lookups
+        knownEngines.put(name.toLowerCase(ENGLISH), ed);
         knownEngines.put(name, ed);
     }
 
@@ -1376,6 +1384,17 @@ public abstract class Provider extends Properties {
         // Smart Card I/O
         addEngine("TerminalFactory",                    false,
                             "java.lang.Object");
+    }
+
+    // get the "standard" (mixed-case) engine name for arbitary case engine name
+    // if there is no known engine by that name, return s
+    private static String getEngineName(String s) {
+        // try original case first, usually correct
+        EngineDescription e = knownEngines.get(s);
+        if (e == null) {
+            e = knownEngines.get(s.toLowerCase(ENGLISH));
+        }
+        return (e == null) ? s : e.name;
     }
 
     /**
@@ -1481,8 +1500,7 @@ public abstract class Provider extends Properties {
                 throw new NullPointerException();
             }
             this.provider = provider;
-            // Android-changed.
-            this.type = type;
+            this.type = getEngineName(type);
             this.algorithm = algorithm;
             this.className = className;
             if (aliases == null) {
@@ -1864,6 +1882,7 @@ public abstract class Provider extends Properties {
 
     }
 
+    // BEGIN Android-added: Provider registration
     /**
      * @hide
      */
@@ -1902,4 +1921,5 @@ public abstract class Provider extends Properties {
         // stored field, if the services didn't change in the meantime.
         getServices();
     }
+    // END Android-added: Provider registration
 }
