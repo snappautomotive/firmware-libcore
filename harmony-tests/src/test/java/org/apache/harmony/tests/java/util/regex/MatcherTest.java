@@ -158,6 +158,47 @@ public class MatcherTest extends TestCase {
     public void testReset() {
     }
 
+    /**
+     * Ensures {@link Matcher#find(int)} resets the matcher state and creates a new snapshot of the
+     * original CharSequence before doing the find. http://b/38021063
+     */
+    public void testFind_invokeReset() {
+        // Assert that find() doesn't reset the matcher by doing multiple find() calls on the same
+        // input.
+        Pattern p = Pattern.compile("a|c");
+        StringBuilder sb = new StringBuilder("abc");
+        Matcher m = p.matcher(sb);
+        assertTrue(m.find());
+        assertEquals(0, m.start());
+        assertTrue(m.find());
+        assertEquals(2, m.start());
+
+        // Assert that find(int) resets the matcher by checking its state.
+        assertTrue(m.find(0));
+        assertEquals(0, m.start());
+
+        // Assert that find(int) refreshes the String being matched against from the input
+        // CharSequence.
+        sb.replace(0, 3, "bac");
+        assertTrue(m.find(0));
+        assertEquals(1, m.start());
+    }
+
+    /**
+     * Ensure {@link Matcher#reset()} creates a new snapshot of the original CharSequence.
+     * http://b/38021063
+     */
+    public void testReset_resetStringCache() {
+        Pattern p = Pattern.compile("a");
+        StringBuilder sb = new StringBuilder("a");
+        Matcher m = p.matcher(sb);
+        assertTrue(m.find());
+
+        sb.replace(0, 1, "c");
+        m.reset();
+        assertFalse(m.find());
+    }
+
     public void testGroupint() {
         String positiveTestString = "ababababbaaabb";
 

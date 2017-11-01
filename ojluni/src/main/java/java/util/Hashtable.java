@@ -189,6 +189,7 @@ public class Hashtable<K,V>
         this.loadFactor = loadFactor;
         table = new HashtableEntry<?,?>[initialCapacity];
         // Android-changed: Ignore loadFactor when calculating threshold from initialCapacity
+        // threshold = (int)Math.min(initialCapacity * loadFactor, MAX_ARRAY_SIZE + 1);
         threshold = (int)Math.min(initialCapacity, MAX_ARRAY_SIZE + 1);
     }
 
@@ -860,6 +861,12 @@ public class Hashtable<K,V>
         return h;
     }
 
+    @Override
+    public synchronized V getOrDefault(Object key, V defaultValue) {
+        V result = get(key);
+        return (null == result) ? defaultValue : result;
+    }
+
     @SuppressWarnings("unchecked")
     @Override
     public synchronized void forEach(BiConsumer<? super K, ? super V> action) {
@@ -879,14 +886,15 @@ public class Hashtable<K,V>
             }
         }
     }
+
     @SuppressWarnings("unchecked")
     @Override
     public synchronized void replaceAll(BiFunction<? super K, ? super V, ? extends V> function) {
         Objects.requireNonNull(function);     // explicit check required in case
-        // table is empty.
+                                              // table is empty.
         final int expectedModCount = modCount;
 
-        HashtableEntry<K, V>[] tab = (HashtableEntry<K,V>[])table;
+        HashtableEntry<K, V>[] tab = (HashtableEntry<K, V>[])table;
         for (HashtableEntry<K, V> entry : tab) {
             while (entry != null) {
                 entry.value = Objects.requireNonNull(
@@ -900,63 +908,216 @@ public class Hashtable<K,V>
         }
     }
 
-    /*
-     * Android-changed BEGIN
-     * Just add method synchronization to Map's default implementation
-     * of these methods, rather than taking upstream's more different
-     * overridden implementations.
-     */
-    @Override
-    public synchronized V getOrDefault(Object key, V defaultValue) {
-        return Map.super.getOrDefault(key, defaultValue);
-    }
-
     @Override
     public synchronized V putIfAbsent(K key, V value) {
-        return Map.super.putIfAbsent(key, value);
+        Objects.requireNonNull(value);
+
+        // Makes sure the key is not already in the hashtable.
+        HashtableEntry<?,?> tab[] = table;
+        int hash = key.hashCode();
+        int index = (hash & 0x7FFFFFFF) % tab.length;
+        @SuppressWarnings("unchecked")
+        HashtableEntry<K,V> entry = (HashtableEntry<K,V>)tab[index];
+        for (; entry != null; entry = entry.next) {
+            if ((entry.hash == hash) && entry.key.equals(key)) {
+                V old = entry.value;
+                if (old == null) {
+                    entry.value = value;
+                }
+                return old;
+            }
+        }
+
+        addEntry(hash, key, value, index);
+        return null;
     }
 
     @Override
     public synchronized boolean remove(Object key, Object value) {
-       return Map.super.remove(key, value);
+        Objects.requireNonNull(value);
+
+        HashtableEntry<?,?> tab[] = table;
+        int hash = key.hashCode();
+        int index = (hash & 0x7FFFFFFF) % tab.length;
+        @SuppressWarnings("unchecked")
+        HashtableEntry<K,V> e = (HashtableEntry<K,V>)tab[index];
+        for (HashtableEntry<K,V> prev = null; e != null; prev = e, e = e.next) {
+            if ((e.hash == hash) && e.key.equals(key) && e.value.equals(value)) {
+                modCount++;
+                if (prev != null) {
+                    prev.next = e.next;
+                } else {
+                    tab[index] = e.next;
+                }
+                count--;
+                e.value = null;
+                return true;
+            }
+        }
+        return false;
     }
 
     @Override
     public synchronized boolean replace(K key, V oldValue, V newValue) {
-        return Map.super.replace(key, oldValue, newValue);
+        Objects.requireNonNull(oldValue);
+        Objects.requireNonNull(newValue);
+        HashtableEntry<?,?> tab[] = table;
+        int hash = key.hashCode();
+        int index = (hash & 0x7FFFFFFF) % tab.length;
+        @SuppressWarnings("unchecked")
+        HashtableEntry<K,V> e = (HashtableEntry<K,V>)tab[index];
+        for (; e != null; e = e.next) {
+            if ((e.hash == hash) && e.key.equals(key)) {
+                if (e.value.equals(oldValue)) {
+                    e.value = newValue;
+                    return true;
+                } else {
+                    return false;
+                }
+            }
+        }
+        return false;
     }
 
     @Override
     public synchronized V replace(K key, V value) {
-        return Map.super.replace(key, value);
+        Objects.requireNonNull(value);
+        HashtableEntry<?,?> tab[] = table;
+        int hash = key.hashCode();
+        int index = (hash & 0x7FFFFFFF) % tab.length;
+        @SuppressWarnings("unchecked")
+        HashtableEntry<K,V> e = (HashtableEntry<K,V>)tab[index];
+        for (; e != null; e = e.next) {
+            if ((e.hash == hash) && e.key.equals(key)) {
+                V oldValue = e.value;
+                e.value = value;
+                return oldValue;
+            }
+        }
+        return null;
     }
 
     @Override
-    public synchronized V computeIfAbsent(K key, Function<? super K,
-            ? extends V> mappingFunction) {
-        return Map.super.computeIfAbsent(key, mappingFunction);
+    public synchronized V computeIfAbsent(K key, Function<? super K, ? extends V> mappingFunction) {
+        Objects.requireNonNull(mappingFunction);
+
+        HashtableEntry<?,?> tab[] = table;
+        int hash = key.hashCode();
+        int index = (hash & 0x7FFFFFFF) % tab.length;
+        @SuppressWarnings("unchecked")
+        HashtableEntry<K,V> e = (HashtableEntry<K,V>)tab[index];
+        for (; e != null; e = e.next) {
+            if (e.hash == hash && e.key.equals(key)) {
+                // Hashtable not accept null value
+                return e.value;
+            }
+        }
+
+        V newValue = mappingFunction.apply(key);
+        if (newValue != null) {
+            addEntry(hash, key, newValue, index);
+        }
+
+        return newValue;
     }
 
     @Override
-    public synchronized V computeIfPresent(K key, BiFunction<? super K,
-            ? super V, ? extends V> remappingFunction) {
-        return Map.super.computeIfPresent(key, remappingFunction);
+    public synchronized V computeIfPresent(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
+        Objects.requireNonNull(remappingFunction);
+
+        HashtableEntry<?,?> tab[] = table;
+        int hash = key.hashCode();
+        int index = (hash & 0x7FFFFFFF) % tab.length;
+        @SuppressWarnings("unchecked")
+        HashtableEntry<K,V> e = (HashtableEntry<K,V>)tab[index];
+        for (HashtableEntry<K,V> prev = null; e != null; prev = e, e = e.next) {
+            if (e.hash == hash && e.key.equals(key)) {
+                V newValue = remappingFunction.apply(key, e.value);
+                if (newValue == null) {
+                    modCount++;
+                    if (prev != null) {
+                        prev.next = e.next;
+                    } else {
+                        tab[index] = e.next;
+                    }
+                    count--;
+                } else {
+                    e.value = newValue;
+                }
+                return newValue;
+            }
+        }
+        return null;
     }
 
     @Override
-    public synchronized V compute(K key, BiFunction<? super K, ? super V,
-            ? extends V> remappingFunction) {
-        return Map.super.compute(key, remappingFunction);
+    public synchronized V compute(K key, BiFunction<? super K, ? super V, ? extends V> remappingFunction) {
+        Objects.requireNonNull(remappingFunction);
+
+        HashtableEntry<?,?> tab[] = table;
+        int hash = key.hashCode();
+        int index = (hash & 0x7FFFFFFF) % tab.length;
+        @SuppressWarnings("unchecked")
+        HashtableEntry<K,V> e = (HashtableEntry<K,V>)tab[index];
+        for (HashtableEntry<K,V> prev = null; e != null; prev = e, e = e.next) {
+            if (e.hash == hash && Objects.equals(e.key, key)) {
+                V newValue = remappingFunction.apply(key, e.value);
+                if (newValue == null) {
+                    modCount++;
+                    if (prev != null) {
+                        prev.next = e.next;
+                    } else {
+                        tab[index] = e.next;
+                    }
+                    count--;
+                } else {
+                    e.value = newValue;
+                }
+                return newValue;
+            }
+        }
+
+        V newValue = remappingFunction.apply(key, null);
+        if (newValue != null) {
+            addEntry(hash, key, newValue, index);
+        }
+
+        return newValue;
     }
 
     @Override
-    public synchronized V merge(K key, V value, BiFunction<? super V, ? super V,
-            ? extends V> remappingFunction) {
-        return Map.super.merge(key, value, remappingFunction);
+    public synchronized V merge(K key, V value, BiFunction<? super V, ? super V, ? extends V> remappingFunction) {
+        Objects.requireNonNull(remappingFunction);
+
+        HashtableEntry<?,?> tab[] = table;
+        int hash = key.hashCode();
+        int index = (hash & 0x7FFFFFFF) % tab.length;
+        @SuppressWarnings("unchecked")
+        HashtableEntry<K,V> e = (HashtableEntry<K,V>)tab[index];
+        for (HashtableEntry<K,V> prev = null; e != null; prev = e, e = e.next) {
+            if (e.hash == hash && e.key.equals(key)) {
+                V newValue = remappingFunction.apply(e.value, value);
+                if (newValue == null) {
+                    modCount++;
+                    if (prev != null) {
+                        prev.next = e.next;
+                    } else {
+                        tab[index] = e.next;
+                    }
+                    count--;
+                } else {
+                    e.value = newValue;
+                }
+                return newValue;
+            }
+        }
+
+        if (value != null) {
+            addEntry(hash, key, value, index);
+        }
+
+        return value;
     }
-    /*
-     * Android-changed END: End of synchronized default Map method overrides.
-     */
 
     /**
      * Save the state of the Hashtable to a stream (i.e., serialize it).
@@ -973,10 +1134,10 @@ public class Hashtable<K,V>
         HashtableEntry<Object, Object> entryStack = null;
 
         synchronized (this) {
-            // Write out the length, threshold, loadfactor
+            // Write out the threshold and loadFactor
             s.defaultWriteObject();
 
-            // Write out length, count of elements
+            // Write out the length and count of elements
             s.writeInt(table.length);
             s.writeInt(count);
 
@@ -1006,22 +1167,33 @@ public class Hashtable<K,V>
     private void readObject(java.io.ObjectInputStream s)
          throws IOException, ClassNotFoundException
     {
-        // Read in the length, threshold, and loadfactor
+        // Read in the threshold and loadFactor
         s.defaultReadObject();
+
+        // Validate loadFactor (ignore threshold - it will be re-computed)
+        if (loadFactor <= 0 || Float.isNaN(loadFactor))
+            throw new StreamCorruptedException("Illegal Load: " + loadFactor);
 
         // Read the original length of the array and number of elements
         int origlength = s.readInt();
         int elements = s.readInt();
 
-        // Compute new size with a bit of room 5% to grow but
-        // no larger than the original size.  Make the length
+        // Validate # of elements
+        if (elements < 0)
+            throw new StreamCorruptedException("Illegal # of Elements: " + elements);
+
+        // Clamp original length to be more than elements / loadFactor
+        // (this is the invariant enforced with auto-growth)
+        origlength = Math.max(origlength, (int)(elements / loadFactor) + 1);
+
+        // Compute new length with a bit of room 5% + 3 to grow but
+        // no larger than the clamped original length.  Make the length
         // odd if it's large enough, this helps distribute the entries.
         // Guard against the length ending up zero, that's not valid.
-        int length = (int)(elements * loadFactor) + (elements / 20) + 3;
+        int length = (int)((elements + elements / 20) / loadFactor) + 3;
         if (length > elements && (length & 1) == 0)
             length--;
-        if (origlength > 0 && length > origlength)
-            length = origlength;
+        length = Math.min(length, origlength);
         table = new HashtableEntry<?,?>[length];
         threshold = (int)Math.min(length * loadFactor, MAX_ARRAY_SIZE + 1);
         count = 0;
@@ -1032,7 +1204,7 @@ public class Hashtable<K,V>
                 K key = (K)s.readObject();
             @SuppressWarnings("unchecked")
                 V value = (V)s.readObject();
-            // synch could be eliminated for performance
+            // sync is eliminated for performance
             reconstitutionPut(table, key, value);
         }
     }
@@ -1044,9 +1216,9 @@ public class Hashtable<K,V>
      *
      * <p>This differs from the regular put method in several ways. No
      * checking for rehashing is necessary since the number of elements
-     * initially in the table is known. The modCount is not incremented
-     * because we are creating a new instance. Also, no return value
-     * is needed.
+     * initially in the table is known. The modCount is not incremented and
+     * there's no synchronization because we are creating a new instance.
+     * Also, no return value is needed.
      */
     private void reconstitutionPut(HashtableEntry<?,?>[] tab, K key, V value)
         throws StreamCorruptedException
@@ -1065,7 +1237,7 @@ public class Hashtable<K,V>
         }
         // Creates the new entry.
         @SuppressWarnings("unchecked")
-        HashtableEntry<K,V> e = (HashtableEntry<K,V>)tab[index];
+            HashtableEntry<K,V> e = (HashtableEntry<K,V>)tab[index];
         tab[index] = new HashtableEntry<>(hash, key, value, e);
         count++;
     }
@@ -1073,22 +1245,24 @@ public class Hashtable<K,V>
     /**
      * Hashtable bucket collision list entry
      */
-    /*
-     * Android-changed BEGIN
-     * HashtableEntry should not be renamed, for the corresponding
-     * reason as LinkedHashMap.Entry. Specifically, for source
-     * compatibility with earlier versions of Android, this nested
-     * class must not be named "Entry". Otherwise, it would hide
-     * Map.Entry which would break compilation of code like:
-     *
-     * Hashtable.Entry<K, V> entry = hashtable.entrySet().iterator.next();
-     *
-     * To compile, that code snippet's "HashtableMap.Entry" must
-     * mean java.util.Map.Entry which is the compile time type of
-     * entrySet()'s elements.
-     * Android-changed END
-     */
+    // BEGIN Android-changed: Renamed Entry -> HashtableEntry.
+    // Code references to "HashTable.Entry" must mean Map.Entry
+    //
+    // This mirrors the corresponding rename of LinkedHashMap's
+    // Entry->LinkedHashMapEntry.
+    //
+    // This is for source compatibility with earlier versions of Android.
+    // Otherwise, it would hide Map.Entry which would break compilation
+    // of code like:
+    //
+    // Hashtable.Entry<K, V> entry = hashtable.entrySet().iterator.next();
+    //
+    // To compile, that code snippet's "HashtableMap.Entry" must
+    // mean java.util.Map.Entry which is the compile time type of
+    // entrySet()'s elements.
+    //
     private static class HashtableEntry<K,V> implements Map.Entry<K,V> {
+    // END Android-changed: Renamed Entry -> HashtableEntry.
         final int hash;
         final K key;
         V value;

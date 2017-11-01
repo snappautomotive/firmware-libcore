@@ -41,6 +41,8 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
+import dalvik.system.VMRuntime;
+
 /**
  * This class consists exclusively of static methods that operate on or return
  * collections.  It contains polymorphic algorithms that operate on
@@ -129,9 +131,11 @@ public class Collections {
      * @implNote
      * This implementation defers to the {@link List#sort(Comparator)}
      * method using the specified list and a {@code null} comparator.
-     * Note that in Android 7 (Nougat), {@code Collections.sort()} used to
-     * be implemented on top of {@link List#toArray()},
-     * {@link ListIterator#next()} and {@link ListIterator#set(Object)}.
+     * Do not call this method from {@code List.sort()} since that can lead
+     * to infinite recursion. Apps targeting APIs {@code <= 25} observe
+     * backwards compatibility behavior where this method was implemented
+     * on top of {@link List#toArray()}, {@link ListIterator#next()} and
+     * {@link ListIterator#set(Object)}.
      *
      * @param  <T> the class of the objects in the list
      * @param  list the list to be sorted.
@@ -146,7 +150,10 @@ public class Collections {
      */
     @SuppressWarnings("unchecked")
     public static <T extends Comparable<? super T>> void sort(List<T> list) {
-        list.sort(null);
+        // Android-changed: Call sort(list, null) here to be consistent
+        // with that method's (Android changed) behavior.
+        // list.sort(null);
+        sort(list, null);
     }
 
     // Android-changed: Warn about Collections.sort() being built on top
@@ -166,9 +173,11 @@ public class Collections {
      * @implNote
      * This implementation defers to the {@link List#sort(Comparator)}
      * method using the specified list and comparator.
-     * Note that in Android 7 (Nougat), {@code Collections.sort()} used to
-     * be implemented on top of {@link List#toArray()},
-     * {@link ListIterator#next()} and {@link ListIterator#set(Object)}.
+     * Do not call this method from {@code List.sort()} since that can lead
+     * to infinite recursion. Apps targeting APIs {@code <= 25} observe
+     * backwards compatibility behavior where this method was implemented
+     * on top of {@link List#toArray()}, {@link ListIterator#next()} and
+     * {@link ListIterator#set(Object)}.
      *
      * @param  <T> the class of the objects in the list
      * @param  list the list to be sorted.
@@ -185,7 +194,27 @@ public class Collections {
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
     public static <T> void sort(List<T> list, Comparator<? super T> c) {
-        list.sort(c);
+        // BEGIN Android-changed: Compat behavior for apps targeting APIs <= 25.
+        // list.sort(c);
+        int targetSdkVersion = VMRuntime.getRuntime().getTargetSdkVersion();
+        if (targetSdkVersion > 25) {
+            list.sort(c);
+        } else {
+            // Compatibility behavior for API <= 25. http://b/33482884
+            if (list.getClass() == ArrayList.class) {
+                Arrays.sort((T[]) ((ArrayList) list).elementData, 0, list.size(), c);
+                return;
+            }
+
+            Object[] a = list.toArray();
+            Arrays.sort(a, (Comparator) c);
+            ListIterator<T> i = list.listIterator();
+            for (int j = 0; j < a.length; j++) {
+                i.next();
+                i.set((T) a[j]);
+            }
+        }
+        // END Android-changed: Compat behavior for apps targeting APIs <= 25.
     }
 
 
@@ -1208,7 +1237,6 @@ public class Collections {
      *        returned
      * @return an unmodifiable view of the specified navigable set
      * @since 1.8
-     * @hide
      */
     public static <T> NavigableSet<T> unmodifiableNavigableSet(NavigableSet<T> s) {
         return new UnmodifiableNavigableSet<>(s);
@@ -1841,7 +1869,6 @@ public class Collections {
      *        returned
      * @return an unmodifiable view of the specified navigable map
      * @since 1.8
-     * @hide
      */
     public static <K,V> NavigableMap<K,V> unmodifiableNavigableMap(NavigableMap<K, ? extends V> m) {
         return new UnmodifiableNavigableMap<>(m);
@@ -2288,7 +2315,6 @@ public class Collections {
      * set
      * @return a synchronized view of the specified navigable set
      * @since 1.8
-     * @hide
      */
     public static <T> NavigableSet<T> synchronizedNavigableSet(NavigableSet<T> s) {
         return new SynchronizedNavigableSet<>(s);
@@ -2852,7 +2878,6 @@ public class Collections {
      *              map
      * @return a synchronized view of the specified navigable map.
      * @since 1.8
-     * @hide
      */
     public static <K,V> NavigableMap<K,V> synchronizedNavigableMap(NavigableMap<K,V> m) {
         return new SynchronizedNavigableMap<>(m);
@@ -3178,7 +3203,6 @@ public class Collections {
      * @param type the type of element that {@code queue} is permitted to hold
      * @return a dynamically typesafe view of the specified queue
      * @since 1.8
-     * @hide
      */
     public static <E> Queue<E> checkedQueue(Queue<E> queue, Class<E> type) {
         return new CheckedQueue<>(queue, type);
@@ -3343,7 +3367,6 @@ public class Collections {
      * @param type the type of element that {@code s} is permitted to hold
      * @return a dynamically typesafe view of the specified navigable set
      * @since 1.8
-     * @hide
      */
     public static <E> NavigableSet<E> checkedNavigableSet(NavigableSet<E> s,
                                                     Class<E> type) {
@@ -4042,7 +4065,6 @@ public class Collections {
      * @param valueType the type of value that {@code m} is permitted to hold
      * @return a dynamically typesafe view of the specified map
      * @since 1.8
-     * @hide
      */
     public static <K,V> NavigableMap<K,V> checkedNavigableMap(NavigableMap<K, V> m,
                                                         Class<K> keyType,
@@ -4385,7 +4407,6 @@ public class Collections {
      * @param <E> type of elements, if there were any, in the set
      * @return the empty sorted set
      * @since 1.8
-     * @hide
      */
     @SuppressWarnings("unchecked")
     public static <E> SortedSet<E> emptySortedSet() {
@@ -4407,7 +4428,6 @@ public class Collections {
      * @param <E> type of elements, if there were any, in the set
      * @return the empty navigable set
      * @since 1.8
-     * @hide
      */
     @SuppressWarnings("unchecked")
     public static <E> NavigableSet<E> emptyNavigableSet() {
@@ -4561,7 +4581,6 @@ public class Collections {
      * @param <V> the class of the map values
      * @return an empty sorted map
      * @since 1.8
-     * @hide
      */
     @SuppressWarnings("unchecked")
     public static final <K,V> SortedMap<K,V> emptySortedMap() {
@@ -4583,7 +4602,6 @@ public class Collections {
      * @param <V> the class of the map values
      * @return an empty navigable map
      * @since 1.8
-     * @hide
      */
     @SuppressWarnings("unchecked")
     public static final <K,V> NavigableMap<K,V> emptyNavigableMap() {
@@ -4687,11 +4705,11 @@ public class Collections {
      * Returns an immutable set containing only the specified object.
      * The returned set is serializable.
      *
-     * @param  <E> the class of the objects in the set
+     * @param  <T> the class of the objects in the set
      * @param o the sole object to be stored in the returned set.
      * @return an immutable set containing only the specified object.
      */
-    public static <E> Set<E> singleton(E o) {
+    public static <T> Set<T> singleton(T o) {
         return new SingletonSet<>(o);
     }
 
@@ -4808,12 +4826,12 @@ public class Collections {
      * Returns an immutable list containing only the specified object.
      * The returned list is serializable.
      *
-     * @param  <E> the class of the objects in the list
+     * @param  <T> the class of the objects in the list
      * @param o the sole object to be stored in the returned list.
      * @return an immutable list containing only the specified object.
      * @since 1.3
      */
-    public static <E> List<E> singletonList(E o) {
+    public static <T> List<T> singletonList(T o) {
         return new SingletonList<>(o);
     }
 

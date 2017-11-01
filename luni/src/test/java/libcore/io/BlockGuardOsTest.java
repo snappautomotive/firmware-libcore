@@ -49,6 +49,8 @@ public class BlockGuardOsTest {
                 "android_getaddrinfo(java.lang.String,android.system.StructAddrinfo,int)",
                 "bind(java.io.FileDescriptor,java.net.InetAddress,int)",
                 "bind(java.io.FileDescriptor,java.net.SocketAddress)",
+                "capget(android.system.StructCapUserHeader)",
+                "capset(android.system.StructCapUserHeader,android.system.StructCapUserData[])",
                 "dup(java.io.FileDescriptor)",
                 "dup2(java.io.FileDescriptor,int)",
                 "environ()",
@@ -68,6 +70,7 @@ public class BlockGuardOsTest {
                 "getppid()",
                 "getpwnam(java.lang.String)",
                 "getpwuid(int)",
+                "getrlimit(int)",
                 "getsockname(java.io.FileDescriptor)",
                 "getsockoptByte(java.io.FileDescriptor,int,int)",
                 "getsockoptInAddr(java.io.FileDescriptor,int,int)",
@@ -82,7 +85,7 @@ public class BlockGuardOsTest {
                 "inet_pton(int,java.lang.String)",
                 "ioctlFlags(java.io.FileDescriptor,java.lang.String)",
                 "ioctlInetAddress(java.io.FileDescriptor,int,java.lang.String)",
-                "ioctlInt(java.io.FileDescriptor,int,android.util.MutableInt)",
+                "ioctlInt(java.io.FileDescriptor,int,libcore.util.MutableInt)",
                 "ioctlMTU(java.io.FileDescriptor,java.lang.String)",
                 "isatty(java.io.FileDescriptor)",
                 "kill(int,int)",
@@ -105,7 +108,6 @@ public class BlockGuardOsTest {
                 "setsid()",
                 "setsockoptByte(java.io.FileDescriptor,int,int,int)",
                 "setsockoptGroupReq(java.io.FileDescriptor,int,int,android.system.StructGroupReq)",
-                "setsockoptGroupSourceReq(java.io.FileDescriptor,int,int,android.system.StructGroupSourceReq)",
                 "setsockoptIfreq(java.io.FileDescriptor,int,int,java.lang.String)",
                 "setsockoptInt(java.io.FileDescriptor,int,int,int)",
                 "setsockoptIpMreqn(java.io.FileDescriptor,int,int,int)",
@@ -121,7 +123,7 @@ public class BlockGuardOsTest {
                 "umask(int)",
                 "uname()",
                 "unsetenv(java.lang.String)",
-                "waitpid(int,android.util.MutableInt,int)" );
+                "waitpid(int,libcore.util.MutableInt,int)" );
         Set<String> methodsNotRequiredBlockGuardCheckSet = new HashSet<>(
                 methodsNotRequireBlockGuardChecks);
 

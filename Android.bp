@@ -1,0 +1,4 @@
+build = [
+    "JavaLibrary.bp",
+    "NativeCode.bp",
+]

@@ -55,7 +55,7 @@
   #endif
 #endif
 
-#include "JNIHelp.h"
+#include <nativehelper/JNIHelp.h>
 
 #define NATIVE_METHOD(className, functionName, signature) \
 { #functionName, signature, (void*)(Java_sun_nio_ch_ ## className ## _ ## functionName) }
@@ -255,7 +255,6 @@ Java_sun_nio_ch_Net_socket0(JNIEnv *env, jclass cl, jboolean preferIPv6,
             JNU_ThrowByNameWithLastError(env,
                                          JNU_JAVANETPKG "SocketException",
                                          "Unable to set IPV6_V6ONLY");
-            untagSocket(env, fd);
             close(fd);
             return -1;
         }
@@ -269,7 +268,6 @@ Java_sun_nio_ch_Net_socket0(JNIEnv *env, jclass cl, jboolean preferIPv6,
             JNU_ThrowByNameWithLastError(env,
                                          JNU_JAVANETPKG "SocketException",
                                          "Unable to set SO_REUSEADDR");
-            untagSocket(env, fd);
             close(fd);
             return -1;
         }
@@ -299,7 +297,6 @@ Java_sun_nio_ch_Net_socket0(JNIEnv *env, jclass cl, jboolean preferIPv6,
             JNU_ThrowByNameWithLastError(env,
                                          JNU_JAVANETPKG "SocketException",
                                          "Unable to set IPV6_MULTICAST_HOPS");
-            untagSocket(env, fd);
             close(fd);
             return -1;
         }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2017, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -26,8 +26,10 @@
 package java.lang.invoke;
 
 import java.lang.reflect.*;
+import java.nio.ByteOrder;
 import java.util.List;
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.NoSuchElementException;
 
 import dalvik.system.VMStack;
@@ -50,6 +52,13 @@ import static java.lang.invoke.MethodHandleStatics.*;
 public class MethodHandles {
 
     private MethodHandles() { }  // do not instantiate
+
+    // BEGIN Android-added: unsupported() helper function.
+    // TODO(b/65872996): Remove when complete.
+    private static void unsupported(String msg) throws UnsupportedOperationException {
+        throw new UnsupportedOperationException(msg);
+    }
+    // END Android-added: unsupported() helper function.
 
     // Android-changed: We do not use MemberName / MethodHandleImpl.
     //
@@ -135,7 +144,10 @@ public class MethodHandles {
      */
     public static <T extends Member> T
     reflectAs(Class<T> expected, MethodHandle target) {
-        throw new UnsupportedOperationException("MethodHandles.reflectAs is not implemented.");
+        MethodHandleImpl directTarget = getMethodHandleImpl(target);
+        // Given that this is specified to be an "unchecked" crack, we can directly allocate
+        // a member from the underlying ArtField / Method and bypass all associated access checks.
+        return expected.cast(directTarget.getMemberInternal());
     }
 
     /**
@@ -149,7 +161,7 @@ public class MethodHandles {
      * is known as the {@linkplain #lookupClass lookup class}.
      * <p>
      * A lookup class which needs to create method handles will call
-     * {@link MethodHandles#lookup MethodHandles.lookup} to create a factory for itself.
+     * {@link #lookup MethodHandles.lookup} to create a factory for itself.
      * When the {@code Lookup} factory object is created, the identity of the lookup class is
      * determined, and securely stored in the {@code Lookup} object.
      * The lookup class (or its delegates) may then use factory methods
@@ -365,10 +377,10 @@ public class MethodHandles {
      * The accesses permitted to a given lookup object may be limited,
      * according to its set of {@link #lookupModes lookupModes},
      * to a subset of members normally accessible to the lookup class.
-     * For example, the {@link MethodHandles#publicLookup publicLookup}
+     * For example, the {@link #publicLookup publicLookup}
      * method produces a lookup object which is only allowed to access
      * public members in public classes.
-     * The caller sensitive method {@link MethodHandles#lookup lookup}
+     * The caller sensitive method {@link #lookup lookup}
      * produces a lookup object with full capabilities relative to
      * its caller class, to emulate all supported bytecode behaviors.
      * Also, the {@link Lookup#in Lookup.in} method may produce a lookup object
@@ -467,7 +479,7 @@ public class MethodHandles {
      * differently behaving method handles.
      * <p>
      * In cases where the lookup object is
-     * {@link MethodHandles#publicLookup() publicLookup()},
+     * {@link #publicLookup publicLookup()},
      * or some other lookup object without
      * <a href="MethodHandles.Lookup.html#privacc">private access</a>,
      * the lookup class is disregarded.
@@ -496,6 +508,8 @@ public class MethodHandles {
      * Nearly all other methods in the JSR 292 API rely on lookup
      * objects to check access requests.
      */
+    // Android-changed: Change link targets from MethodHandles#[public]Lookup to
+    // #[public]Lookup to work around complaints from javadoc.
     public static final
     class Lookup {
         /** The class on behalf of whom the lookup is being performed. */
@@ -659,6 +673,9 @@ public class MethodHandles {
          */
         static final Lookup PUBLIC_LOOKUP = new Lookup(Object.class, PUBLIC);
 
+        /** Package-private version of lookup which is trusted. */
+        static final Lookup IMPL_LOOKUP = new Lookup(Object.class, ALL_MODES);
+
         private static void checkUnprivilegedlookupClass(Class<?> lookupClass, int allowedModes) {
             String name = lookupClass.getName();
             if (name.startsWith("java.lang.invoke."))
@@ -671,7 +688,9 @@ public class MethodHandles {
             if (allowedModes == ALL_MODES &&
                     lookupClass.getClassLoader() == Object.class.getClassLoader()) {
                 if (name.startsWith("java.") ||
-                        (name.startsWith("sun.") && !name.startsWith("sun.invoke."))) {
+                        (name.startsWith("sun.")
+                                && !name.startsWith("sun.invoke.")
+                                && !name.equals("sun.reflect.ReflectionFactory"))) {
                     throw newIllegalArgumentException("illegal lookupClass: " + lookupClass);
                 }
             }
@@ -876,6 +895,13 @@ assertEquals("", (String) MH_newString.invokeExact());
                     return mh;
                 }
             }
+            // BEGIN Android-changed: Added VarHandle case here.
+            // Implementation to follow. TODO(b/65872996)
+            if (refc == VarHandle.class) {
+                unsupported("MethodHandles.findVirtual with refc == VarHandle.class");
+                return null;
+            }
+            // END Android-changed: Added VarHandle handling here.
 
             Method method = refc.getInstanceMethod(name, type.ptypes());
             if (method == null) {
@@ -950,6 +976,9 @@ assertEquals("[x, y, z]", pb.command().toString());
          * @throws NullPointerException if any argument is null
          */
         public MethodHandle findConstructor(Class<?> refc, MethodType type) throws NoSuchMethodException, IllegalAccessException {
+            if (refc.isArray()) {
+                throw new NoSuchMethodException("no constructor for array class: " + refc.getName());
+            }
             // The queried |type| is (PT1,PT2,..)V
             Constructor constructor = refc.getDeclaredConstructor(type.ptypes());
             if (constructor == null) {
@@ -1115,6 +1144,10 @@ assertEquals(""+l, (String) MH_this.invokeExact(subl)); // Listie method
         private MethodHandle findSpecial(Method method, MethodType type,
                                          Class<?> refc, Class<?> specialCaller)
                 throws IllegalAccessException {
+            if (Modifier.isStatic(method.getModifiers())) {
+                throw new IllegalAccessException("expected a non-static method:" + method);
+            }
+
             if (Modifier.isPrivate(method.getModifiers())) {
                 // Since this is a private method, we'll need to also make sure that the
                 // lookup class is the same as the refering class. We've already checked that
@@ -1168,49 +1201,36 @@ assertEquals(""+l, (String) MH_this.invokeExact(subl)); // Listie method
 
         private MethodHandle findAccessor(Class<?> refc, String name, Class<?> type, int kind)
             throws NoSuchFieldException, IllegalAccessException {
-            final Field field = refc.getDeclaredField(name);
-            final Class<?> fieldType = field.getType();
-            if (fieldType != type) {
-                throw new NoSuchFieldException(
-                        "Field has wrong type: " + fieldType + " != " + type);
-            }
-
+            final Field field = findFieldOfType(refc, name, type);
             return findAccessor(field, refc, type, kind, true /* performAccessChecks */);
         }
 
-        private MethodHandle findAccessor(Field field, Class<?> refc, Class<?> fieldType, int kind,
+        private MethodHandle findAccessor(Field field, Class<?> refc, Class<?> type, int kind,
                                           boolean performAccessChecks)
                 throws IllegalAccessException {
-            if (!performAccessChecks) {
-                checkAccess(refc, field.getDeclaringClass(), field.getModifiers(), field.getName());
-            }
-
-            final boolean isStaticKind = kind == MethodHandle.SGET || kind == MethodHandle.SPUT;
-            final int modifiers = field.getModifiers();
-            if (Modifier.isStatic(modifiers) != isStaticKind) {
-                String reason = "Field " + field + " is " +
-                        (isStaticKind ? "not " : "") + "static";
-                throw new IllegalAccessException(reason);
-            }
-
             final boolean isSetterKind = kind == MethodHandle.IPUT || kind == MethodHandle.SPUT;
-            if (Modifier.isFinal(modifiers) && isSetterKind) {
-                throw new IllegalAccessException("Field " + field + " is final");
+            final boolean isStaticKind = kind == MethodHandle.SGET || kind == MethodHandle.SPUT;
+            commonFieldChecks(field, refc, type, isStaticKind, performAccessChecks);
+            if (performAccessChecks) {
+                final int modifiers = field.getModifiers();
+                if (isSetterKind && Modifier.isFinal(modifiers)) {
+                    throw new IllegalAccessException("Field " + field + " is final");
+                }
             }
 
             final MethodType methodType;
             switch (kind) {
                 case MethodHandle.SGET:
-                    methodType = MethodType.methodType(fieldType);
+                    methodType = MethodType.methodType(type);
                     break;
                 case MethodHandle.SPUT:
-                    methodType = MethodType.methodType(void.class, fieldType);
+                    methodType = MethodType.methodType(void.class, type);
                     break;
                 case MethodHandle.IGET:
-                    methodType = MethodType.methodType(fieldType, refc);
+                    methodType = MethodType.methodType(type, refc);
                     break;
                 case MethodHandle.IPUT:
-                    methodType = MethodType.methodType(void.class, refc, fieldType);
+                    methodType = MethodType.methodType(void.class, refc, type);
                     break;
                 default:
                     throw new IllegalArgumentException("Invalid kind " + kind);
@@ -1238,6 +1258,126 @@ assertEquals(""+l, (String) MH_this.invokeExact(subl)); // Listie method
         public MethodHandle findSetter(Class<?> refc, String name, Class<?> type) throws NoSuchFieldException, IllegalAccessException {
             return findAccessor(refc, name, type, MethodHandle.IPUT);
         }
+
+        // BEGIN Android-changed: OpenJDK 9+181 VarHandle API factory method.
+        /**
+         * Produces a VarHandle giving access to a non-static field {@code name}
+         * of type {@code type} declared in a class of type {@code recv}.
+         * The VarHandle's variable type is {@code type} and it has one
+         * coordinate type, {@code recv}.
+         * <p>
+         * Access checking is performed immediately on behalf of the lookup
+         * class.
+         * <p>
+         * Certain access modes of the returned VarHandle are unsupported under
+         * the following conditions:
+         * <ul>
+         * <li>if the field is declared {@code final}, then the write, atomic
+         *     update, numeric atomic update, and bitwise atomic update access
+         *     modes are unsupported.
+         * <li>if the field type is anything other than {@code byte},
+         *     {@code short}, {@code char}, {@code int}, {@code long},
+         *     {@code float}, or {@code double} then numeric atomic update
+         *     access modes are unsupported.
+         * <li>if the field type is anything other than {@code boolean},
+         *     {@code byte}, {@code short}, {@code char}, {@code int} or
+         *     {@code long} then bitwise atomic update access modes are
+         *     unsupported.
+         * </ul>
+         * <p>
+         * If the field is declared {@code volatile} then the returned VarHandle
+         * will override access to the field (effectively ignore the
+         * {@code volatile} declaration) in accordance to its specified
+         * access modes.
+         * <p>
+         * If the field type is {@code float} or {@code double} then numeric
+         * and atomic update access modes compare values using their bitwise
+         * representation (see {@link Float#floatToRawIntBits} and
+         * {@link Double#doubleToRawLongBits}, respectively).
+         * @apiNote
+         * Bitwise comparison of {@code float} values or {@code double} values,
+         * as performed by the numeric and atomic update access modes, differ
+         * from the primitive {@code ==} operator and the {@link Float#equals}
+         * and {@link Double#equals} methods, specifically with respect to
+         * comparing NaN values or comparing {@code -0.0} with {@code +0.0}.
+         * Care should be taken when performing a compare and set or a compare
+         * and exchange operation with such values since the operation may
+         * unexpectedly fail.
+         * There are many possible NaN values that are considered to be
+         * {@code NaN} in Java, although no IEEE 754 floating-point operation
+         * provided by Java can distinguish between them.  Operation failure can
+         * occur if the expected or witness value is a NaN value and it is
+         * transformed (perhaps in a platform specific manner) into another NaN
+         * value, and thus has a different bitwise representation (see
+         * {@link Float#intBitsToFloat} or {@link Double#longBitsToDouble} for more
+         * details).
+         * The values {@code -0.0} and {@code +0.0} have different bitwise
+         * representations but are considered equal when using the primitive
+         * {@code ==} operator.  Operation failure can occur if, for example, a
+         * numeric algorithm computes an expected value to be say {@code -0.0}
+         * and previously computed the witness value to be say {@code +0.0}.
+         * @param recv the receiver class, of type {@code R}, that declares the
+         * non-static field
+         * @param name the field's name
+         * @param type the field's type, of type {@code T}
+         * @return a VarHandle giving access to non-static fields.
+         * @throws NoSuchFieldException if the field does not exist
+         * @throws IllegalAccessException if access checking fails, or if the field is {@code static}
+         * @exception SecurityException if a security manager is present and it
+         *                              <a href="MethodHandles.Lookup.html#secmgr">refuses access</a>
+         * @throws NullPointerException if any argument is null
+         * @since 9
+         * @hide
+         */
+        public VarHandle findVarHandle(Class<?> recv, String name, Class<?> type) throws NoSuchFieldException, IllegalAccessException {
+            final Field field = findFieldOfType(recv, name, type);
+            final boolean isStatic = false;
+            final boolean performAccessChecks = true;
+            commonFieldChecks(field, recv, type, isStatic, performAccessChecks);
+            return FieldVarHandle.create(field);
+        }
+        // END Android-changed: OpenJDK 9+181 VarHandle API factory method.
+
+        // BEGIN Android-added: Common field resolution and access check methods.
+        private Field findFieldOfType(final Class<?> refc, String name, Class<?> type)
+                throws NoSuchFieldException {
+            Field field = null;
+
+            // Search refc and super classes for the field.
+            for (Class<?> cls = refc; cls != null; cls = cls.getSuperclass()) {
+                try {
+                    field = cls.getDeclaredField(name);
+                    break;
+                } catch (NoSuchFieldException e) {
+                }
+            }
+
+            if (field == null) {
+                // Force failure citing refc.
+                field = refc.getDeclaredField(name);
+            }
+
+            final Class<?> fieldType = field.getType();
+            if (fieldType != type) {
+                throw new NoSuchFieldException(name);
+            }
+            return field;
+        }
+
+        private void commonFieldChecks(Field field, Class<?> refc, Class<?> type,
+                                       boolean isStatic, boolean performAccessChecks)
+                throws IllegalAccessException {
+            final int modifiers = field.getModifiers();
+            if (performAccessChecks) {
+                checkAccess(refc, field.getDeclaringClass(), modifiers, field.getName());
+            }
+            if (Modifier.isStatic(modifiers) != isStatic) {
+                String reason = "Field " + field + " is " +
+                        (isStatic ? "not " : "") + "static";
+                throw new IllegalAccessException(reason);
+            }
+        }
+        // END Android-added: Common field resolution and access check methods.
 
         /**
          * Produces a method handle giving read access to a static field.
@@ -1284,6 +1424,87 @@ assertEquals(""+l, (String) MH_this.invokeExact(subl)); // Listie method
         public MethodHandle findStaticSetter(Class<?> refc, String name, Class<?> type) throws NoSuchFieldException, IllegalAccessException {
             return findAccessor(refc, name, type, MethodHandle.SPUT);
         }
+
+        // BEGIN Android-changed: OpenJDK 9+181 VarHandle API factory method.
+        /**
+         * Produces a VarHandle giving access to a static field {@code name} of
+         * type {@code type} declared in a class of type {@code decl}.
+         * The VarHandle's variable type is {@code type} and it has no
+         * coordinate types.
+         * <p>
+         * Access checking is performed immediately on behalf of the lookup
+         * class.
+         * <p>
+         * If the returned VarHandle is operated on, the declaring class will be
+         * initialized, if it has not already been initialized.
+         * <p>
+         * Certain access modes of the returned VarHandle are unsupported under
+         * the following conditions:
+         * <ul>
+         * <li>if the field is declared {@code final}, then the write, atomic
+         *     update, numeric atomic update, and bitwise atomic update access
+         *     modes are unsupported.
+         * <li>if the field type is anything other than {@code byte},
+         *     {@code short}, {@code char}, {@code int}, {@code long},
+         *     {@code float}, or {@code double}, then numeric atomic update
+         *     access modes are unsupported.
+         * <li>if the field type is anything other than {@code boolean},
+         *     {@code byte}, {@code short}, {@code char}, {@code int} or
+         *     {@code long} then bitwise atomic update access modes are
+         *     unsupported.
+         * </ul>
+         * <p>
+         * If the field is declared {@code volatile} then the returned VarHandle
+         * will override access to the field (effectively ignore the
+         * {@code volatile} declaration) in accordance to its specified
+         * access modes.
+         * <p>
+         * If the field type is {@code float} or {@code double} then numeric
+         * and atomic update access modes compare values using their bitwise
+         * representation (see {@link Float#floatToRawIntBits} and
+         * {@link Double#doubleToRawLongBits}, respectively).
+         * @apiNote
+         * Bitwise comparison of {@code float} values or {@code double} values,
+         * as performed by the numeric and atomic update access modes, differ
+         * from the primitive {@code ==} operator and the {@link Float#equals}
+         * and {@link Double#equals} methods, specifically with respect to
+         * comparing NaN values or comparing {@code -0.0} with {@code +0.0}.
+         * Care should be taken when performing a compare and set or a compare
+         * and exchange operation with such values since the operation may
+         * unexpectedly fail.
+         * There are many possible NaN values that are considered to be
+         * {@code NaN} in Java, although no IEEE 754 floating-point operation
+         * provided by Java can distinguish between them.  Operation failure can
+         * occur if the expected or witness value is a NaN value and it is
+         * transformed (perhaps in a platform specific manner) into another NaN
+         * value, and thus has a different bitwise representation (see
+         * {@link Float#intBitsToFloat} or {@link Double#longBitsToDouble} for more
+         * details).
+         * The values {@code -0.0} and {@code +0.0} have different bitwise
+         * representations but are considered equal when using the primitive
+         * {@code ==} operator.  Operation failure can occur if, for example, a
+         * numeric algorithm computes an expected value to be say {@code -0.0}
+         * and previously computed the witness value to be say {@code +0.0}.
+         * @param decl the class that declares the static field
+         * @param name the field's name
+         * @param type the field's type, of type {@code T}
+         * @return a VarHandle giving access to a static field
+         * @throws NoSuchFieldException if the field does not exist
+         * @throws IllegalAccessException if access checking fails, or if the field is not {@code static}
+         * @exception SecurityException if a security manager is present and it
+         *                              <a href="MethodHandles.Lookup.html#secmgr">refuses access</a>
+         * @throws NullPointerException if any argument is null
+         * @since 9
+         * @hide
+         */
+        public VarHandle findStaticVarHandle(Class<?> decl, String name, Class<?> type) throws NoSuchFieldException, IllegalAccessException {
+            final Field field = findFieldOfType(decl, name, type);
+            final boolean isStatic = true;
+            final boolean performAccessChecks = true;
+            commonFieldChecks(field, decl, type, isStatic, performAccessChecks);
+            return FieldVarHandle.create(field);
+        }
+        // END Android-changed: OpenJDK 9+181 VarHandle API factory method.
 
         /**
          * Produces an early-bound method handle for a non-static method.
@@ -1334,15 +1555,15 @@ return mh1;
          * @see #findVirtual
          */
         public MethodHandle bind(Object receiver, String name, MethodType type) throws NoSuchMethodException, IllegalAccessException {
-            // TODO: Support varargs methods. The returned method handle must be a var-args
-            // collector in that case.
-            //
-            // if (handle.isVarargsCollector()) {
-            //    bound = mh1.asVarargsCollector(mt1.parameterType(mt1.parameterCount() - 1));
-            // }
+            MethodHandle handle = findVirtual(receiver.getClass(), name, type);
+            MethodHandle adapter = handle.bindTo(receiver);
+            MethodType adapterType = adapter.type();
+            if (handle.isVarargsCollector()) {
+                adapter = adapter.asVarargsCollector(
+                        adapterType.parameterType(adapterType.parameterCount() - 1));
+            }
 
-            MethodHandle handle = lookup().findVirtual(receiver.getClass(), name, type);
-            return handle.bindTo(receiver);
+            return adapter;
         }
 
         /**
@@ -1498,7 +1719,7 @@ return mh1;
         public MethodHandle unreflectGetter(Field f) throws IllegalAccessException {
             return findAccessor(f, f.getDeclaringClass(), f.getType(),
                     Modifier.isStatic(f.getModifiers()) ? MethodHandle.SGET : MethodHandle.IGET,
-                    f.isAccessible() /* performAccessChecks */);
+                    !f.isAccessible() /* performAccessChecks */);
         }
 
         /**
@@ -1522,8 +1743,89 @@ return mh1;
         public MethodHandle unreflectSetter(Field f) throws IllegalAccessException {
             return findAccessor(f, f.getDeclaringClass(), f.getType(),
                     Modifier.isStatic(f.getModifiers()) ? MethodHandle.SPUT : MethodHandle.IPUT,
-                    f.isAccessible() /* performAccessChecks */);
+                    !f.isAccessible() /* performAccessChecks */);
         }
+
+        // BEGIN Android-changed: OpenJDK 9+181 VarHandle API factory method.
+        /**
+         * Produces a VarHandle giving access to a reflected field {@code f}
+         * of type {@code T} declared in a class of type {@code R}.
+         * The VarHandle's variable type is {@code T}.
+         * If the field is non-static the VarHandle has one coordinate type,
+         * {@code R}.  Otherwise, the field is static, and the VarHandle has no
+         * coordinate types.
+         * <p>
+         * Access checking is performed immediately on behalf of the lookup
+         * class, regardless of the value of the field's {@code accessible}
+         * flag.
+         * <p>
+         * If the field is static, and if the returned VarHandle is operated
+         * on, the field's declaring class will be initialized, if it has not
+         * already been initialized.
+         * <p>
+         * Certain access modes of the returned VarHandle are unsupported under
+         * the following conditions:
+         * <ul>
+         * <li>if the field is declared {@code final}, then the write, atomic
+         *     update, numeric atomic update, and bitwise atomic update access
+         *     modes are unsupported.
+         * <li>if the field type is anything other than {@code byte},
+         *     {@code short}, {@code char}, {@code int}, {@code long},
+         *     {@code float}, or {@code double} then numeric atomic update
+         *     access modes are unsupported.
+         * <li>if the field type is anything other than {@code boolean},
+         *     {@code byte}, {@code short}, {@code char}, {@code int} or
+         *     {@code long} then bitwise atomic update access modes are
+         *     unsupported.
+         * </ul>
+         * <p>
+         * If the field is declared {@code volatile} then the returned VarHandle
+         * will override access to the field (effectively ignore the
+         * {@code volatile} declaration) in accordance to its specified
+         * access modes.
+         * <p>
+         * If the field type is {@code float} or {@code double} then numeric
+         * and atomic update access modes compare values using their bitwise
+         * representation (see {@link Float#floatToRawIntBits} and
+         * {@link Double#doubleToRawLongBits}, respectively).
+         * @apiNote
+         * Bitwise comparison of {@code float} values or {@code double} values,
+         * as performed by the numeric and atomic update access modes, differ
+         * from the primitive {@code ==} operator and the {@link Float#equals}
+         * and {@link Double#equals} methods, specifically with respect to
+         * comparing NaN values or comparing {@code -0.0} with {@code +0.0}.
+         * Care should be taken when performing a compare and set or a compare
+         * and exchange operation with such values since the operation may
+         * unexpectedly fail.
+         * There are many possible NaN values that are considered to be
+         * {@code NaN} in Java, although no IEEE 754 floating-point operation
+         * provided by Java can distinguish between them.  Operation failure can
+         * occur if the expected or witness value is a NaN value and it is
+         * transformed (perhaps in a platform specific manner) into another NaN
+         * value, and thus has a different bitwise representation (see
+         * {@link Float#intBitsToFloat} or {@link Double#longBitsToDouble} for more
+         * details).
+         * The values {@code -0.0} and {@code +0.0} have different bitwise
+         * representations but are considered equal when using the primitive
+         * {@code ==} operator.  Operation failure can occur if, for example, a
+         * numeric algorithm computes an expected value to be say {@code -0.0}
+         * and previously computed the witness value to be say {@code +0.0}.
+         * @param f the reflected field, with a field of type {@code T}, and
+         * a declaring class of type {@code R}
+         * @return a VarHandle giving access to non-static fields or a static
+         * field
+         * @throws IllegalAccessException if access checking fails
+         * @throws NullPointerException if the argument is null
+         * @since 9
+         * @hide
+         */
+        public VarHandle unreflectVarHandle(Field f) throws IllegalAccessException {
+            final boolean isStatic = Modifier.isStatic(f.getModifiers());
+            final boolean performAccessChecks = true;
+            commonFieldChecks(f, f.getDeclaringClass(), f.getType(), isStatic, performAccessChecks);
+            return FieldVarHandle.create(f);
+        }
+        // END Android-changed: OpenJDK 9+181 VarHandle API factory method.
 
         /**
          * Cracks a <a href="MethodHandleInfo.html#directmh">direct method handle</a>
@@ -1544,11 +1846,17 @@ return mh1;
          * @since 1.8
          */
         public MethodHandleInfo revealDirect(MethodHandle target) {
-            // TODO(narayan): Implement this method.
-            //
-            // Notes: Only works for direct method handles. Must check access.
-            //
-            throw new UnsupportedOperationException("MethodHandles.Lookup.revealDirect is not implemented");
+            MethodHandleImpl directTarget = getMethodHandleImpl(target);
+            MethodHandleInfo info = directTarget.reveal();
+
+            try {
+                checkAccess(lookupClass(), info.getDeclaringClass(), info.getModifiers(),
+                        info.getName());
+            } catch (IllegalAccessException exception) {
+                throw new IllegalArgumentException("Unable to access memeber.", exception);
+            }
+
+            return info;
         }
 
         private boolean hasPrivateAccess() {
@@ -1639,7 +1947,7 @@ return mh1;
             }
         }
 
-        public void throwMakeAccessException(String message, Object from) throws
+        private void throwMakeAccessException(String message, Object from) throws
                 IllegalAccessException{
             message = message + ": "+ toString();
             if (from != null)  message += ", from " + from;
@@ -1655,6 +1963,49 @@ return mh1;
     }
 
     /**
+     * "Cracks" {@code target} to reveal the underlying {@code MethodHandleImpl}.
+     */
+    private static MethodHandleImpl getMethodHandleImpl(MethodHandle target) {
+        // Special case : We implement handles to constructors as transformers,
+        // so we must extract the underlying handle from the transformer.
+        if (target instanceof Transformers.Construct) {
+            target = ((Transformers.Construct) target).getConstructorHandle();
+        }
+
+        // Special case: Var-args methods are also implemented as Transformers,
+        // so we should get the underlying handle in that case as well.
+        if (target instanceof Transformers.VarargsCollector) {
+            target = target.asFixedArity();
+        }
+
+        if (target instanceof MethodHandleImpl) {
+            return (MethodHandleImpl) target;
+        }
+
+        throw new IllegalArgumentException(target + " is not a direct handle");
+    }
+
+    // BEGIN Android-added: method to check if a class is an array.
+    private static void checkClassIsArray(Class<?> c) {
+        if (!c.isArray()) {
+            throw new IllegalArgumentException("Not an array type: " + c);
+        }
+    }
+
+    private static void checkTypeIsViewable(Class<?> componentType) {
+        if (componentType == short.class ||
+            componentType == char.class ||
+            componentType == int.class ||
+            componentType == long.class ||
+            componentType == float.class ||
+            componentType == double.class) {
+            return;
+        }
+        throw new UnsupportedOperationException("Component type not supported: " + componentType);
+    }
+    // END Android-added: method to check if a class is an array.
+
+    /**
      * Produces a method handle giving read access to elements of an array.
      * The type of the method handle will have a return type of the array's
      * element type.  Its first argument will be the array type,
@@ -1666,11 +2017,8 @@ return mh1;
      */
     public static
     MethodHandle arrayElementGetter(Class<?> arrayClass) throws IllegalArgumentException {
+        checkClassIsArray(arrayClass);
         final Class<?> componentType = arrayClass.getComponentType();
-        if (componentType == null) {
-            throw new IllegalArgumentException("Not an array type: " + arrayClass);
-        }
-
         if (componentType.isPrimitive()) {
             try {
                 return Lookup.PUBLIC_LOOKUP.findStatic(MethodHandles.class,
@@ -1684,14 +2032,14 @@ return mh1;
         return new Transformers.ReferenceArrayElementGetter(arrayClass);
     }
 
-    public static byte arrayElementGetter(byte[] array, int i) { return array[i]; }
-    public static boolean arrayElementGetter(boolean[] array, int i) { return array[i]; }
-    public static char arrayElementGetter(char[] array, int i) { return array[i]; }
-    public static short arrayElementGetter(short[] array, int i) { return array[i]; }
-    public static int arrayElementGetter(int[] array, int i) { return array[i]; }
-    public static long arrayElementGetter(long[] array, int i) { return array[i]; }
-    public static float arrayElementGetter(float[] array, int i) { return array[i]; }
-    public static double arrayElementGetter(double[] array, int i) { return array[i]; }
+    /** @hide */ public static byte arrayElementGetter(byte[] array, int i) { return array[i]; }
+    /** @hide */ public static boolean arrayElementGetter(boolean[] array, int i) { return array[i]; }
+    /** @hide */ public static char arrayElementGetter(char[] array, int i) { return array[i]; }
+    /** @hide */ public static short arrayElementGetter(short[] array, int i) { return array[i]; }
+    /** @hide */ public static int arrayElementGetter(int[] array, int i) { return array[i]; }
+    /** @hide */ public static long arrayElementGetter(long[] array, int i) { return array[i]; }
+    /** @hide */ public static float arrayElementGetter(float[] array, int i) { return array[i]; }
+    /** @hide */ public static double arrayElementGetter(double[] array, int i) { return array[i]; }
 
     /**
      * Produces a method handle giving write access to elements of an array.
@@ -1705,11 +2053,8 @@ return mh1;
      */
     public static
     MethodHandle arrayElementSetter(Class<?> arrayClass) throws IllegalArgumentException {
+        checkClassIsArray(arrayClass);
         final Class<?> componentType = arrayClass.getComponentType();
-        if (componentType == null) {
-            throw new IllegalArgumentException("Not an array type: " + arrayClass);
-        }
-
         if (componentType.isPrimitive()) {
             try {
                 return Lookup.PUBLIC_LOOKUP.findStatic(MethodHandles.class,
@@ -1723,15 +2068,257 @@ return mh1;
         return new Transformers.ReferenceArrayElementSetter(arrayClass);
     }
 
+    /** @hide */
     public static void arrayElementSetter(byte[] array, int i, byte val) { array[i] = val; }
+    /** @hide */
     public static void arrayElementSetter(boolean[] array, int i, boolean val) { array[i] = val; }
+    /** @hide */
     public static void arrayElementSetter(char[] array, int i, char val) { array[i] = val; }
+    /** @hide */
     public static void arrayElementSetter(short[] array, int i, short val) { array[i] = val; }
+    /** @hide */
     public static void arrayElementSetter(int[] array, int i, int val) { array[i] = val; }
+    /** @hide */
     public static void arrayElementSetter(long[] array, int i, long val) { array[i] = val; }
+    /** @hide */
     public static void arrayElementSetter(float[] array, int i, float val) { array[i] = val; }
+    /** @hide */
     public static void arrayElementSetter(double[] array, int i, double val) { array[i] = val; }
 
+    // BEGIN Android-changed: OpenJDK 9+181 VarHandle API factory methods.
+    /**
+     * Produces a VarHandle giving access to elements of an array of type
+     * {@code arrayClass}.  The VarHandle's variable type is the component type
+     * of {@code arrayClass} and the list of coordinate types is
+     * {@code (arrayClass, int)}, where the {@code int} coordinate type
+     * corresponds to an argument that is an index into an array.
+     * <p>
+     * Certain access modes of the returned VarHandle are unsupported under
+     * the following conditions:
+     * <ul>
+     * <li>if the component type is anything other than {@code byte},
+     *     {@code short}, {@code char}, {@code int}, {@code long},
+     *     {@code float}, or {@code double} then numeric atomic update access
+     *     modes are unsupported.
+     * <li>if the field type is anything other than {@code boolean},
+     *     {@code byte}, {@code short}, {@code char}, {@code int} or
+     *     {@code long} then bitwise atomic update access modes are
+     *     unsupported.
+     * </ul>
+     * <p>
+     * If the component type is {@code float} or {@code double} then numeric
+     * and atomic update access modes compare values using their bitwise
+     * representation (see {@link Float#floatToRawIntBits} and
+     * {@link Double#doubleToRawLongBits}, respectively).
+     * @apiNote
+     * Bitwise comparison of {@code float} values or {@code double} values,
+     * as performed by the numeric and atomic update access modes, differ
+     * from the primitive {@code ==} operator and the {@link Float#equals}
+     * and {@link Double#equals} methods, specifically with respect to
+     * comparing NaN values or comparing {@code -0.0} with {@code +0.0}.
+     * Care should be taken when performing a compare and set or a compare
+     * and exchange operation with such values since the operation may
+     * unexpectedly fail.
+     * There are many possible NaN values that are considered to be
+     * {@code NaN} in Java, although no IEEE 754 floating-point operation
+     * provided by Java can distinguish between them.  Operation failure can
+     * occur if the expected or witness value is a NaN value and it is
+     * transformed (perhaps in a platform specific manner) into another NaN
+     * value, and thus has a different bitwise representation (see
+     * {@link Float#intBitsToFloat} or {@link Double#longBitsToDouble} for more
+     * details).
+     * The values {@code -0.0} and {@code +0.0} have different bitwise
+     * representations but are considered equal when using the primitive
+     * {@code ==} operator.  Operation failure can occur if, for example, a
+     * numeric algorithm computes an expected value to be say {@code -0.0}
+     * and previously computed the witness value to be say {@code +0.0}.
+     * @param arrayClass the class of an array, of type {@code T[]}
+     * @return a VarHandle giving access to elements of an array
+     * @throws NullPointerException if the arrayClass is null
+     * @throws IllegalArgumentException if arrayClass is not an array type
+     * @since 9
+     * @hide
+     */
+    public static
+    VarHandle arrayElementVarHandle(Class<?> arrayClass) throws IllegalArgumentException {
+        checkClassIsArray(arrayClass);
+        return ArrayElementVarHandle.create(arrayClass);
+    }
+
+    /**
+     * Produces a VarHandle giving access to elements of a {@code byte[]} array
+     * viewed as if it were a different primitive array type, such as
+     * {@code int[]} or {@code long[]}.
+     * The VarHandle's variable type is the component type of
+     * {@code viewArrayClass} and the list of coordinate types is
+     * {@code (byte[], int)}, where the {@code int} coordinate type
+     * corresponds to an argument that is an index into a {@code byte[]} array.
+     * The returned VarHandle accesses bytes at an index in a {@code byte[]}
+     * array, composing bytes to or from a value of the component type of
+     * {@code viewArrayClass} according to the given endianness.
+     * <p>
+     * The supported component types (variables types) are {@code short},
+     * {@code char}, {@code int}, {@code long}, {@code float} and
+     * {@code double}.
+     * <p>
+     * Access of bytes at a given index will result in an
+     * {@code IndexOutOfBoundsException} if the index is less than {@code 0}
+     * or greater than the {@code byte[]} array length minus the size (in bytes)
+     * of {@code T}.
+     * <p>
+     * Access of bytes at an index may be aligned or misaligned for {@code T},
+     * with respect to the underlying memory address, {@code A} say, associated
+     * with the array and index.
+     * If access is misaligned then access for anything other than the
+     * {@code get} and {@code set} access modes will result in an
+     * {@code IllegalStateException}.  In such cases atomic access is only
+     * guaranteed with respect to the largest power of two that divides the GCD
+     * of {@code A} and the size (in bytes) of {@code T}.
+     * If access is aligned then following access modes are supported and are
+     * guaranteed to support atomic access:
+     * <ul>
+     * <li>read write access modes for all {@code T}, with the exception of
+     *     access modes {@code get} and {@code set} for {@code long} and
+     *     {@code double} on 32-bit platforms.
+     * <li>atomic update access modes for {@code int}, {@code long},
+     *     {@code float} or {@code double}.
+     *     (Future major platform releases of the JDK may support additional
+     *     types for certain currently unsupported access modes.)
+     * <li>numeric atomic update access modes for {@code int} and {@code long}.
+     *     (Future major platform releases of the JDK may support additional
+     *     numeric types for certain currently unsupported access modes.)
+     * <li>bitwise atomic update access modes for {@code int} and {@code long}.
+     *     (Future major platform releases of the JDK may support additional
+     *     numeric types for certain currently unsupported access modes.)
+     * </ul>
+     * <p>
+     * Misaligned access, and therefore atomicity guarantees, may be determined
+     * for {@code byte[]} arrays without operating on a specific array.  Given
+     * an {@code index}, {@code T} and it's corresponding boxed type,
+     * {@code T_BOX}, misalignment may be determined as follows:
+     * <pre>{@code
+     * int sizeOfT = T_BOX.BYTES;  // size in bytes of T
+     * int misalignedAtZeroIndex = ByteBuffer.wrap(new byte[0]).
+     *     alignmentOffset(0, sizeOfT);
+     * int misalignedAtIndex = (misalignedAtZeroIndex + index) % sizeOfT;
+     * boolean isMisaligned = misalignedAtIndex != 0;
+     * }</pre>
+     * <p>
+     * If the variable type is {@code float} or {@code double} then atomic
+     * update access modes compare values using their bitwise representation
+     * (see {@link Float#floatToRawIntBits} and
+     * {@link Double#doubleToRawLongBits}, respectively).
+     * @param viewArrayClass the view array class, with a component type of
+     * type {@code T}
+     * @param byteOrder the endianness of the view array elements, as
+     * stored in the underlying {@code byte} array
+     * @return a VarHandle giving access to elements of a {@code byte[]} array
+     * viewed as if elements corresponding to the components type of the view
+     * array class
+     * @throws NullPointerException if viewArrayClass or byteOrder is null
+     * @throws IllegalArgumentException if viewArrayClass is not an array type
+     * @throws UnsupportedOperationException if the component type of
+     * viewArrayClass is not supported as a variable type
+     * @since 9
+     * @hide
+     */
+    public static
+    VarHandle byteArrayViewVarHandle(Class<?> viewArrayClass,
+                                     ByteOrder byteOrder) throws IllegalArgumentException {
+        checkClassIsArray(viewArrayClass);
+        checkTypeIsViewable(viewArrayClass.getComponentType());
+        return ByteArrayVarHandle.create(viewArrayClass, byteOrder);
+    }
+
+    /**
+     * Produces a VarHandle giving access to elements of a {@code ByteBuffer}
+     * viewed as if it were an array of elements of a different primitive
+     * component type to that of {@code byte}, such as {@code int[]} or
+     * {@code long[]}.
+     * The VarHandle's variable type is the component type of
+     * {@code viewArrayClass} and the list of coordinate types is
+     * {@code (ByteBuffer, int)}, where the {@code int} coordinate type
+     * corresponds to an argument that is an index into a {@code byte[]} array.
+     * The returned VarHandle accesses bytes at an index in a
+     * {@code ByteBuffer}, composing bytes to or from a value of the component
+     * type of {@code viewArrayClass} according to the given endianness.
+     * <p>
+     * The supported component types (variables types) are {@code short},
+     * {@code char}, {@code int}, {@code long}, {@code float} and
+     * {@code double}.
+     * <p>
+     * Access will result in a {@code ReadOnlyBufferException} for anything
+     * other than the read access modes if the {@code ByteBuffer} is read-only.
+     * <p>
+     * Access of bytes at a given index will result in an
+     * {@code IndexOutOfBoundsException} if the index is less than {@code 0}
+     * or greater than the {@code ByteBuffer} limit minus the size (in bytes) of
+     * {@code T}.
+     * <p>
+     * Access of bytes at an index may be aligned or misaligned for {@code T},
+     * with respect to the underlying memory address, {@code A} say, associated
+     * with the {@code ByteBuffer} and index.
+     * If access is misaligned then access for anything other than the
+     * {@code get} and {@code set} access modes will result in an
+     * {@code IllegalStateException}.  In such cases atomic access is only
+     * guaranteed with respect to the largest power of two that divides the GCD
+     * of {@code A} and the size (in bytes) of {@code T}.
+     * If access is aligned then following access modes are supported and are
+     * guaranteed to support atomic access:
+     * <ul>
+     * <li>read write access modes for all {@code T}, with the exception of
+     *     access modes {@code get} and {@code set} for {@code long} and
+     *     {@code double} on 32-bit platforms.
+     * <li>atomic update access modes for {@code int}, {@code long},
+     *     {@code float} or {@code double}.
+     *     (Future major platform releases of the JDK may support additional
+     *     types for certain currently unsupported access modes.)
+     * <li>numeric atomic update access modes for {@code int} and {@code long}.
+     *     (Future major platform releases of the JDK may support additional
+     *     numeric types for certain currently unsupported access modes.)
+     * <li>bitwise atomic update access modes for {@code int} and {@code long}.
+     *     (Future major platform releases of the JDK may support additional
+     *     numeric types for certain currently unsupported access modes.)
+     * </ul>
+     * <p>
+     * Misaligned access, and therefore atomicity guarantees, may be determined
+     * for a {@code ByteBuffer}, {@code bb} (direct or otherwise), an
+     * {@code index}, {@code T} and it's corresponding boxed type,
+     * {@code T_BOX}, as follows:
+     * <pre>{@code
+     * int sizeOfT = T_BOX.BYTES;  // size in bytes of T
+     * ByteBuffer bb = ...
+     * int misalignedAtIndex = bb.alignmentOffset(index, sizeOfT);
+     * boolean isMisaligned = misalignedAtIndex != 0;
+     * }</pre>
+     * <p>
+     * If the variable type is {@code float} or {@code double} then atomic
+     * update access modes compare values using their bitwise representation
+     * (see {@link Float#floatToRawIntBits} and
+     * {@link Double#doubleToRawLongBits}, respectively).
+     * @param viewArrayClass the view array class, with a component type of
+     * type {@code T}
+     * @param byteOrder the endianness of the view array elements, as
+     * stored in the underlying {@code ByteBuffer} (Note this overrides the
+     * endianness of a {@code ByteBuffer})
+     * @return a VarHandle giving access to elements of a {@code ByteBuffer}
+     * viewed as if elements corresponding to the components type of the view
+     * array class
+     * @throws NullPointerException if viewArrayClass or byteOrder is null
+     * @throws IllegalArgumentException if viewArrayClass is not an array type
+     * @throws UnsupportedOperationException if the component type of
+     * viewArrayClass is not supported as a variable type
+     * @since 9
+     * @hide
+     */
+    public static
+    VarHandle byteBufferViewVarHandle(Class<?> viewArrayClass,
+                                      ByteOrder byteOrder) throws IllegalArgumentException {
+        checkClassIsArray(viewArrayClass);
+        checkTypeIsViewable(viewArrayClass.getComponentType());
+        return ByteBufferViewVarHandle.create(viewArrayClass, byteOrder);
+    }
+    // END Android-changed: OpenJDK 9+181 VarHandle API factory methods.
 
     /// method handle invocation (reflective style)
 
@@ -1785,11 +2372,11 @@ return invoker;
     MethodHandle spreadInvoker(MethodType type, int leadingArgCount) {
         if (leadingArgCount < 0 || leadingArgCount > type.parameterCount())
             throw newIllegalArgumentException("bad argument count", leadingArgCount);
-        type = type.asSpreaderType(Object[].class, type.parameterCount() - leadingArgCount);
-        // return type.invokers().spreadInvoker(leadingArgCount);
 
-        // TODO(narayan): Implement this method.
-        throw new UnsupportedOperationException("MethodHandles.spreadInvoker is not implemented");
+        MethodHandle invoker = MethodHandles.invoker(type);
+        int spreadArgCount = type.parameterCount() - leadingArgCount;
+        invoker = invoker.asSpreader(Object[].class, spreadArgCount);
+        return invoker;
     }
 
     /**
@@ -1829,9 +2416,7 @@ return invoker;
      */
     static public
     MethodHandle exactInvoker(MethodType type) {
-        // return type.invokers().exactInvoker();
-        // TODO(narayan): Implement this method.
-        throw new UnsupportedOperationException("MethodHandles.exactInvoker is not implemented");
+        return new Transformers.Invoker(type, true /* isExactInvoker */);
     }
 
     /**
@@ -1870,9 +2455,59 @@ return invoker;
      */
     static public
     MethodHandle invoker(MethodType type) {
-        // return type.invokers().genericInvoker();
-        // TODO(narayan): Implement this method.
-        throw new UnsupportedOperationException("MethodHandles.invoker is not implemented");
+        return new Transformers.Invoker(type, false /* isExactInvoker */);
+    }
+
+    /**
+     * Produces a special <em>invoker method handle</em> which can be used to
+     * invoke a signature-polymorphic access mode method on any VarHandle whose
+     * associated access mode type is compatible with the given type.
+     * The resulting invoker will have a type which is exactly equal to the
+     * desired given type, except that it will accept an additional leading
+     * argument of type {@code VarHandle}.
+     *
+     * @param accessMode the VarHandle access mode
+     * @param type the desired target type
+     * @return a method handle suitable for invoking an access mode method of
+     *         any VarHandle whose access mode type is of the given type.
+     * @since 9
+     * @hide
+     */
+    static public
+    MethodHandle varHandleExactInvoker(VarHandle.AccessMode accessMode, MethodType type) {
+        unsupported("MethodHandles.varHandleExactInvoker()");  // TODO(b/65872996)
+        return null;
+    }
+
+    /**
+     * Produces a special <em>invoker method handle</em> which can be used to
+     * invoke a signature-polymorphic access mode method on any VarHandle whose
+     * associated access mode type is compatible with the given type.
+     * The resulting invoker will have a type which is exactly equal to the
+     * desired given type, except that it will accept an additional leading
+     * argument of type {@code VarHandle}.
+     * <p>
+     * Before invoking its target, if the access mode type differs from the
+     * desired given type, the invoker will apply reference casts as necessary
+     * and box, unbox, or widen primitive values, as if by
+     * {@link MethodHandle#asType asType}.  Similarly, the return value will be
+     * converted as necessary.
+     * <p>
+     * This method is equivalent to the following code (though it may be more
+     * efficient): {@code publicLookup().findVirtual(VarHandle.class, accessMode.name(), type)}
+     *
+     * @param accessMode the VarHandle access mode
+     * @param type the desired target type
+     * @return a method handle suitable for invoking an access mode method of
+     *         any VarHandle whose access mode type is convertible to the given
+     *         type.
+     * @since 9
+     * @hide
+     */
+    static public
+    MethodHandle varHandleInvoker(VarHandle.AccessMode accessMode, MethodType type) {
+        unsupported("MethodHandles.varHandleInvoker()");  // TODO(b/65872996)
+        return null;
     }
 
     // Android-changed: Basic invokers are not supported.
@@ -1933,14 +2568,12 @@ return invoker;
         explicitCastArgumentsChecks(target, newType);
         // use the asTypeCache when possible:
         MethodType oldType = target.type();
-        if (oldType == newType)  return target;
+        if (oldType == newType) return target;
         if (oldType.explicitCastEquivalentToAsType(newType)) {
             return target.asFixedArity().asType(newType);
         }
 
-        // return MethodHandleImpl.makePairwiseConvert(target, newType, false);
-        // TODO(narayan): Implement this method.
-        throw new UnsupportedOperationException("MethodHandles.explicitCastArguments is not implemented");
+        return new Transformers.ExplicitCastArguments(target, newType);
     }
 
     private static void explicitCastArgumentsChecks(MethodHandle target, MethodType newType) {
@@ -2095,14 +2728,14 @@ assert((int)twice.invokeExact(21) == 42);
         return new Transformers.ReferenceIdentity(type);
     }
 
-    public static byte identity(byte val) { return val; }
-    public static boolean identity(boolean val) { return val; }
-    public static char identity(char val) { return val; }
-    public static short identity(short val) { return val; }
-    public static int identity(int val) { return val; }
-    public static long identity(long val) { return val; }
-    public static float identity(float val) { return val; }
-    public static double identity(double val) { return val; }
+    /** @hide */ public static byte identity(byte val) { return val; }
+    /** @hide */ public static boolean identity(boolean val) { return val; }
+    /** @hide */ public static char identity(char val) { return val; }
+    /** @hide */ public static short identity(short val) { return val; }
+    /** @hide */ public static int identity(int val) { return val; }
+    /** @hide */ public static long identity(long val) { return val; }
+    /** @hide */ public static float identity(float val) { return val; }
+    /** @hide */ public static double identity(double val) { return val; }
 
     /**
      * Provides a target method handle with one or more <em>bound arguments</em>
@@ -2138,23 +2771,23 @@ assert((int)twice.invokeExact(21) == 42);
     MethodHandle insertArguments(MethodHandle target, int pos, Object... values) {
         int insCount = values.length;
         Class<?>[] ptypes = insertArgumentsChecks(target, insCount, pos);
-        if (insCount == 0)  return target;
+        if (insCount == 0)  {
+            return target;
+        }
 
-        // BoundMethodHandle result = target.rebind();
-        // for (int i = 0; i < insCount; i++) {
-        //     Object value = values[i];
-        //     Class<?> ptype = ptypes[pos+i];
-        //     if (ptype.isPrimitive()) {
-        //         result = insertArgumentPrimitive(result, pos, ptype, value);
-        //     } else {
-        //         value = ptype.cast(value);  // throw CCE if needed
-        //         result = result.bindArgumentL(pos, value);
-        //     }
-        // }
-        // return result;
+        // Throw ClassCastExceptions early if we can't cast any of the provided values
+        // to the required type.
+        for (int i = 0; i < insCount; i++) {
+            final Class<?> ptype = ptypes[pos + i];
+            if (!ptype.isPrimitive()) {
+                ptypes[pos + i].cast(values[i]);
+            } else {
+                // Will throw a ClassCastException if something terrible happens.
+                values[i] = Wrapper.forPrimitiveType(ptype).convert(values[i], ptype);
+            }
+        }
 
-        // TODO(narayan): Implement this method.
-        throw new UnsupportedOperationException("MethodHandles.insertArguments is not implemented");
+        return new Transformers.InsertArguments(target, pos, values);
     }
 
     // Android-changed: insertArgumentPrimitive is unused.
@@ -2228,6 +2861,7 @@ assertEquals("yz", (String) d0.invokeExact(123, "x", "y", "z"));
      */
     public static
     MethodHandle dropArguments(MethodHandle target, int pos, List<Class<?>> valueTypes) {
+        valueTypes = copyTypes(valueTypes);
         MethodType oldType = target.type();  // get NPE
         int dropped = dropArgumentChecks(oldType, pos, valueTypes);
 
@@ -2237,6 +2871,11 @@ assertEquals("yz", (String) d0.invokeExact(123, "x", "y", "z"));
         }
 
         return new Transformers.DropArguments(newType, target, pos, valueTypes.size());
+    }
+
+    private static List<Class<?>> copyTypes(List<Class<?>> types) {
+        Object[] a = types.toArray();
+        return Arrays.asList(Arrays.copyOf(a, a.length, Class[].class));
     }
 
     private static int dropArgumentChecks(MethodType oldType, int pos, List<Class<?>> valueTypes) {
@@ -2371,30 +3010,12 @@ assertEquals("XY", (String) f2.invokeExact("x", "y")); // XY
     public static
     MethodHandle filterArguments(MethodHandle target, int pos, MethodHandle... filters) {
         filterArgumentsCheckArity(target, pos, filters);
-        MethodHandle adapter = target;
-        int curPos = pos-1;  // pre-incremented
-        for (MethodHandle filter : filters) {
-            curPos += 1;
-            if (filter == null)  continue;  // ignore null elements of filters
-            adapter = filterArgument(adapter, curPos, filter);
+
+        for (int i = 0; i < filters.length; ++i) {
+            filterArgumentChecks(target, i + pos, filters[i]);
         }
-        return adapter;
-    }
 
-    /*non-public*/ static
-    MethodHandle filterArgument(MethodHandle target, int pos, MethodHandle filter) {
-        filterArgumentChecks(target, pos, filter);
-        // MethodType targetType = target.type();
-        // MethodType filterType = filter.type();
-        // BoundMethodHandle result = target.rebind();
-        // Class<?> newParamType = filterType.parameterType(0);
-        // LambdaForm lform = result.editor().filterArgumentForm(1 + pos, BasicType.basicType(newParamType));
-        // MethodType newType = targetType.changeParameterType(pos, newParamType);
-        // result = result.copyWithExtendL(newType, lform, filter);
-        // return result;
-
-        // TODO(narayan): Implement this method.
-        throw new UnsupportedOperationException("MethodHandles.filterArgument is not implemented");
+        return new Transformers.FilterArguments(target, pos, filters);
     }
 
     private static void filterArgumentsCheckArity(MethodHandle target, int pos, MethodHandle[] filters) {
@@ -2521,21 +3142,7 @@ assertEquals("[top, [[up, down, strange], charm], bottom]",
     public static
     MethodHandle collectArguments(MethodHandle target, int pos, MethodHandle filter) {
         MethodType newType = collectArgumentsChecks(target, pos, filter);
-        MethodType collectorType = filter.type();
-
-        // BoundMethodHandle result = target.rebind();
-        // LambdaForm lform;
-        // if (collectorType.returnType().isArray() && filter.intrinsicName() == Intrinsic.NEW_ARRAY) {
-        //     lform = result.editor().collectArgumentArrayForm(1 + pos, filter);
-        //     if (lform != null) {
-        //         return result.copyWith(newType, lform);
-        //     }
-        // }
-        // lform = result.editor().collectArgumentsForm(1 + pos, collectorType.basicType());
-        // return result.copyWithExtendL(newType, lform, filter);
-
-        // TODO(narayan): Implement this method.
-        throw new UnsupportedOperationException("MethodHandles.collectArguments is not implemented");
+        return new Transformers.CollectArguments(target, filter, pos, newType);
     }
 
     private static MethodType collectArgumentsChecks(MethodHandle target, int pos, MethodHandle filter) throws RuntimeException {
@@ -2623,7 +3230,7 @@ System.out.println((int) f0.invokeExact("x", "y")); // 2
         int filterValues = filterType.parameterCount();
         if (filterValues == 0
                 ? (rtype != void.class)
-                : (rtype != filterType.parameterType(0)))
+                : (rtype != filterType.parameterType(0) || filterValues != 1))
             throw newIllegalArgumentException("target and filter types do not match", targetType, filterType);
     }
 
@@ -2710,8 +3317,7 @@ assertEquals("boojum", (String) catTrace.invokeExact("boo", "jum"));
         MethodType combinerType = combiner.type();
         Class<?> rtype = foldArgumentChecks(foldPos, targetType, combinerType);
 
-        // TODO(narayan): Implement this method.
-        throw new UnsupportedOperationException("MethodHandles.foldArguments is not implemented");
+        return new Transformers.FoldArguments(target, combiner);
     }
 
     private static Class<?> foldArgumentChecks(int foldPos, MethodType targetType, MethodType combinerType) {

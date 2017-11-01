@@ -35,8 +35,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -44,6 +46,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -55,7 +58,27 @@ import javax.crypto.NoSuchPaddingException;
 import junit.framework.TestCase;
 import libcore.javax.crypto.MockKey;
 
+import dalvik.system.VMRuntime;
+import sun.security.jca.Providers;
+
 public class ProviderTest extends TestCase {
+
+    // Allow access to deprecated BC algorithms in this test, so we can ensure they
+    // continue to work
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
+        Providers.setMaximumAllowableApiLevelForBcDeprecation(
+                VMRuntime.getRuntime().getTargetSdkVersion());
+    }
+
+    @Override
+    public void tearDown() throws Exception {
+        Providers.setMaximumAllowableApiLevelForBcDeprecation(
+                Providers.DEFAULT_MAXIMUM_ALLOWABLE_TARGET_API_LEVEL_FOR_BC_DEPRECATION);
+        super.tearDown();
+    }
+
     private static final boolean LOG_DEBUG = false;
 
     /**
@@ -84,6 +107,20 @@ public class ProviderTest extends TestCase {
             Set<Provider.Service> services = provider.getServices();
             assertNotNull(services);
             assertFalse(services.isEmpty());
+            if (LOG_DEBUG) {
+                Set<Provider.Service> originalServices = services;
+                services = new TreeSet<Provider.Service>(
+                        new Comparator<Provider.Service>() {
+                            public int compare(Provider.Service a, Provider.Service b) {
+                                int typeCompare = a.getType().compareTo(b.getType());
+                                if (typeCompare != 0) {
+                                    return typeCompare;
+                                }
+                                return a.getAlgorithm().compareTo(b.getAlgorithm());
+                            }
+                        });
+                services.addAll(originalServices);
+            }
 
             for (Provider.Service service : services) {
                 String type = service.getType();
@@ -148,10 +185,28 @@ public class ProviderTest extends TestCase {
 
         // assert that we don't have any extra in the implementation
         Collections.sort(extra); // sort so that its grouped by type
-        assertEquals("Extra algorithms", Collections.EMPTY_LIST, extra);
+        assertEquals("Algorithms are provided but not present in StandardNames",
+                Collections.EMPTY_LIST, extra);
 
+        if (remainingExpected.containsKey("Cipher")) {
+            // For any remaining ciphers, they may be aliases for other ciphers or otherwise
+            // don't show up as a service but can still be instantiated.
+            for (Iterator<String> cipherIt = remainingExpected.get("Cipher").iterator();
+                    cipherIt.hasNext(); ) {
+                String missingCipher = cipherIt.next();
+                try {
+                    Cipher.getInstance(missingCipher);
+                    cipherIt.remove();
+                } catch (NoSuchAlgorithmException|NoSuchPaddingException e) {
+                }
+            }
+            if (remainingExpected.get("Cipher").isEmpty()) {
+                remainingExpected.remove("Cipher");
+            }
+        }
         // assert that we don't have any missing in the implementation
-        assertEquals("Missing algorithms", Collections.EMPTY_MAP, remainingExpected);
+        assertEquals("Algorithms are present in StandardNames but not provided",
+                Collections.EMPTY_MAP, remainingExpected);
 
         // assert that we don't have any missing classes
         Collections.sort(missing); // sort it for readability
@@ -240,6 +295,110 @@ public class ProviderTest extends TestCase {
                         implementations.containsKey(actual));
             }
         }
+    }
+
+    /**
+     * Helper function to fetch services for Service.Algorithm IDs
+     */
+    private static Provider.Service getService(Provider p, String id) {
+        String[] typeAndAlg = id.split("\\.", 2);
+        assertEquals(id + " is not formatted as expected.", 2, typeAndAlg.length);
+        return p.getService(typeAndAlg[0], typeAndAlg[1]);
+    }
+
+    /**
+     * Identifiers provided by Bouncy Castle that we exclude from consideration
+     * when checking that all Bouncy Castle identifiers are also covered by Conscrypt.
+     * Each block of excluded identifiers is preceded by the justification specific
+     * to those IDs.
+     */
+    private static final Set<String> BC_OVERRIDE_EXCEPTIONS = new HashSet<>();
+    static {
+        // A typo caused Bouncy Castle to accept these incorrect OIDs for AES, and they
+        // maintain these aliases for backwards compatibility.  We don't want to continue
+        // this in Conscrypt.
+        BC_OVERRIDE_EXCEPTIONS.add("Alg.Alias.AlgorithmParameters.2.16.840.1.101.3.4.2");
+        BC_OVERRIDE_EXCEPTIONS.add("Alg.Alias.AlgorithmParameters.2.16.840.1.101.3.4.22");
+        BC_OVERRIDE_EXCEPTIONS.add("Alg.Alias.AlgorithmParameters.2.16.840.1.101.3.4.42");
+
+        // BC uses the same class to implement AlgorithmParameters.DES and
+        // AlgorithmParameters.DESEDE.  Conscrypt doesn't support DES, so it doesn't
+        // include an implementation of AlgorithmParameters.DES, and this isn't a problem.
+        BC_OVERRIDE_EXCEPTIONS.add("AlgorithmParameters.DES");
+        BC_OVERRIDE_EXCEPTIONS.add("Alg.Alias.AlgorithmParameters.1.3.14.3.2.7");
+        BC_OVERRIDE_EXCEPTIONS.add("Alg.Alias.AlgorithmParameters.OID.1.3.14.3.2.7");
+    }
+
+    /**
+     * Ensures that, for all algorithms provided by Conscrypt, there is no alias from
+     * the BC provider that's not provided by Conscrypt.  If there is, then a request
+     * for that alias with no provider specified will return the BC implementation of
+     * it even though we have a Conscrypt implementation available.
+     */
+    public void test_Provider_ConscryptOverridesBouncyCastle() throws Exception {
+        if (StandardNames.IS_RI) {
+            // These providers aren't installed on RI
+            return;
+        }
+        Provider conscrypt = Security.getProvider("AndroidOpenSSL");
+        Provider bc = Security.getProvider("BC");
+
+        // 1. Find all the algorithms provided by Conscrypt.
+        Set<String> conscryptAlgs = new HashSet<>();
+        for (Entry<Object, Object> entry : conscrypt.entrySet()) {
+            String key = (String) entry.getKey();
+            if (key.contains(" ")) {
+                // These are implementation properties like "Provider.id name"
+                continue;
+            }
+            if (key.startsWith("Alg.Alias.")) {
+                // Ignore aliases, we only want the concrete algorithms
+                continue;
+            }
+            conscryptAlgs.add(key);
+        }
+
+        // 2. Determine which classes in BC implement those algorithms
+        Set<String> bcClasses = new HashSet<>();
+        for (String conscryptAlg : conscryptAlgs) {
+            Provider.Service service = getService(bc, conscryptAlg);
+            if (service != null) {
+                bcClasses.add(service.getClassName());
+            }
+        }
+        assertTrue(bcClasses.size() > 0);  // Sanity check
+
+        // 3. Determine which IDs in BC point to that set of classes
+        Set<String> shouldBeOverriddenBcIds = new HashSet<>();
+        for (Object keyObject : bc.keySet()) {
+            String key = (String) keyObject;
+            if (key.contains(" ")) {
+                continue;
+            }
+            if (BC_OVERRIDE_EXCEPTIONS.contains(key)) {
+                continue;
+            }
+            if (key.startsWith("Alg.Alias.")) {
+                key = key.substring("Alg.Alias.".length());
+            }
+            Provider.Service service = getService(bc, key);
+            if (bcClasses.contains(service.getClassName())) {
+                shouldBeOverriddenBcIds.add(key);
+            }
+        }
+        assertTrue(shouldBeOverriddenBcIds.size() > 0);  // Sanity check
+
+        // 4. Check each of those IDs to ensure that it's present in Conscrypt
+        Set<String> nonOverriddenIds = new TreeSet<>();
+        for (String shouldBeOverridenBcId : shouldBeOverriddenBcIds) {
+            if (getService(conscrypt, shouldBeOverridenBcId) == null) {
+                nonOverriddenIds.add(shouldBeOverridenBcId);
+            }
+        }
+        assertTrue("Conscrypt does not provide IDs " + nonOverriddenIds
+                + ", but it does provide other IDs that point to the same implementation(s)"
+                + " in BouncyCastle.",
+                nonOverriddenIds.isEmpty());
     }
 
     private static final String[] TYPES_SERVICES_CHECKED = new String[] {

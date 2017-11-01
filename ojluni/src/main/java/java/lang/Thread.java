@@ -26,6 +26,7 @@
 
 package java.lang;
 
+import dalvik.annotation.optimization.FastNative;
 import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;
@@ -271,6 +272,7 @@ class Thread implements Runnable {
      *
      * @return  the currently executing thread.
      */
+    @FastNative
     public static native Thread currentThread();
 
     /**
@@ -312,6 +314,7 @@ class Thread implements Runnable {
         Thread.sleep(millis, 0);
     }
 
+    @FastNative
     private static native void sleep(Object lock, long millis, int nanos)
         throws InterruptedException;
 
@@ -518,7 +521,7 @@ class Thread implements Runnable {
 
 
     /** @hide */
-    // Android added : Private constructor - used by the runtime.
+    // Android-added: Private constructor - used by the runtime.
     Thread(ThreadGroup group, String name, int priority, boolean daemon) {
         this.group = group;
         this.group.addUnstarted();
@@ -942,6 +945,7 @@ class Thread implements Runnable {
      * @see #isInterrupted()
      * @revised 6.0
      */
+    @FastNative
     public static native boolean interrupted();
 
     /**
@@ -957,6 +961,7 @@ class Thread implements Runnable {
      * @see     #interrupted()
      * @revised 6.0
      */
+    @FastNative
     public native boolean isInterrupted();
 
     /**
@@ -976,7 +981,7 @@ class Thread implements Runnable {
      *     Why are Thread.stop, Thread.suspend and Thread.resume Deprecated?</a>.
      * @throws UnsupportedOperationException always
      */
-    // Android changed : Throw UnsupportedOperationException instead of
+    // Android-changed: Throw UnsupportedOperationException instead of
     // NoSuchMethodError.
     @Deprecated
     public void destroy() {
@@ -1076,7 +1081,9 @@ class Thread implements Runnable {
         ThreadGroup g;
         checkAccess();
         if (newPriority > MAX_PRIORITY || newPriority < MIN_PRIORITY) {
-            throw new IllegalArgumentException();
+            // Android-changed: Improve exception message when the new priority
+            // is out of bounds.
+            throw new IllegalArgumentException("Priority out of range: " + newPriority);
         }
         if((g = getThreadGroup()) != null) {
             if (newPriority > g.getMaxPriority()) {
@@ -2036,6 +2043,7 @@ class Thread implements Runnable {
 
     private native int nativeGetStatus(boolean hasBeenStarted);
 
+    @FastNative
     private native void nativeInterrupt();
 
     /** Park states */

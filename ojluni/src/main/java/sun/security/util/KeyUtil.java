@@ -1,6 +1,6 @@
 /*
  * Copyright 2016 The Android Open Source Project
- * Copyright (c) 2012, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012,2016 Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -27,32 +27,14 @@
 package sun.security.util;
 
 import java.security.Key;
-/* BEGIN android-removed
-import java.security.PrivilegedAction;
-import java.security.AccessController;
-import java.security.InvalidKeyException;
- * END android-removed */
 import java.security.interfaces.ECKey;
 import java.security.interfaces.RSAKey;
 import java.security.interfaces.DSAKey;
-// BEGIN android-added
 import java.security.interfaces.DSAParams;
-// END android-added
 import java.security.SecureRandom;
-// BEGIN android-added
 import java.security.spec.ECParameterSpec;
-// END android-added
-/* BEGIN android-removed
-import java.security.spec.KeySpec;
- * END android-removed */
 import javax.crypto.SecretKey;
 import javax.crypto.interfaces.DHKey;
-/* BEGIN android-removed
-import javax.crypto.interfaces.DHPublicKey;
-import javax.crypto.spec.DHParameterSpec;
-import javax.crypto.spec.DHPublicKeySpec;
-import java.math.BigInteger;
- * END android-removed */
 
 /**
  * A utility class to get key length, valiate keys, etc.
@@ -95,7 +77,7 @@ public final class KeyUtil {
             size = pubk.getModulus().bitLength();
         } else if (key instanceof ECKey) {
             ECKey pubk = (ECKey)key;
-            // BEGIN android-changed
+            // BEGIN Android-changed
             // Was: size = pubk.getParams().getOrder().bitLength();
             ECParameterSpec params = pubk.getParams();
             // According to RFC 3279 section 2.3.5, EC keys are allowed
@@ -106,21 +88,11 @@ public final class KeyUtil {
             if (params != null) {
                 size = params.getOrder().bitLength();
             }
-            // END android-changed
+            // END Android-changed
         } else if (key instanceof DSAKey) {
             DSAKey pubk = (DSAKey)key;
-            // BEGIN android-changed
-            // Was: size = pubk.getParams().getP().bitLength();
-            DSAParams params = pubk.getParams();
-            // According to RFC 3279 section 2.3.2, DSA keys are allowed
-            // to inherit parameters in an X.509 certificate issuer's
-            // key parameters, so the parameters may be null. The parent
-            // key will be rejected if its parameters don't pass, so this
-            // is okay.
-            if (params != null) {
-                size = params.getP().bitLength();
-            }
-            // END android-changed
+            DSAParams params = pubk.getParams();    // params can be null
+            size = (params != null) ? params.getP().bitLength() : -1;
         } else if (key instanceof DHKey) {
             DHKey pubk = (DHKey)key;
             size = pubk.getParams().getP().bitLength();
@@ -130,7 +102,8 @@ public final class KeyUtil {
         return size;
     }
 
-    /* BEGIN android-removed
+    // BEGIN Android-removed
+    /*
     /**
      * Returns whether the key is valid or not.
      * <P>
@@ -180,8 +153,6 @@ public final class KeyUtil {
 
     /**
      * Returns whether the specified provider is Oracle provider or not.
-     * <P>
-     * Note that this method is only apply to SunJCE and SunPKCS11 at present.
      *
      * @param  providerName
      *         the provider name
@@ -189,8 +160,11 @@ public final class KeyUtil {
      *         {@code providerName} is Oracle provider
      *
     public static final boolean isOracleJCEProvider(String providerName) {
-        return providerName != null && (providerName.equals("SunJCE") ||
-                                        providerName.startsWith("SunPKCS11"));
+        return providerName != null &&
+                (providerName.equals("SunJCE") ||
+                    providerName.equals("SunMSCAPI") ||
+                    providerName.equals("OracleUcrypto") ||
+                    providerName.startsWith("SunPKCS11"));
     }
 
     /**
@@ -235,7 +209,7 @@ public final class KeyUtil {
             byte[] encoded, boolean isFailOver) {
 
         if (random == null) {
-            random = new SecureRandom();
+            random = JCAUtil.getSecureRandom();
         }
         byte[] replacer = new byte[48];
         random.nextBytes(replacer);
@@ -337,7 +311,7 @@ public final class KeyUtil {
         System.arraycopy(b, i, t, 0, t.length);
         return t;
     }
+    */
+    // END Android-removed
 
-     * END android-removed */
 }
-

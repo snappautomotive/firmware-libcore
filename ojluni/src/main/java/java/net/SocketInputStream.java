@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2014 The Android Open Source Project
- * Copyright (c) 1995, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1995, 2016, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -44,6 +44,11 @@ import sun.net.ConnectionResetException;
  */
 class SocketInputStream extends FileInputStream
 {
+    // Android-removed: Android doesn't need to call native init.
+    // static {
+    //    init();
+    //}
+
     private boolean eof;
     private AbstractPlainSocketImpl impl = null;
     private byte temp[];
@@ -153,11 +158,12 @@ class SocketInputStream extends FileInputStream
         }
 
         // bounds check
-        if (length <= 0 || off < 0 || off + length > b.length) {
+        if (length <= 0 || off < 0 || length > b.length - off) {
             if (length == 0) {
                 return 0;
             }
-            throw new ArrayIndexOutOfBoundsException();
+            throw new ArrayIndexOutOfBoundsException("length == " + length
+                    + " off == " + off + " buffer length == " + b.length);
         }
 
         boolean gotReset = false;
@@ -165,6 +171,7 @@ class SocketInputStream extends FileInputStream
         // acquire file descriptor and do the read
         FileDescriptor fd = impl.acquireFD();
         try {
+            // Android-added: Check BlockGuard policy in read().
             BlockGuard.getThreadPolicy().onNetwork();
             n = socketRead(fd, b, off, length, timeout);
             if (n > 0) {
@@ -254,7 +261,7 @@ class SocketInputStream extends FileInputStream
      * @return the number of immediately available bytes
      */
     public int available() throws IOException {
-        // Android changed : Bug fix, if eof == true, we must indicate that we
+        // Android-changed: Bug fix, if eof == true, we must indicate that we
         // have 0 bytes available.
         if (eof) {
             return 0;
@@ -288,4 +295,11 @@ class SocketInputStream extends FileInputStream
      * Overrides finalize, the fd is closed by the Socket.
      */
     protected void finalize() {}
+
+    // Android-removed: Android doesn't need native init.
+    /*
+     * Perform class load-time initializations.
+     *
+    private native static void init();
+    */
 }

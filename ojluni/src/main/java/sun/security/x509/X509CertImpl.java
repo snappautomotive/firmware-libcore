@@ -25,16 +25,7 @@
 
 package sun.security.x509;
 
-/* BEGIN android-removed
-import java.io.BufferedReader;
-import java.io.BufferedInputStream;
-import java.io.ByteArrayOutputStream;
- * END android-removed */
 import java.io.IOException;
-/* BEGIN android-removed
-import java.io.InputStream;
-import java.io.InputStreamReader;
-* END android-removed */
 import java.io.OutputStream;
 import java.math.BigInteger;
 import java.security.*;
@@ -45,9 +36,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import javax.security.auth.x500.X500Principal;
 
 import sun.misc.HexDumpEncoder;
-/* BEGIN android-removed
-import java.util.Base64;
- * END android-removed */
 import sun.security.util.*;
 import sun.security.provider.X509Factory;
 
@@ -204,7 +192,8 @@ public class X509CertImpl extends X509Certificate implements DerEncoder {
         }
     }
 
-    /* BEGIN android-removed
+    // BEGIN Android-removed: unused code
+    /*
     /**
      * unmarshals an X.509 certificate from an input stream.  If the
      * certificate is RFC1421 hex-encoded, then it must begin with
@@ -277,7 +266,7 @@ public class X509CertImpl extends X509Certificate implements DerEncoder {
                         der = new DerValue(decstream.toByteArray());
                         break;
                     } else {
-                        decstream.write(Base64.getMimeDecoder().decode(line));
+                        decstream.write(Pem.decode(line));
                     }
                 }
             } catch (IOException ioe2) {
@@ -290,7 +279,8 @@ public class X509CertImpl extends X509Certificate implements DerEncoder {
         }
         return der;
     }
-    * END android-removed */
+    */
+    // END Android-removed: unused code
 
     /**
      * Construct an initialized X509 Certificate. The certificate is stored
@@ -320,6 +310,7 @@ public class X509CertImpl extends X509Certificate implements DerEncoder {
         }
     }
 
+    // BEGIN Android-added: Ctor to retain original encoded form for APKs parsing
     /**
      * Unmarshal a certificate from its encoded form, parsing a DER value.
      * This form of constructor is used by agents which need to examine
@@ -337,6 +328,7 @@ public class X509CertImpl extends X509Certificate implements DerEncoder {
             throw new CertificateException("Unable to initialize, " + e, e);
         }
     }
+    // END Android-added: Ctor to retain original encoded form for APKs parsing
 
     /**
      * Appends the certificate to an output stream.
@@ -1033,9 +1025,7 @@ public class X509CertImpl extends X509Certificate implements DerEncoder {
     public byte[] getSignature() {
         if (signature == null)
             return null;
-        byte[] dup = new byte[signature.length];
-        System.arraycopy(signature, 0, dup, 0, dup.length);
-        return dup;
+        return signature.clone();
     }
 
     /**
@@ -1794,6 +1784,7 @@ public class X509CertImpl extends X509Certificate implements DerEncoder {
      */
     private void parse(DerValue val)
     throws CertificateException, IOException {
+    // BEGIN Android-added: Use original encoded form of cert rather than regenerating.
         parse(
             val,
             null // use re-encoded form of val as the encoded form
@@ -1812,6 +1803,8 @@ public class X509CertImpl extends X509Certificate implements DerEncoder {
      */
     private void parse(DerValue val, byte[] originalEncodedForm)
     throws CertificateException, IOException {
+    // END Android-added: Use original encoded form of cert rather than regenerating.
+
         // check if can over write the certificate
         if (readOnly)
             throw new CertificateParsingException(
@@ -1821,6 +1814,8 @@ public class X509CertImpl extends X509Certificate implements DerEncoder {
             throw new CertificateParsingException(
                       "invalid DER-encoded certificate data");
 
+        // Android-changed: Needed for providing encoded form of cert
+        // signedCert = val.toByteArray();
         signedCert =
                 (originalEncodedForm != null)
                         ? originalEncodedForm : val.toByteArray();
@@ -1977,22 +1972,23 @@ public class X509CertImpl extends X509Certificate implements DerEncoder {
     private ConcurrentHashMap<String,String> fingerprints =
             new ConcurrentHashMap<>(2);
 
-    /* BEGIN android-removed
-    public String getFingerprint(String algorithm) {
-        return fingerprints.computeIfAbsent(algorithm,
-                x -> getCertificateFingerPrint(x));
-    }
-     * END android-removed */
+// BEGIN Android-removed
+//    public String getFingerprint(String algorithm) {
+//        return fingerprints.computeIfAbsent(algorithm,
+//                x -> getFingerprint(x, this));
+//    }
+// END Android-removed
 
     /**
      * Gets the requested finger print of the certificate. The result
      * only contains 0-9 and A-F. No small case, no colon.
      */
-    private String getCertificateFingerPrint(String mdAlg) {
+    public static String getFingerprint(String algorithm,
+            X509Certificate cert) {
         String fingerPrint = "";
         try {
-            byte[] encCertInfo = getEncoded();
-            MessageDigest md = MessageDigest.getInstance(mdAlg);
+            byte[] encCertInfo = cert.getEncoded();
+            MessageDigest md = MessageDigest.getInstance(algorithm);
             byte[] digest = md.digest(encCertInfo);
             StringBuffer buf = new StringBuffer();
             for (int i = 0; i < digest.length; i++) {

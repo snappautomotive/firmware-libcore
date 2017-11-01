@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2014 The Android Open Source Project
- * Copyright (c) 1995, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1995, 2016, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -43,6 +43,11 @@ import dalvik.system.BlockGuard;
  */
 class SocketOutputStream extends FileOutputStream
 {
+    // Android-removed: Android doesn't need to call native init.
+    // static {
+    //    init();
+    //}
+
     private AbstractPlainSocketImpl impl = null;
     private byte temp[] = new byte[1];
     private Socket socket = null;
@@ -96,15 +101,18 @@ class SocketOutputStream extends FileOutputStream
      */
     private void socketWrite(byte b[], int off, int len) throws IOException {
 
-        if (len <= 0 || off < 0 || off + len > b.length) {
+
+        if (len <= 0 || off < 0 || len > b.length - off) {
             if (len == 0) {
                 return;
             }
-            throw new ArrayIndexOutOfBoundsException();
+            throw new ArrayIndexOutOfBoundsException("len == " + len
+                    + " off == " + off + " buffer length == " + b.length);
         }
 
         FileDescriptor fd = impl.acquireFD();
         try {
+            // Android-added: Check BlockGuard policy in socketWrite.
             BlockGuard.getThreadPolicy().onNetwork();
             socketWrite0(fd, b, off, len);
         } catch (SocketException se) {
@@ -174,4 +182,11 @@ class SocketOutputStream extends FileOutputStream
      * Overrides finalize, the fd is closed by the Socket.
      */
     protected void finalize() {}
+
+    // Android-removed: Android doesn't need native init.
+    /*
+     * Perform class load-time initializations.
+     *
+    private native static void init();
+    */
 }

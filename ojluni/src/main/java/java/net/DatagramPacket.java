@@ -43,12 +43,22 @@ package java.net;
 public final
 class DatagramPacket {
 
+    // BEGIN Android-removed: Android doesn't need to load native net library
     /**
      * Perform class initialization
-     */
+     *
     static {
+        java.security.AccessController.doPrivileged(
+            new java.security.PrivilegedAction<Void>() {
+                public Void run() {
+                    System.loadLibrary("net");
+                    return null;
+                }
+            });
         init();
     }
+    */
+    // END Android-removed: init method has been removed
 
     /*
      * The fields of this class are package-private since DatagramSocketImpl
@@ -117,12 +127,18 @@ class DatagramPacket {
         setPort(port);
     }
 
+    // Android-changed: Added Android-specific notes regarding the exception signature change.
     /**
      * Constructs a datagram packet for sending packets of length
      * {@code length} with offset {@code ioffset}to the
      * specified port number on the specified host. The
      * {@code length} argument must be less than or equal to
      * {@code buf.length}.
+     *
+     * <p>
+     * <em>Android note</em>: Up to and including API 25 this method declared that a SocketException
+     * can be thrown, although the exception is never thrown. Code compiled against a newer SDK does
+     * not need to catch the exception and will be binary compatible with older versions of Android.
      *
      * @param   buf      the packet data.
      * @param   offset   the packet data offset.
@@ -138,11 +154,17 @@ class DatagramPacket {
         setSocketAddress(address);
     }
 
+    // Android-changed: Added Android-specific notes regarding the exception signature change.
     /**
      * Constructs a datagram packet for sending packets of length
      * {@code length} to the specified port number on the specified
      * host. The {@code length} argument must be less than or equal
      * to {@code buf.length}.
+     *
+     * <p>
+     * <em>Android note</em>: Up to and including API 25 this method declared that a SocketException
+     * can be thrown, although the exception is never thrown. Code compiled against a newer SDK does
+     * not need to catch the exception and will be binary compatible with older versions of Android.
      *
      * @param   buf      the packet data.
      * @param   length   the packet length.
@@ -277,7 +299,7 @@ class DatagramPacket {
         address = iaddr;
     }
 
-    // ----- BEGIN android -----
+    // BEGIN Android-changed
     /**
      * Sets 'length' without changing 'userSuppliedLength', after receiving a packet.
      * @hide for IoBridge
@@ -285,7 +307,7 @@ class DatagramPacket {
     public void setReceivedLength(int length) {
         this.length = length;
     }
-    // ----- END android -----
+    // END Android-changed
 
     /**
      * Sets the port number on the remote host to which this datagram
@@ -385,8 +407,9 @@ class DatagramPacket {
         this.bufLength = this.length;
     }
 
-    /**
-     * Perform class load-time initializations.
-     */
-    private native static void init();
+    // Android-removed: JNI has been removed
+    // /**
+    //  * Perform class load-time initializations.
+    //  */
+    // private native static void init();
 }

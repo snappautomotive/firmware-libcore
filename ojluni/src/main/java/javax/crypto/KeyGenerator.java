@@ -33,9 +33,6 @@ import java.security.spec.*;
 
 import sun.security.jca.*;
 import sun.security.jca.GetInstance.Instance;
-/* ANDROID-REMOVED: this debugging mechanism is not used in Android.
-import sun.security.util.Debug;
-*/
 
 /**
  * This class provides the functionality of a secret (symmetric) key generator.
@@ -88,70 +85,70 @@ import sun.security.util.Debug;
  *
  * <p> Android provides the following <code>KeyGenerator</code> algorithms:
  * <table>
- *     <thead>
- *         <tr>
- *             <th>Name</th>
- *             <th>Supported (API Levels)</th>
- *         </tr>
- *     </thead>
- *     <tbody>
- *         <tr>
- *             <td>AES</td>
- *             <td>1+</td>
- *         </tr>
- *         <tr>
- *             <td>AESWRAP</td>
- *             <td>1&ndash;8</td>
- *         </tr>
- *         <tr>
- *             <td>ARC4</td>
- *             <td>14+</td>
- *         </tr>
- *         <tr>
- *             <td>Blowfish</td>
- *             <td>10+</td>
- *         </tr>
- *         <tr>
- *             <td>DES</td>
- *             <td>1+</td>
- *         </tr>
- *         <tr>
- *             <td>DESede</td>
- *             <td>1+</td>
- *         </tr>
- *         <tr>
- *             <td>DESedeWRAP</td>
- *             <td>1&ndash;8</td>
- *         </tr>
- *         <tr>
- *             <td>HmacMD5</td>
- *             <td>1+</td>
- *         </tr>
- *         <tr>
- *             <td>HmacSHA1</td>
- *             <td>1+</td>
- *         </tr>
- *         <tr>
- *             <td>HmacSHA224</td>
- *             <td>1&ndash;8,22+</td>
- *         </tr>
- *         <tr>
- *             <td>HmacSHA256</td>
- *             <td>1+</td>
- *         </tr>
- *         <tr>
- *             <td>HmacSHA384</td>
- *             <td>1+</td>
- *         </tr>
- *         <tr>
- *             <td>HmacSHA512</td>
- *             <td>1+</td>
- *         </tr>
- *         <tr>
- *             <td>RC4</td>
- *             <td>10&ndash;13</td>
- *         </tr>
- *     </tbody>
+ *   <thead>
+ *     <tr>
+ *       <th>Algorithm</th>
+ *       <th>Supported API Levels</th>
+ *     </tr>
+ *   </thead>
+ *   <tbody>
+ *     <tr>
+ *       <td>AES</td>
+ *       <td>1+</td>
+ *     </tr>
+ *     <tr class="deprecated">
+ *       <td>AESWRAP</td>
+ *       <td>1-8</td>
+ *     </tr>
+ *     <tr>
+ *       <td>ARC4</td>
+ *       <td>14+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>BLOWFISH</td>
+ *       <td>10+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>DES</td>
+ *       <td>1+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>DESede</td>
+ *       <td>1+</td>
+ *     </tr>
+ *     <tr class="deprecated">
+ *       <td>DESedeWRAP</td>
+ *       <td>1-8</td>
+ *     </tr>
+ *     <tr>
+ *       <td>HmacMD5</td>
+ *       <td>1+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>HmacSHA1</td>
+ *       <td>11+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>HmacSHA224</td>
+ *       <td>1-8,22+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>HmacSHA256</td>
+ *       <td>1+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>HmacSHA384</td>
+ *       <td>1+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>HmacSHA512</td>
+ *       <td>1+</td>
+ *     </tr>
+ *     <tr class="deprecated">
+ *       <td>RC4</td>
+ *       <td>10-13</td>
+ *     </tr>
+ *   </tbody>
  * </table>
  *
  * These algorithms are described in the <a href=
@@ -167,7 +164,8 @@ import sun.security.util.Debug;
 
 public class KeyGenerator {
 
-    /* ANDROID-REMOVED: this debugging mechanism is not used in Android.
+    // Android-removed: this debugging mechanism is not used in Android.
+    /*
     private static final Debug pdebug =
                         Debug.getInstance("provider", "Provider");
     private static final boolean skipDebug =
@@ -212,7 +210,8 @@ public class KeyGenerator {
         this.provider = provider;
         this.algorithm = algorithm;
 
-        /* ANDROID-REMOVED: this debugging mechanism is not used in Android.
+        // Android-removed: this debugging mechanism is not used in Android.
+        /*
         if (!skipDebug && pdebug != null) {
             pdebug.println("KeyGenerator." + algorithm + " algorithm from: " +
                 this.provider.getName());
@@ -232,7 +231,8 @@ public class KeyGenerator {
                 (algorithm + " KeyGenerator not available");
         }
 
-        /* ANDROID-REMOVED: this debugging mechanism is not used in Android.
+        // Android-removed: this debugging mechanism is not used in Android.
+        /*
         if (!skipDebug && pdebug != null) {
             pdebug.println("KeyGenerator." + algorithm + " algorithm from: " +
                 this.provider.getName());
@@ -326,6 +326,8 @@ public class KeyGenerator {
     public static final KeyGenerator getInstance(String algorithm,
             String provider) throws NoSuchAlgorithmException,
             NoSuchProviderException {
+        // Android-added: Check for Bouncy Castle deprecation
+        Providers.checkBouncyCastleDeprecation(provider, "KeyGenerator", algorithm);
         Instance instance = JceSecurity.getInstance("KeyGenerator",
                 KeyGeneratorSpi.class, algorithm, provider);
         return new KeyGenerator((KeyGeneratorSpi)instance.impl,
@@ -364,6 +366,8 @@ public class KeyGenerator {
      */
     public static final KeyGenerator getInstance(String algorithm,
             Provider provider) throws NoSuchAlgorithmException {
+        // Android-added: Check for Bouncy Castle deprecation
+        Providers.checkBouncyCastleDeprecation(provider, "KeyGenerator", algorithm);
         Instance instance = JceSecurity.getInstance("KeyGenerator",
                 KeyGeneratorSpi.class, algorithm, provider);
         return new KeyGenerator((KeyGeneratorSpi)instance.impl,

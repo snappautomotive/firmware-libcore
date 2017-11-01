@@ -19,20 +19,21 @@ package libcore.io;
 import android.system.ErrnoException;
 import android.system.GaiException;
 import android.system.StructAddrinfo;
+import android.system.StructCapUserData;
+import android.system.StructCapUserHeader;
 import android.system.StructFlock;
 import android.system.StructGroupReq;
-import android.system.StructGroupSourceReq;
 import android.system.StructIfaddrs;
 import android.system.StructLinger;
 import android.system.StructPasswd;
 import android.system.StructPollfd;
+import android.system.StructRlimit;
 import android.system.StructStat;
 import android.system.StructStatVfs;
 import android.system.StructTimeval;
 import android.system.StructUcred;
 import android.system.StructUtsname;
-import android.util.MutableInt;
-import android.util.MutableLong;
+
 import java.io.FileDescriptor;
 import java.io.InterruptedIOException;
 import java.net.InetAddress;
@@ -40,6 +41,8 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
+import libcore.util.MutableInt;
+import libcore.util.MutableLong;
 
 /**
  * Subclass this if you want to override some {@link Os} methods but otherwise delegate.
@@ -56,6 +59,14 @@ public class ForwardingOs implements Os {
     public InetAddress[] android_getaddrinfo(String node, StructAddrinfo hints, int netId) throws GaiException { return os.android_getaddrinfo(node, hints, netId); }
     public void bind(FileDescriptor fd, InetAddress address, int port) throws ErrnoException, SocketException { os.bind(fd, address, port); }
     public void bind(FileDescriptor fd, SocketAddress address) throws ErrnoException, SocketException { os.bind(fd, address); }
+    @Override
+    public StructCapUserData[] capget(StructCapUserHeader hdr) throws ErrnoException {
+        return os.capget(hdr);
+    }
+    @Override
+    public void capset(StructCapUserHeader hdr, StructCapUserData[] data) throws ErrnoException {
+        os.capset(hdr, data);
+    }
     public void chmod(String path, int mode) throws ErrnoException { os.chmod(path, mode); }
     public void chown(String path, int uid, int gid) throws ErrnoException { os.chown(path, uid, gid); }
     public void close(FileDescriptor fd) throws ErrnoException { os.close(fd); }
@@ -88,6 +99,7 @@ public class ForwardingOs implements Os {
     public int getppid() { return os.getppid(); }
     public StructPasswd getpwnam(String name) throws ErrnoException { return os.getpwnam(name); }
     public StructPasswd getpwuid(int uid) throws ErrnoException { return os.getpwuid(uid); }
+    public StructRlimit getrlimit(int resource) throws ErrnoException { return os.getrlimit(resource); }
     public SocketAddress getsockname(FileDescriptor fd) throws ErrnoException { return os.getsockname(fd); }
     public int getsockoptByte(FileDescriptor fd, int level, int option) throws ErrnoException { return os.getsockoptByte(fd, level, option); }
     public InetAddress getsockoptInAddr(FileDescriptor fd, int level, int option) throws ErrnoException { return os.getsockoptInAddr(fd, level, option); }
@@ -158,7 +170,6 @@ public class ForwardingOs implements Os {
     public void setsockoptInt(FileDescriptor fd, int level, int option, int value) throws ErrnoException { os.setsockoptInt(fd, level, option, value); }
     public void setsockoptIpMreqn(FileDescriptor fd, int level, int option, int value) throws ErrnoException { os.setsockoptIpMreqn(fd, level, option, value); }
     public void setsockoptGroupReq(FileDescriptor fd, int level, int option, StructGroupReq value) throws ErrnoException { os.setsockoptGroupReq(fd, level, option, value); }
-    public void setsockoptGroupSourceReq(FileDescriptor fd, int level, int option, StructGroupSourceReq value) throws ErrnoException { os.setsockoptGroupSourceReq(fd, level, option, value); }
     public void setsockoptLinger(FileDescriptor fd, int level, int option, StructLinger value) throws ErrnoException { os.setsockoptLinger(fd, level, option, value); }
     public void setsockoptTimeval(FileDescriptor fd, int level, int option, StructTimeval value) throws ErrnoException { os.setsockoptTimeval(fd, level, option, value); }
     public void setuid(int uid) throws ErrnoException { os.setuid(uid); }

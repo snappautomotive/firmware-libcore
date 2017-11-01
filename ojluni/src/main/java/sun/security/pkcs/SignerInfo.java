@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2014 The Android Open Source Project
- * Copyright (c) 1996, 2012, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1996, 2016, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -26,28 +26,43 @@
 
 package sun.security.pkcs;
 
-// BEGIN android-added
 import java.io.InputStream;
 import java.io.ByteArrayInputStream;
-// END android-added
 import java.io.OutputStream;
 import java.io.IOException;
 import java.math.BigInteger;
+import java.security.CryptoPrimitive;
+import java.security.InvalidKeyException;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.Principal;
+import java.security.PublicKey;
+import java.security.Signature;
+import java.security.SignatureException;
+import java.security.Timestamp;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.CertPath;
 import java.security.cert.X509Certificate;
-import java.security.*;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.Set;
 
+import sun.misc.HexDumpEncoder;
 import sun.security.timestamp.TimestampToken;
-import sun.security.util.*;
+import sun.security.util.Debug;
+import sun.security.util.DerEncoder;
+import sun.security.util.DerInputStream;
+import sun.security.util.DerOutputStream;
+import sun.security.util.DerValue;
+import sun.security.util.DisabledAlgorithmConstraints;
+import sun.security.util.KeyUtil;
+import sun.security.util.ObjectIdentifier;
 import sun.security.x509.AlgorithmId;
 import sun.security.x509.X500Name;
 import sun.security.x509.KeyUsageExtension;
-import sun.security.x509.PKIXExtensions;
-import sun.misc.HexDumpEncoder;
 
 /**
  * A SignerInfo, as defined in PKCS#7's signedData type.
@@ -55,6 +70,17 @@ import sun.misc.HexDumpEncoder;
  * @author Benjamin Renaud
  */
 public class SignerInfo implements DerEncoder {
+
+    // Digest and Signature restrictions
+    private static final Set<CryptoPrimitive> DIGEST_PRIMITIVE_SET =
+            Collections.unmodifiableSet(EnumSet.of(CryptoPrimitive.MESSAGE_DIGEST));
+
+    private static final Set<CryptoPrimitive> SIG_PRIMITIVE_SET =
+            Collections.unmodifiableSet(EnumSet.of(CryptoPrimitive.SIGNATURE));
+
+    private static final DisabledAlgorithmConstraints JAR_DISABLED_CHECK =
+            new DisabledAlgorithmConstraints(
+                    DisabledAlgorithmConstraints.PROPERTY_JAR_DISABLED_ALGS);
 
     BigInteger version;
     X500Name issuerName;
@@ -64,9 +90,8 @@ public class SignerInfo implements DerEncoder {
     byte[] encryptedDigest;
     Timestamp timestamp;
     private boolean hasTimestamp = true;
-    /* BEGIN android-removed
-    private static final Debug debug = Debug.getInstance("jar");
-     * END android-removed */
+    // Android-removed: This debugging mechanism is not supported in Android.
+    // private static final Debug debug = Debug.getInstance("jar");
 
     PKCS9Attributes authenticatedAttributes;
     PKCS9Attributes unauthenticatedAttributes;
@@ -288,8 +313,7 @@ public class SignerInfo implements DerEncoder {
         return certList;
     }
 
-    // BEGIN android-changed
-    // Originally there's no overloading for InputStream.
+// BEGIN Android-changed: Add verify() overload that takes an InputStream.
     SignerInfo verify(PKCS7 block, byte[] data)
     throws NoSuchAlgorithmException, SignatureException {
       try {
@@ -304,21 +328,28 @@ public class SignerInfo implements DerEncoder {
        verify succeeds. */
     SignerInfo verify(PKCS7 block, InputStream inputStream)
     throws NoSuchAlgorithmException, SignatureException, IOException {
+// END Android-changed: Add verify() overload that takes an InputStream.
 
        try {
 
             ContentInfo content = block.getContentInfo();
+            // BEGIN Android-changed: Our implementation uses InputStream instead of byte[].
             if (inputStream == null) {
                 inputStream = new ByteArrayInputStream(content.getContentBytes());
             }
+           // END Android-changed: Our implementation uses InputStream instead of byte[].
 
             String digestAlgname = getDigestAlgorithmId().getName();
 
+            // Android-changed: Our implementation uses InputStream instead of byte[].
+            // byte[] dataSigned;
             InputStream dataSigned;
 
             // if there are authenticate attributes, get the message
             // digest and compare it with the digest of data
             if (authenticatedAttributes == null) {
+                // Android-changed: Our implementation uses InputStream instead of byte[].
+                // dataSigned = data;
                 dataSigned = inputStream;
             } else {
 
@@ -338,14 +369,23 @@ public class SignerInfo implements DerEncoder {
                 if (messageDigest == null) // fail if there is no message digest
                     return null;
 
+                // check that algorithm is not restricted
+                if (!JAR_DISABLED_CHECK.permits(DIGEST_PRIMITIVE_SET,
+                        digestAlgname, null)) {
+                    throw new SignatureException("Digest check failed. " +
+                            "Disabled algorithm used: " + digestAlgname);
+                }
+
                 MessageDigest md = MessageDigest.getInstance(digestAlgname);
 
+                // BEGIN Android-changed: Our implementation uses InputStream instead of byte[].
                 byte[] buffer = new byte[4096];
                 int read = 0;
                 while ((read = inputStream.read(buffer)) != -1) {
                   md.update(buffer, 0 , read);
                 }
                 byte[] computedMessageDigest = md.digest();
+                // END Android-changed: Our implementation uses InputStream instead of byte[].
 
                 if (messageDigest.length != computedMessageDigest.length)
                     return null;
@@ -360,6 +400,8 @@ public class SignerInfo implements DerEncoder {
                 // the data actually signed is the DER encoding of
                 // the authenticated attributes (tagged with
                 // the "SET OF" tag, not 0xA0).
+                // Android-changed: Our implementation uses InputStream instead of byte[].
+                // dataSigned = authenticatedAttributes.getDerEncoding();
                 dataSigned = new ByteArrayInputStream(authenticatedAttributes.getDerEncoding());
             }
 
@@ -375,12 +417,26 @@ public class SignerInfo implements DerEncoder {
             String algname = AlgorithmId.makeSigAlg(
                     digestAlgname, encryptionAlgname);
 
-            Signature sig = Signature.getInstance(algname);
-            X509Certificate cert = getCertificate(block);
+            // check that algorithm is not restricted
+            if (!JAR_DISABLED_CHECK.permits(SIG_PRIMITIVE_SET, algname, null)) {
+                throw new SignatureException("Signature check failed. " +
+                        "Disabled algorithm used: " + algname);
+            }
 
+            X509Certificate cert = getCertificate(block);
+            PublicKey key = cert.getPublicKey();
             if (cert == null) {
                 return null;
             }
+
+            // check if the public key is restricted
+            if (!JAR_DISABLED_CHECK.permits(SIG_PRIMITIVE_SET, key)) {
+                throw new SignatureException("Public key check failed. " +
+                        "Disabled key used: " +
+                        KeyUtil.getKeySize(key) + " bit " +
+                        key.getAlgorithm());
+            }
+
             if (cert.hasUnsupportedCriticalExtension()) {
                 throw new SignatureException("Certificate has unsupported "
                                              + "critical extension(s)");
@@ -417,14 +473,16 @@ public class SignerInfo implements DerEncoder {
                 }
             }
 
-            PublicKey key = cert.getPublicKey();
+            Signature sig = Signature.getInstance(algname);
             sig.initVerify(key);
 
+            // BEGIN Android-changed: Our implementation uses InputStream instead of byte[].
             byte[] buffer = new byte[4096];
             int read = 0;
             while ((read = dataSigned.read(buffer)) != -1) {
               sig.update(buffer, 0 , read);
             }
+            // END Android-changed: Our implementation uses InputStream instead of byte[].
             if (sig.verify(encryptedDigest)) {
                 return this;
             }
@@ -439,16 +497,13 @@ public class SignerInfo implements DerEncoder {
         }
         return null;
     }
-    // END android-changed
 
     /* Verify the content of the pkcs7 block. */
     SignerInfo verify(PKCS7 block)
     throws NoSuchAlgorithmException, SignatureException {
-      // BEGIN android-changed
-      // Was: return verify(block, null);
-      // As in Android the method is overloaded, we need to disambiguate with a cast
-      return verify(block, (byte[])null);
-      // END android-changed
+      // Android-changed: Overload disambiguation.
+      // return verify(block, null);
+      return verify(block, (byte[]) null);
     }
 
 
@@ -484,6 +539,23 @@ public class SignerInfo implements DerEncoder {
         return unauthenticatedAttributes;
     }
 
+    /**
+     * Returns the timestamp PKCS7 data unverified.
+     * @return a PKCS7 object
+     */
+    public PKCS7 getTsToken() throws IOException {
+        if (unauthenticatedAttributes == null) {
+            return null;
+        }
+        PKCS9Attribute tsTokenAttr =
+                unauthenticatedAttributes.getAttribute(
+                        PKCS9Attribute.SIGNATURE_TIMESTAMP_TOKEN_OID);
+        if (tsTokenAttr == null) {
+            return null;
+        }
+        return new PKCS7((byte[])tsTokenAttr.getValue());
+    }
+
     /*
      * Extracts a timestamp from a PKCS7 SignerInfo.
      *
@@ -508,23 +580,15 @@ public class SignerInfo implements DerEncoder {
         throws IOException, NoSuchAlgorithmException, SignatureException,
                CertificateException
     {
-
         if (timestamp != null || !hasTimestamp)
             return timestamp;
 
-        if (unauthenticatedAttributes == null) {
-            hasTimestamp = false;
-            return null;
-        }
-        PKCS9Attribute tsTokenAttr =
-            unauthenticatedAttributes.getAttribute(
-                PKCS9Attribute.SIGNATURE_TIMESTAMP_TOKEN_OID);
-        if (tsTokenAttr == null) {
+        PKCS7 tsToken = getTsToken();
+        if (tsToken == null) {
             hasTimestamp = false;
             return null;
         }
 
-        PKCS7 tsToken = new PKCS7((byte[])tsTokenAttr.getValue());
         // Extract the content (an encoded timestamp token info)
         byte[] encTsTokenInfo = tsToken.getContentInfo().getData();
         // Extract the signer (the Timestamping Authority)
@@ -550,9 +614,16 @@ public class SignerInfo implements DerEncoder {
      */
     private void verifyTimestamp(TimestampToken token)
         throws NoSuchAlgorithmException, SignatureException {
+        String digestAlgname = token.getHashAlgorithm().getName();
+        // check that algorithm is not restricted
+        if (!JAR_DISABLED_CHECK.permits(DIGEST_PRIMITIVE_SET, digestAlgname,
+                null)) {
+            throw new SignatureException("Timestamp token digest check failed. " +
+                    "Disabled algorithm used: " + digestAlgname);
+        }
 
         MessageDigest md =
-            MessageDigest.getInstance(token.getHashAlgorithm().getName());
+            MessageDigest.getInstance(digestAlgname);
 
         if (!Arrays.equals(token.getHashedMessage(),
             md.digest(encryptedDigest))) {
@@ -562,14 +633,16 @@ public class SignerInfo implements DerEncoder {
                 " is inapplicable");
         }
 
-        /* BEGIN android-removed
+        // BEGIN Android-removed: This debugging mechanism is not supported in Android.
+        /*
         if (debug != null) {
             debug.println();
             debug.println("Detected signature timestamp (#" +
                 token.getSerialNumber() + ") generated on " + token.getDate());
             debug.println();
         }
-         * END android-removed */
+        */
+        // END Android-removed: This debugging mechanism is not supported in Android.
     }
 
     public String toString() {

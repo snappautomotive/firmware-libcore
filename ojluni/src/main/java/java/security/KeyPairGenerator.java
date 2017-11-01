@@ -34,11 +34,6 @@ import java.security.Provider.Service;
 import sun.security.jca.*;
 import sun.security.jca.GetInstance.Instance;
 
-/*
-ANDROID-REMOVED: this debugging mechanism is not supported in Android.
-import sun.security.util.Debug;
-*/
-
 /**
  * The KeyPairGenerator class is used to generate pairs of
  * public and private keys. Key pair generators are constructed using the
@@ -111,30 +106,30 @@ import sun.security.util.Debug;
  *
  * <p> Android provides the following <code>KeyPairGenerator</code> algorithms:
  * <table>
- *     <thead>
- *         <tr>
- *             <th>Name</th>
- *             <th>Supported (API Levels)</th>
- *         </tr>
- *     </thead>
- *     <tbody>
- *         <tr>
- *             <td>DH</td>
- *             <td>1+</td>
- *         </tr>
- *         <tr>
- *             <td>DSA</td>
- *             <td>1+</td>
- *         </tr>
- *         <tr>
- *             <td>EC</td>
- *             <td>11+</td>
- *         </tr>
- *         <tr>
- *             <td>RSA</td>
- *             <td>1+</td>
- *         </tr>
- *     </tbody>
+ *   <thead>
+ *     <tr>
+ *       <th>Algorithm</th>
+ *       <th>Supported API Levels</th>
+ *     </tr>
+ *   </thead>
+ *   <tbody>
+ *     <tr>
+ *       <td>DH</td>
+ *       <td>1+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>DSA</td>
+ *       <td>1+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>EC</td>
+ *       <td>11+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>RSA</td>
+ *       <td>1+</td>
+ *     </tr>
+ *   </tbody>
  * </table>
  *
  * These algorithms are described in the <a href=
@@ -149,8 +144,8 @@ import sun.security.util.Debug;
 
 public abstract class KeyPairGenerator extends KeyPairGeneratorSpi {
 
+    // Android-removed: this debugging mechanism is not used in Android.
     /*
-    ANDROID-REMOVED: this debugging mechanism is not supported in Android.
     private static final Debug pdebug =
                         Debug.getInstance("provider", "Provider");
     private static final boolean skipDebug =
@@ -199,8 +194,8 @@ public abstract class KeyPairGenerator extends KeyPairGeneratorSpi {
         }
         kpg.provider = instance.provider;
 
+        // Android-removed: this debugging mechanism is not used in Android.
         /*
-        ANDROID-REMOVED: this debugging mechanism is not supported in Android.
         if (!skipDebug && pdebug != null) {
             pdebug.println("KeyPairGenerator." + algorithm +
                 " algorithm from: " + kpg.provider.getName());
@@ -304,6 +299,8 @@ public abstract class KeyPairGenerator extends KeyPairGeneratorSpi {
     public static KeyPairGenerator getInstance(String algorithm,
             String provider)
             throws NoSuchAlgorithmException, NoSuchProviderException {
+        // Android-added: Check for Bouncy Castle deprecation
+        Providers.checkBouncyCastleDeprecation(provider, "KeyPairGenerator", algorithm);
         Instance instance = GetInstance.getInstance("KeyPairGenerator",
                 KeyPairGeneratorSpi.class, algorithm, provider);
         return getInstance(instance, algorithm);
@@ -340,6 +337,8 @@ public abstract class KeyPairGenerator extends KeyPairGeneratorSpi {
      */
     public static KeyPairGenerator getInstance(String algorithm,
             Provider provider) throws NoSuchAlgorithmException {
+        // Android-added: Check for Bouncy Castle deprecation
+        Providers.checkBouncyCastleDeprecation(provider, "KeyPairGenerator", algorithm);
         Instance instance = GetInstance.getInstance("KeyPairGenerator",
                 KeyPairGeneratorSpi.class, algorithm, provider);
         return getInstance(instance, algorithm);
@@ -598,8 +597,8 @@ public abstract class KeyPairGenerator extends KeyPairGeneratorSpi {
             this.serviceIterator = serviceIterator;
             initType = I_NONE;
 
+            // Android-removed: this debugging mechanism is not used in Android.
             /*
-            ANDROID-REMOVED: this debugging mechanism is not supported in Android.
             if (!skipDebug && pdebug != null) {
                 pdebug.println("KeyPairGenerator." + algorithm +
                     " algorithm from: " + provider.getName());

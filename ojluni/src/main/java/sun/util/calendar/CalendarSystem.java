@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2014 The Android Open Source Project
- * Copyright (c) 2000, 2005, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2000, 2013, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -26,13 +26,11 @@
 
 package sun.util.calendar;
 
-import java.lang.reflect.Field;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
-import java.util.MissingResourceException;
-import java.util.ResourceBundle;
-import java.util.Set;
+import java.util.Properties;
 import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -77,25 +75,53 @@ public abstract class CalendarSystem {
 
     /////////////////////// Calendar Factory Methods /////////////////////////
 
+    // BEGIN Android-changed: avoid reflection for loading calendar classes.
+    // // Map of calendar names and calendar class names
+    // private static ConcurrentMap<String, String> names;
     // Map of calendar names and calendar classes;
     private static final Map<String, Class<?>> names;
 
-    // Android changed : Don't use reflection for Class.forName every time.
+    // Map of calendar names and CalendarSystem instances
+    private static final ConcurrentMap<String, CalendarSystem> calendars =
+            new ConcurrentHashMap<>();
 
     static {
         names = new HashMap<>();
         names.put("gregorian", Gregorian.class);
         names.put("japanese", LocalGregorianCalendar.class);
         names.put("julian", JulianCalendar.class);
-        // names.put("hebrew", "HebrewCalendar");
-        // names.put("iso8601", "ISOCalendar");
-        // names.put("taiwanese", "LocalGregorianCalendar");
-        // names.put("thaibuddhist", "LocalGregorianCalendar");
+    // END Android-changed: avoid reflection for loading calendar classes.
+        /*
+        "hebrew", "HebrewCalendar",
+        "iso8601", "ISOCalendar",
+        "taiwanese", "LocalGregorianCalendar",
+        "thaibuddhist", "LocalGregorianCalendar",
+        */
     }
 
-    // Map of calendar names and CalendarSystem instances
-    private static final ConcurrentMap<String, CalendarSystem> calendars =
-            new ConcurrentHashMap<>();
+    // BEGIN Android-removed: avoid reflection for loading calendar classes.
+    /*
+    private static void initNames() {
+        ConcurrentMap<String,String> nameMap = new ConcurrentHashMap<>();
+
+        // Associate a calendar name with its class name and the
+        // calendar class name with its date class name.
+        StringBuilder clName = new StringBuilder();
+        for (int i = 0; i < namePairs.length; i += 2) {
+            clName.setLength(0);
+            String cl = clName.append(PACKAGE_NAME).append(namePairs[i+1]).toString();
+            nameMap.put(namePairs[i], cl);
+        }
+        synchronized (CalendarSystem.class) {
+            if (!initialized) {
+                names = nameMap;
+                calendars = new ConcurrentHashMap<>();
+                initialized = true;
+            }
+        }
+    }
+    */
+    // END Android-removed: avoid reflection for loading calendar classes.
 
     private final static Gregorian GREGORIAN_INSTANCE = new Gregorian();
 
@@ -124,6 +150,8 @@ public abstract class CalendarSystem {
             return GREGORIAN_INSTANCE;
         }
 
+        // Android-changed: remove lazy initialization, use classes instead of class names.
+
         CalendarSystem cal = calendars.get(calendarName);
         if (cal != null) {
             return cal;
@@ -141,15 +169,31 @@ public abstract class CalendarSystem {
             try {
                 cal = (CalendarSystem) calendarClass.newInstance();
             } catch (Exception e) {
-                throw new RuntimeException("internal error", e);
+                throw new InternalError(e);
             }
         }
         if (cal == null) {
             return null;
         }
-
         CalendarSystem cs =  calendars.putIfAbsent(calendarName, cal);
         return (cs == null) ? cal : cs;
+    }
+
+    /**
+     * Returns a {@link Properties} loaded from lib/calendars.properties.
+     *
+     * @return a {@link Properties} loaded from lib/calendars.properties
+     * @throws IOException if an error occurred when reading from the input stream
+     * @throws IllegalArgumentException if the input stream contains any malformed
+     *                                  Unicode escape sequences
+     */
+    public static Properties getCalendarProperties() throws IOException {
+        // Android-changed: load calendar Properties from resources.
+        Properties calendarProps = new Properties();
+        try (InputStream is = ClassLoader.getSystemResourceAsStream("calendars.properties")) {
+            calendarProps.load(is);
+        }
+        return calendarProps;
     }
 
     //////////////////////////////// Calendar API //////////////////////////////////

@@ -16,29 +16,18 @@
 
 #define LOG_TAG "NativeBN"
 
-#include "JNIHelp.h"
-#include "JniConstants.h"
 #include "JniException.h"
-#include "ScopedPrimitiveArray.h"
-#include "ScopedUtfChars.h"
 #include "jni.h"
+#include <nativehelper/JNIHelp.h>
+#include <nativehelper/JniConstants.h>
+#include <nativehelper/ScopedPrimitiveArray.h>
+#include <nativehelper/ScopedUtfChars.h>
 #include <openssl/bn.h>
 #include <openssl/crypto.h>
 #include <openssl/err.h>
 #include <stdio.h>
+#include <algorithm>
 #include <memory>
-
-#if defined(OPENSSL_IS_BORINGSSL)
-/* BoringSSL no longer exports |bn_check_top|. */
-static void bn_check_top(const BIGNUM* bn) {
-  /* This asserts that |bn->top| (which contains the number of elements of
-   * |bn->d| that are valid) is minimal. In other words, that there aren't
-   * superfluous zeros. */
-  if (bn != NULL && bn->top != 0 && bn->d[bn->top-1] == 0) {
-    abort();
-  }
-}
-#endif
 
 struct BN_CTX_Deleter {
   void operator()(BN_CTX* p) const {
@@ -197,125 +186,29 @@ static void NativeBN_BN_bin2bn(JNIEnv* env, jclass, jbyteArray arr, int len, jbo
   BN_set_negative(toBigNum(ret), neg);
 }
 
-/**
- * Note:
- * This procedure directly writes the internal representation of BIGNUMs.
- * We do so as there is no direct interface based on Little Endian Integer Arrays.
- * Also note that the same representation is used in the Cordoba Java Implementation of BigIntegers,
- *        whereof certain functionality is still being used.
- */
 static void NativeBN_litEndInts2bn(JNIEnv* env, jclass, jintArray arr, int len, jboolean neg, jlong ret0) {
   if (!oneValidHandle(env, ret0)) return;
   BIGNUM* ret = toBigNum(ret0);
-  bn_check_top(ret);
-  if (len > 0) {
-    ScopedIntArrayRO scopedArray(env, arr);
-    if (scopedArray.get() == NULL) {
-      return;
-    }
-#ifdef __LP64__
-    const int wlen = (len + 1) / 2;
-#else
-    const int wlen = len;
-#endif
-    const unsigned int* tmpInts = reinterpret_cast<const unsigned int*>(scopedArray.get());
-    if (!bn_wexpand(ret, wlen)) {
-      throwException(env);
-      return;
-    }
 
-#ifdef __LP64__
-    if (len % 2) {
-      ret->d[wlen - 1] = tmpInts[--len];
-    }
-    if (len > 0) {
-      for (int i = len - 2; i >= 0; i -= 2) {
-        ret->d[i/2] = ((unsigned long long)tmpInts[i+1] << 32) | tmpInts[i];
-      }
-    }
-#else
-    int i = len; do { i--; ret->d[i] = tmpInts[i]; } while (i > 0);
-#endif
-    ret->top = wlen;
-    ret->neg = neg;
-    // need to call this due to clear byte at top if avoiding
-    // having the top bit set (-ve number)
-    // Basically get rid of top zero ints:
-    bn_correct_top(ret);
-  } else { // (len = 0) means value = 0 and sign will be 0, too.
-    ret->top = 0;
+  ScopedIntArrayRO scopedArray(env, arr);
+
+  if (scopedArray.get() == NULL) {
+    return;
   }
+
+  // We can simply interpret the little-endian integer stream as a
+  // little-endian byte stream and use BN_le2bn.
+  const uint8_t* tmpBytes = reinterpret_cast<const uint8_t *>(scopedArray.get());
+  size_t numBytes = len * sizeof(int);
+
+  if (!BN_le2bn(tmpBytes, numBytes, ret)) {
+    throwException(env);
+  }
+
+  BN_set_negative(ret, neg);
 }
 
-
-#ifdef __LP64__
-#define BYTES2ULONG(bytes, k) \
-    (((bytes)[(k) + 7] & 0xffULL)       | ((bytes)[(k) + 6] & 0xffULL) <<  8 | ((bytes)[(k) + 5] & 0xffULL) << 16 | ((bytes)[(k) + 4] & 0xffULL) << 24 | \
-     ((bytes)[(k) + 3] & 0xffULL) << 32 | ((bytes)[(k) + 2] & 0xffULL) << 40 | ((bytes)[(k) + 1] & 0xffULL) << 48 | ((bytes)[(k) + 0] & 0xffULL) << 56)
-#else
-#define BYTES2ULONG(bytes, k) \
-    (((bytes)[(k) + 3] & 0xff) | ((bytes)[(k) + 2] & 0xff) << 8 | ((bytes)[(k) + 1] & 0xff) << 16 | ((bytes)[(k) + 0] & 0xff) << 24)
-#endif
-
-// negBigEndianBytes2bn interprets |bytes| as a little-endian two's complement negative integer and
-// sets |ret0| to the result. It returns true on success and false on allocation failure.
-static bool negBigEndianBytes2bn(JNIEnv*, jclass, const unsigned char* bytes, int bytesLen, jlong ret0) {
-  BIGNUM* ret = toBigNum(ret0);
-
-  bn_check_top(ret);
-  // FIXME: assert bytesLen > 0
-  int wLen = (bytesLen + sizeof(BN_ULONG) - 1) / sizeof(BN_ULONG);
-  int firstNonzeroDigit = -2;
-  if (!bn_wexpand(ret, wLen)) {
-    return false;
-  }
-
-  BN_ULONG* d = ret->d;
-  BN_ULONG di;
-  ret->top = wLen;
-  int highBytes = bytesLen % sizeof(BN_ULONG);
-  int k = bytesLen;
-  // Put bytes to the int array starting from the end of the byte array
-  int i = 0;
-  while (k > highBytes) {
-    k -= sizeof(BN_ULONG);
-    di = BYTES2ULONG(bytes, k);
-    if (di != 0) {
-      d[i] = -di;
-      firstNonzeroDigit = i;
-      i++;
-      while (k > highBytes) {
-        k -= sizeof(BN_ULONG);
-        d[i] = ~BYTES2ULONG(bytes, k);
-        i++;
-      }
-      break;
-    } else {
-      d[i] = 0;
-      i++;
-    }
-  }
-  if (highBytes != 0) {
-    di = -1;
-    // Put the first bytes in the highest element of the int array
-    if (firstNonzeroDigit != -2) {
-      for (k = 0; k < highBytes; k++) {
-        di = (di << 8) | (bytes[k] & 0xFF);
-      }
-      d[i] = ~di;
-    } else {
-      for (k = 0; k < highBytes; k++) {
-        di = (di << 8) | (bytes[k] & 0xFF);
-      }
-      d[i] = -di;
-    }
-  }
-  // The top may have superfluous zeros, so fix it.
-  bn_correct_top(ret);
-  return true;
-}
-
-static void NativeBN_twosComp2bn(JNIEnv* env, jclass cls, jbyteArray arr, int bytesLen, jlong ret0) {
+static void NativeBN_twosComp2bn(JNIEnv* env, jclass, jbyteArray arr, int bytesLen, jlong ret0) {
   if (!oneValidHandle(env, ret0)) return;
   BIGNUM* ret = toBigNum(ret0);
 
@@ -323,47 +216,48 @@ static void NativeBN_twosComp2bn(JNIEnv* env, jclass cls, jbyteArray arr, int by
   if (bytes.get() == NULL) {
     return;
   }
-  const unsigned char* s = reinterpret_cast<const unsigned char*>(bytes.get());
-  if ((bytes[0] & 0X80) == 0) { // Positive value!
-    //
-    // We can use the existing BN implementation for unsigned big endian bytes:
-    //
-    if (!BN_bin2bn(s, bytesLen, ret)) {
+
+  if (bytesLen == 0) {
+    BN_zero(ret);
+    return;
+  }
+
+  const unsigned char* bytesTmp = reinterpret_cast<const unsigned char*>(bytes.get());
+
+  if (!BN_bin2bn(bytesTmp, bytesLen, ret)) {
+    throwException(env);
+    return;
+  }
+
+  // Use the high bit to determine the sign in twos-complement.
+  BN_set_negative(ret, (bytes[0] & 0x80) != 0);
+
+  if (BN_is_negative(ret)) {
+    // For negative values, BN_bin2bn doesn't interpret the twos-complement
+    // representation, so ret is now (- value - 2^N). We can use nnmod_pow2 to set
+    // ret to (-value).
+    if (!BN_nnmod_pow2(ret, ret, bytesLen * 8)) {
       throwException(env);
       return;
     }
-    BN_set_negative(ret, false);
-  } else { // Negative value!
-    //
-    // We need to apply two's complement:
-    //
-    if (!negBigEndianBytes2bn(env, cls, s, bytesLen, ret0)) {
-      throwException(env);
-      return;
-    }
-    BN_set_negative(ret, true);
+
+    // And now we correct the sign.
+    BN_set_negative(ret, 1);
   }
 }
 
 static jlong NativeBN_longInt(JNIEnv* env, jclass, jlong a0) {
   if (!oneValidHandle(env, a0)) return -1;
-
   BIGNUM* a = toBigNum(a0);
-  bn_check_top(a);
-  int wLen = a->top;
-  if (wLen == 0) {
+  uint64_t word;
+
+  if (BN_get_u64(a, &word)) {
+    return BN_is_negative(a) ? -((jlong) word) : word;
+  } else {
+    // This should be unreachable if our caller checks BigInt::twosCompFitsIntoBytes(8)
+    throwException(env);
     return 0;
   }
-
-#ifdef __LP64__
-  jlong result = a->d[0];
-#else
-  jlong result = static_cast<jlong>(a->d[0]) & 0xffffffff;
-  if (wLen > 1) {
-    result |= static_cast<jlong>(a->d[1]) << 32;
-  }
-#endif
-  return a->neg ? -result : result;
 }
 
 static char* leadingZerosTrimmed(char* s) {
@@ -422,29 +316,34 @@ static jbyteArray NativeBN_BN_bn2bin(JNIEnv* env, jclass, jlong a0) {
 
 static jintArray NativeBN_bn2litEndInts(JNIEnv* env, jclass, jlong a0) {
   if (!oneValidHandle(env, a0)) return NULL;
+
   BIGNUM* a = toBigNum(a0);
-  bn_check_top(a);
-  int wLen = a->top;
-  if (wLen == 0) {
-    return NULL;
-  }
-  jintArray result = env->NewIntArray(wLen * sizeof(BN_ULONG)/sizeof(unsigned int));
+
+  // The number of integers we need is BN_num_bytes(a) / sizeof(int), rounded up
+  int intLen = (BN_num_bytes(a) + sizeof(int) - 1) / sizeof(int);
+
+  // Allocate our result with the JNI boilerplate
+  jintArray result = env->NewIntArray(intLen);
+
   if (result == NULL) {
+    throwException(env);
     return NULL;
   }
+
   ScopedIntArrayRW ints(env, result);
-  if (ints.get() == NULL) {
-    return NULL;
-  }
+
   unsigned int* uints = reinterpret_cast<unsigned int*>(ints.get());
   if (uints == NULL) {
+    throwException(env);
     return NULL;
   }
-#ifdef __LP64__
-  int i = wLen; do { i--; uints[i*2+1] = a->d[i] >> 32; uints[i*2] = a->d[i]; } while (i > 0);
-#else
-  int i = wLen; do { i--; uints[i] = a->d[i]; } while (i > 0);
-#endif
+
+  // We can simply interpret a little-endian byte stream as a little-endian integer stream.
+  if (!BN_bn2le_padded(reinterpret_cast<uint8_t*>(uints), intLen * sizeof(int), a)) {
+    throwException(env);
+    return NULL;
+  }
+
   return result;
 }
 
@@ -466,24 +365,34 @@ static void NativeBN_BN_set_negative(JNIEnv* env, jclass, jlong b, int n) {
 static int NativeBN_bitLength(JNIEnv* env, jclass, jlong a0) {
   if (!oneValidHandle(env, a0)) return JNI_FALSE;
   BIGNUM* a = toBigNum(a0);
-  bn_check_top(a);
-  int wLen = a->top;
-  if (wLen == 0) return 0;
-  BN_ULONG* d = a->d;
-  int i = wLen - 1;
-  BN_ULONG msd = d[i]; // most significant digit
-  if (a->neg) {
-    // Handle negative values correctly:
-    // i.e. decrement the msd if all other digits are 0:
-    // while ((i > 0) && (d[i] != 0)) { i--; }
-    do { i--; } while (!((i < 0) || (d[i] != 0)));
-    if (i < 0) msd--; // Only if all lower significant digits are 0 we decrement the most significant one.
+
+  // If a is not negative, we can use BN_num_bits directly.
+  if (!BN_is_negative(a)) {
+    return BN_num_bits(a);
   }
-  return (wLen - 1) * sizeof(BN_ULONG) * 8 + BN_num_bits_word(msd);
+
+  // In the negative case, the number of bits in a is the same as the number of bits in |a|,
+  // except one less when |a| is a power of two.
+  BIGNUM positiveA;
+  BN_init(&positiveA);
+
+  if (!BN_copy(&positiveA, a)) {
+    BN_free(&positiveA);
+    throwException(env);
+    return -1;
+  }
+
+  BN_set_negative(&positiveA, false);
+  int numBits = BN_is_pow2(&positiveA) ? BN_num_bits(&positiveA) - 1 : BN_num_bits(&positiveA);
+
+  BN_free(&positiveA);
+  return numBits;
 }
 
 static jboolean NativeBN_BN_is_bit_set(JNIEnv* env, jclass, jlong a, int n) {
   if (!oneValidHandle(env, a)) return JNI_FALSE;
+
+  // NOTE: this is only called in the positive case, so BN_is_bit_set is fine here.
   return BN_is_bit_set(toBigNum(a), n) ? JNI_TRUE : JNI_FALSE;
 }
 

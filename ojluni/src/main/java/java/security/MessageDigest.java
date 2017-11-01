@@ -35,10 +35,8 @@ import java.io.ByteArrayInputStream;
 
 import java.nio.ByteBuffer;
 
-/*
-ANDROID-REMOVED: this debugging mechanism is not available in Android.
-import sun.security.util.Debug;
-*/
+import sun.security.jca.Providers;
+
 /**
  * This MessageDigest class provides applications the functionality of a
  * message digest algorithm, such as SHA-1 or SHA-256.
@@ -87,38 +85,38 @@ import sun.security.util.Debug;
  *
  * <p> Android provides the following <code>MessageDigest</code> algorithms:
  * <table>
- *     <thead>
- *         <tr>
- *             <th>Name</th>
- *             <th>Supported (API Levels)</th>
- *         </tr>
- *     </thead>
- *     <tbody>
- *         <tr>
- *             <td>MD5</td>
- *             <td>1+</td>
- *         </tr>
- *         <tr>
- *             <td>SHA-1</td>
- *             <td>1+</td>
- *         </tr>
- *         <tr>
- *             <td>SHA-224</td>
- *             <td>1&ndash;8,22+</td>
- *         </tr>
- *         <tr>
- *             <td>SHA-256</td>
- *             <td>1+</td>
- *         </tr>
- *         <tr>
- *             <td>SHA-384</td>
- *             <td>1+</td>
- *         </tr>
- *         <tr>
- *             <td>SHA-512</td>
- *             <td>1+</td>
- *         </tr>
- *     </tbody>
+ *   <thead>
+ *     <tr>
+ *       <th>Algorithm</th>
+ *       <th>Supported API Levels</th>
+ *     </tr>
+ *   </thead>
+ *   <tbody>
+ *     <tr>
+ *       <td>MD5</td>
+ *       <td>1+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>SHA-1</td>
+ *       <td>1+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>SHA-224</td>
+ *       <td>1-8,22+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>SHA-256</td>
+ *       <td>1+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>SHA-384</td>
+ *       <td>1+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>SHA-512</td>
+ *       <td>1+</td>
+ *     </tr>
+ *   </tbody>
  * </table>
  *
  * These algorithms are described in the <a href=
@@ -134,8 +132,8 @@ import sun.security.util.Debug;
 
 public abstract class MessageDigest extends MessageDigestSpi {
 
+    // Android-removed: this debugging mechanism is not used in Android.
     /*
-    ANDROID-REMOVED: this debugging mechanism is not available in Android.
     private static final Debug pdebug =
                         Debug.getInstance("provider", "Provider");
     private static final boolean skipDebug =
@@ -205,8 +203,8 @@ public abstract class MessageDigest extends MessageDigestSpi {
             }
             md.provider = (Provider)objs[1];
 
+            // Android-removed: this debugging mechanism is not used in Android.
             /*
-            ANDROID-REMOVED: this debugging mechanism is not available in Android.
             if (!skipDebug && pdebug != null) {
                 pdebug.println("MessageDigest." + algorithm +
                     " algorithm from: " + md.provider.getName());
@@ -259,6 +257,8 @@ public abstract class MessageDigest extends MessageDigestSpi {
     {
         if (provider == null || provider.length() == 0)
             throw new IllegalArgumentException("missing provider");
+        // Android-added: Check for Bouncy Castle deprecation
+        Providers.checkBouncyCastleDeprecation(provider, "MessageDigest", algorithm);
         Object[] objs = Security.getImpl(algorithm, "MessageDigest", provider);
         if (objs[0] instanceof MessageDigest) {
             MessageDigest md = (MessageDigest)objs[0];
@@ -307,6 +307,8 @@ public abstract class MessageDigest extends MessageDigestSpi {
     {
         if (provider == null)
             throw new IllegalArgumentException("missing provider");
+        // Android-added: Check for Bouncy Castle deprecation
+        Providers.checkBouncyCastleDeprecation(provider, "MessageDigest", algorithm);
         Object[] objs = Security.getImpl(algorithm, "MessageDigest", provider);
         if (objs[0] instanceof MessageDigest) {
             MessageDigest md = (MessageDigest)objs[0];
@@ -450,6 +452,7 @@ public abstract class MessageDigest extends MessageDigestSpi {
      * Returns a string representation of this message digest object.
      */
     public String toString() {
+        // BEGIN Android-changed: Use StringBuilder instead of a ByteArrayOutputStream.
         StringBuilder builder = new StringBuilder();
         builder.append(algorithm);
         builder.append(" Message Digest from ");
@@ -466,6 +469,7 @@ public abstract class MessageDigest extends MessageDigestSpi {
         }
 
         return builder.toString();
+        // END Android-changed: Use StringBuilder instead of a ByteArrayOutputStream.
     }
 
     /**

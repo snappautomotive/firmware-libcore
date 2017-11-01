@@ -26,9 +26,11 @@
 
 package java.lang.reflect;
 
+import dalvik.annotation.optimization.FastNative;
 import java.lang.annotation.Annotation;
 import java.util.Comparator;
 import libcore.reflect.Types;
+import libcore.util.EmptyArray;
 
 /**
  * A {@code Method} provides information about, and access to, a single method
@@ -63,7 +65,7 @@ public final class Method extends Executable  {
             }
             int comparison = a.getName().compareTo(b.getName());
             if (comparison == 0) {
-                comparison = a.compareMethodParametersInternal(b.getParameterTypes());
+                comparison = a.compareMethodParametersInternal(b);
                 if (comparison == 0) {
                     // This is necessary for methods that have covariant return types.
                     Class<?> aReturnType = a.getReturnType();
@@ -136,7 +138,6 @@ public final class Method extends Executable  {
      * @return the return type for the method this object represents
      */
     public Class<?> getReturnType() {
-        // Android-changed: This is handled by Executable.
         return getMethodReturnTypeInternal();
     }
 
@@ -175,11 +176,17 @@ public final class Method extends Executable  {
     @Override
     public Class<?>[] getParameterTypes() {
         // Android-changed: This is handled by Executable.
-        return super.getParameterTypesInternal();
+        Class<?>[] paramTypes = super.getParameterTypesInternal();
+        if (paramTypes == null) {
+            return EmptyArray.CLASS;
+        }
+
+        return paramTypes;
     }
 
     /**
      * {@inheritDoc}
+     * @since 1.8
      */
     public int getParameterCount() {
         // Android-changed: This is handled by Executable.
@@ -202,6 +209,7 @@ public final class Method extends Executable  {
      * {@inheritDoc}
      */
     @Override
+    @FastNative
     public native Class<?>[] getExceptionTypes();
 
     /**
@@ -229,7 +237,7 @@ public final class Method extends Executable  {
                 && (getName() == other.getName())) {
                 if (!getReturnType().equals(other.getReturnType()))
                     return false;
-                // Android changed: Use getParameterTypes.
+                // Android-changed: Use getParameterTypes.
                 return equalParamTypes(getParameterTypes(), other.getParameterTypes());
             }
         }
@@ -272,7 +280,7 @@ public final class Method extends Executable  {
      * @jls 8.4.3 Method Modifiers
      */
     public String toString() {
-        // Android changed: Use getParameterTypes.
+        // Android-changed: Use getParameterTypes.
         return sharedToString(Modifier.methodModifiers(),
                               isDefault(),
                               getParameterTypes(),
@@ -395,6 +403,7 @@ public final class Method extends Executable  {
      * @exception ExceptionInInitializerError if the initialization
      * provoked by this method fails.
      */
+    @FastNative
     public native Object invoke(Object obj, Object... args)
             throws IllegalAccessException, IllegalArgumentException, InvocationTargetException;
 
@@ -461,6 +470,7 @@ public final class Method extends Executable  {
      *     default class value.
      * @since  1.5
      */
+    @FastNative
     public native Object getDefaultValue();
 
     /**

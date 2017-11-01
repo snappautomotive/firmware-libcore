@@ -22,7 +22,6 @@ import android.system.StructLinger;
 import android.system.StructPollfd;
 import android.system.StructStat;
 import android.system.StructStatVfs;
-import android.util.MutableLong;
 import dalvik.system.BlockGuard;
 import dalvik.system.SocketTagger;
 import java.io.FileDescriptor;
@@ -32,8 +31,9 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
+import libcore.util.MutableLong;
+
 import static android.system.OsConstants.*;
-import static dalvik.system.BlockGuard.DISALLOW_NETWORK;
 
 /**
  * Informs BlockGuard of any activity it should be aware of.
@@ -52,17 +52,13 @@ public class BlockGuardOs extends ForwardingOs {
         }
     }
 
-    private void untagSocket(FileDescriptor fd) throws ErrnoException {
-        try {
-            SocketTagger.get().untag(fd);
-        } catch (SocketException e) {
-            throw new ErrnoException("socket", EINVAL, e);
-        }
-    }
-
     @Override public FileDescriptor accept(FileDescriptor fd, SocketAddress peerAddress) throws ErrnoException, SocketException {
         BlockGuard.getThreadPolicy().onNetwork();
-        return tagSocket(os.accept(fd, peerAddress));
+        final FileDescriptor acceptFd = os.accept(fd, peerAddress);
+        if (isInetSocket(acceptFd)) {
+            tagSocket(acceptFd);
+        }
+        return acceptFd;
     }
 
     @Override public boolean access(String path, int mode) throws ErrnoException {
@@ -92,7 +88,6 @@ public class BlockGuardOs extends ForwardingOs {
                     // connections in methods like onDestroy which will run on the UI thread.
                     BlockGuard.getThreadPolicy().onNetwork();
                 }
-                untagSocket(fd);
             }
         } catch (ErrnoException ignored) {
             // We're called via Socket.close (which doesn't ask for us to be called), so we
@@ -101,6 +96,14 @@ public class BlockGuardOs extends ForwardingOs {
             // a socket at all.
         }
         os.close(fd);
+    }
+
+    private static boolean isInetSocket(FileDescriptor fd) throws ErrnoException{
+        return isInetDomain(Libcore.os.getsockoptInt(fd, SOL_SOCKET, SO_DOMAIN));
+    }
+
+    private static boolean isInetDomain(int domain) {
+        return (domain == AF_INET) || (domain == AF_INET6);
     }
 
     private static boolean isLingerSocket(FileDescriptor fd) throws ErrnoException {
@@ -188,7 +191,7 @@ public class BlockGuardOs extends ForwardingOs {
 
     @Override public FileDescriptor open(String path, int flags, int mode) throws ErrnoException {
         BlockGuard.getThreadPolicy().onReadFromDisk();
-        if ((mode & O_ACCMODE) != O_RDONLY) {
+        if ((flags & O_ACCMODE) != O_RDONLY) {
             BlockGuard.getThreadPolicy().onWriteToDisk();
         }
         return os.open(path, flags, mode);
@@ -293,7 +296,7 @@ public class BlockGuardOs extends ForwardingOs {
 
     @Override public FileDescriptor socket(int domain, int type, int protocol) throws ErrnoException {
         final FileDescriptor fd = os.socket(domain, type, protocol);
-        if (domain != AF_UNIX && domain != AF_NETLINK) {
+        if (isInetDomain(domain)) {
             tagSocket(fd);
         }
         return fd;
@@ -301,7 +304,7 @@ public class BlockGuardOs extends ForwardingOs {
 
     @Override public void socketpair(int domain, int type, int protocol, FileDescriptor fd1, FileDescriptor fd2) throws ErrnoException {
         os.socketpair(domain, type, protocol, fd1, fd2);
-        if (domain != AF_UNIX && domain != AF_NETLINK) {
+        if (isInetDomain(domain)) {
             tagSocket(fd1);
             tagSocket(fd2);
         }

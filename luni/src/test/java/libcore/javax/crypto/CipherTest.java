@@ -68,7 +68,26 @@ import junit.framework.TestCase;
 import libcore.java.security.StandardNames;
 import libcore.java.security.TestKeyStore;
 
+import dalvik.system.VMRuntime;
+import sun.security.jca.Providers;
+
 public final class CipherTest extends TestCase {
+
+    // Allow access to deprecated BC algorithms in this test, so we can ensure they
+    // continue to work
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
+        Providers.setMaximumAllowableApiLevelForBcDeprecation(
+                VMRuntime.getRuntime().getTargetSdkVersion());
+    }
+
+    @Override
+    public void tearDown() throws Exception {
+        Providers.setMaximumAllowableApiLevelForBcDeprecation(
+                Providers.DEFAULT_MAXIMUM_ALLOWABLE_TARGET_API_LEVEL_FOR_BC_DEPRECATION);
+        super.tearDown();
+    }
 
     /** GCM tag size used for tests. */
     private static final int GCM_TAG_SIZE_BITS = 96;
@@ -155,6 +174,9 @@ public final class CipherTest extends TestCase {
             return "AES";
         }
         if (algorithm.startsWith("AES/")) {
+            return "AES";
+        }
+        if (algorithm.startsWith("AES_128/") || algorithm.startsWith("AES_256/")) {
             return "AES";
         }
         if (algorithm.equals("GCM")) {
@@ -273,6 +295,11 @@ public final class CipherTest extends TestCase {
                 key = skf.generateSecret(new PBEKeySpec("secret".toCharArray()));
             } else {
                 KeyGenerator kg = KeyGenerator.getInstance(getBaseAlgorithm(algorithm));
+                if (algorithm.startsWith("AES_256/")) {
+                    // This is the 256-bit constrained version, so we have to switch from the
+                    // default of 128-bit keys.
+                    kg.init(256);
+                }
                 key = kg.generateKey();
             }
         } catch (Exception e) {
@@ -333,6 +360,20 @@ public final class CipherTest extends TestCase {
         setExpectedBlockSize("AES/OFB/PKCS5PADDING", 16);
         setExpectedBlockSize("AES/OFB/PKCS7PADDING", 16);
         setExpectedBlockSize("AES/OFB/NOPADDING", 16);
+        setExpectedBlockSize("AES_128/CBC/PKCS5PADDING", 16);
+        setExpectedBlockSize("AES_128/CBC/PKCS7PADDING", 16);
+        setExpectedBlockSize("AES_128/CBC/NOPADDING", 16);
+        setExpectedBlockSize("AES_128/ECB/PKCS5PADDING", 16);
+        setExpectedBlockSize("AES_128/ECB/PKCS7PADDING", 16);
+        setExpectedBlockSize("AES_128/ECB/NOPADDING", 16);
+        setExpectedBlockSize("AES_128/GCM/NOPADDING", 16);
+        setExpectedBlockSize("AES_256/CBC/PKCS5PADDING", 16);
+        setExpectedBlockSize("AES_256/CBC/PKCS7PADDING", 16);
+        setExpectedBlockSize("AES_256/CBC/NOPADDING", 16);
+        setExpectedBlockSize("AES_256/ECB/PKCS5PADDING", 16);
+        setExpectedBlockSize("AES_256/ECB/PKCS7PADDING", 16);
+        setExpectedBlockSize("AES_256/ECB/NOPADDING", 16);
+        setExpectedBlockSize("AES_256/GCM/NOPADDING", 16);
         setExpectedBlockSize("PBEWITHMD5AND128BITAES-CBC-OPENSSL", 16);
         setExpectedBlockSize("PBEWITHMD5AND192BITAES-CBC-OPENSSL", 16);
         setExpectedBlockSize("PBEWITHMD5AND256BITAES-CBC-OPENSSL", 16);
@@ -490,6 +531,10 @@ public final class CipherTest extends TestCase {
         setExpectedOutputSize("AES/CTS/NOPADDING", 0);
         setExpectedOutputSize("AES/ECB/NOPADDING", 0);
         setExpectedOutputSize("AES/OFB/NOPADDING", 0);
+        setExpectedOutputSize("AES_128/CBC/NOPADDING", 0);
+        setExpectedOutputSize("AES_128/ECB/NOPADDING", 0);
+        setExpectedOutputSize("AES_256/CBC/NOPADDING", 0);
+        setExpectedOutputSize("AES_256/ECB/NOPADDING", 0);
 
         setExpectedOutputSize("AES", Cipher.ENCRYPT_MODE, 16);
         setExpectedOutputSize("AES/CBC/PKCS5PADDING", Cipher.ENCRYPT_MODE, 16);
@@ -505,6 +550,16 @@ public final class CipherTest extends TestCase {
         setExpectedOutputSize("AES/GCM/NOPADDING", Cipher.ENCRYPT_MODE, GCM_TAG_SIZE_BITS / 8);
         setExpectedOutputSize("AES/OFB/PKCS5PADDING", Cipher.ENCRYPT_MODE, 16);
         setExpectedOutputSize("AES/OFB/PKCS7PADDING", Cipher.ENCRYPT_MODE, 16);
+        setExpectedOutputSize("AES_128/CBC/PKCS5PADDING", Cipher.ENCRYPT_MODE, 16);
+        setExpectedOutputSize("AES_128/CBC/PKCS7PADDING", Cipher.ENCRYPT_MODE, 16);
+        setExpectedOutputSize("AES_128/ECB/PKCS5PADDING", Cipher.ENCRYPT_MODE, 16);
+        setExpectedOutputSize("AES_128/ECB/PKCS7PADDING", Cipher.ENCRYPT_MODE, 16);
+        setExpectedOutputSize("AES_128/GCM/NOPADDING", Cipher.ENCRYPT_MODE, GCM_TAG_SIZE_BITS / 8);
+        setExpectedOutputSize("AES_256/CBC/PKCS5PADDING", Cipher.ENCRYPT_MODE, 16);
+        setExpectedOutputSize("AES_256/CBC/PKCS7PADDING", Cipher.ENCRYPT_MODE, 16);
+        setExpectedOutputSize("AES_256/ECB/PKCS5PADDING", Cipher.ENCRYPT_MODE, 16);
+        setExpectedOutputSize("AES_256/ECB/PKCS7PADDING", Cipher.ENCRYPT_MODE, 16);
+        setExpectedOutputSize("AES_256/GCM/NOPADDING", Cipher.ENCRYPT_MODE, GCM_TAG_SIZE_BITS / 8);
         setExpectedOutputSize("PBEWITHMD5AND128BITAES-CBC-OPENSSL", 16);
         setExpectedOutputSize("PBEWITHMD5AND192BITAES-CBC-OPENSSL", 16);
         setExpectedOutputSize("PBEWITHMD5AND256BITAES-CBC-OPENSSL", 16);
@@ -538,6 +593,16 @@ public final class CipherTest extends TestCase {
         setExpectedOutputSize("AES/GCM/NOPADDING", Cipher.DECRYPT_MODE, 0);
         setExpectedOutputSize("AES/OFB/PKCS5PADDING", Cipher.DECRYPT_MODE, 0);
         setExpectedOutputSize("AES/OFB/PKCS7PADDING", Cipher.DECRYPT_MODE, 0);
+        setExpectedOutputSize("AES_128/CBC/PKCS5PADDING", Cipher.DECRYPT_MODE, 0);
+        setExpectedOutputSize("AES_128/CBC/PKCS7PADDING", Cipher.DECRYPT_MODE, 0);
+        setExpectedOutputSize("AES_128/ECB/PKCS5PADDING", Cipher.DECRYPT_MODE, 0);
+        setExpectedOutputSize("AES_128/ECB/PKCS7PADDING", Cipher.DECRYPT_MODE, 0);
+        setExpectedOutputSize("AES_128/GCM/NOPADDING", Cipher.DECRYPT_MODE, 0);
+        setExpectedOutputSize("AES_256/CBC/PKCS5PADDING", Cipher.DECRYPT_MODE, 0);
+        setExpectedOutputSize("AES_256/CBC/PKCS7PADDING", Cipher.DECRYPT_MODE, 0);
+        setExpectedOutputSize("AES_256/ECB/PKCS5PADDING", Cipher.DECRYPT_MODE, 0);
+        setExpectedOutputSize("AES_256/ECB/PKCS7PADDING", Cipher.DECRYPT_MODE, 0);
+        setExpectedOutputSize("AES_256/GCM/NOPADDING", Cipher.DECRYPT_MODE, 0);
         setExpectedOutputSize("PBEWITHMD5AND128BITAES-CBC-OPENSSL", Cipher.DECRYPT_MODE, 0);
         setExpectedOutputSize("PBEWITHMD5AND192BITAES-CBC-OPENSSL", Cipher.DECRYPT_MODE, 0);
         setExpectedOutputSize("PBEWITHMD5AND256BITAES-CBC-OPENSSL", Cipher.DECRYPT_MODE, 0);
@@ -771,7 +836,11 @@ public final class CipherTest extends TestCase {
         if (algorithm.equals("AES")
             || algorithm.equals("AES/CBC/NOPADDING")
             || algorithm.equals("AES/CTS/NOPADDING")
-            || algorithm.equals("AES/ECB/NOPADDING")) {
+            || algorithm.equals("AES/ECB/NOPADDING")
+            || algorithm.equals("AES_128/CBC/NOPADDING")
+            || algorithm.equals("AES_128/ECB/NOPADDING")
+            || algorithm.equals("AES_256/CBC/NOPADDING")
+            || algorithm.equals("AES_256/ECB/NOPADDING")) {
             return SIXTEEN_BYTE_BLOCK_PLAIN_TEXT;
         }
         if (algorithm.equals("DESEDE")
@@ -787,7 +856,11 @@ public final class CipherTest extends TestCase {
         if (algorithm.equals("AES")
             || algorithm.equals("AES/CBC/NOPADDING")
             || algorithm.equals("AES/CTS/NOPADDING")
-            || algorithm.equals("AES/ECB/NOPADDING")) {
+            || algorithm.equals("AES/ECB/NOPADDING")
+            || algorithm.equals("AES_128/CBC/NOPADDING")
+            || algorithm.equals("AES_128/ECB/NOPADDING")
+            || algorithm.equals("AES_256/CBC/NOPADDING")
+            || algorithm.equals("AES_256/ECB/NOPADDING")) {
             return SIXTEEN_BYTE_BLOCK_PLAIN_TEXT;
         }
         if (algorithm.equals("DESEDE")
@@ -808,7 +881,9 @@ public final class CipherTest extends TestCase {
             new SecureRandom().nextBytes(salt);
             return new PBEParameterSpec(salt, 1024);
         }
-        if (algorithm.equals("AES/GCM/NOPADDING")) {
+        if (algorithm.equals("AES/GCM/NOPADDING")
+            || algorithm.equals("AES_128/GCM/NOPADDING")
+            || algorithm.equals("AES_256/GCM/NOPADDING")) {
             final byte[] iv = new byte[12];
             new SecureRandom().nextBytes(iv);
             return new GCMParameterSpec(GCM_TAG_SIZE_BITS, iv);
@@ -819,7 +894,13 @@ public final class CipherTest extends TestCase {
             || algorithm.equals("AES/CFB/NOPADDING")
             || algorithm.equals("AES/CTR/NOPADDING")
             || algorithm.equals("AES/CTS/NOPADDING")
-            || algorithm.equals("AES/OFB/NOPADDING")) {
+            || algorithm.equals("AES/OFB/NOPADDING")
+            || algorithm.equals("AES_128/CBC/NOPADDING")
+            || algorithm.equals("AES_128/CBC/PKCS5PADDING")
+            || algorithm.equals("AES_128/CBC/PKCS7PADDING")
+            || algorithm.equals("AES_256/CBC/NOPADDING")
+            || algorithm.equals("AES_256/CBC/PKCS5PADDING")
+            || algorithm.equals("AES_256/CBC/PKCS7PADDING")) {
             final byte[] iv = new byte[16];
             new SecureRandom().nextBytes(iv);
             return new IvParameterSpec(iv);
@@ -849,7 +930,9 @@ public final class CipherTest extends TestCase {
         }
         byte[] iv = encryptCipher.getIV();
         if (iv != null) {
-            if ("AES/GCM/NOPADDING".equals(algorithm)) {
+            if ("AES/GCM/NOPADDING".equals(algorithm)
+                    || "AES_128/GCM/NOPADDING".equals(algorithm)
+                    || "AES_256/GCM/NOPADDING".equals(algorithm)) {
                 return new GCMParameterSpec(GCM_TAG_SIZE_BITS, iv);
             }
             return new IvParameterSpec(iv);
@@ -1269,7 +1352,9 @@ public final class CipherTest extends TestCase {
                     seenBaseCipherNames.add(algorithm);
                 } else {
                     final String baseCipherName = algorithm.substring(0, firstSlash);
-                    if (!seenBaseCipherNames.contains(baseCipherName)) {
+                    if (!seenBaseCipherNames.contains(baseCipherName)
+                            && !(baseCipherName.equals("AES_128")
+                                || baseCipherName.equals("AES_256"))) {
                         seenCiphersWithModeAndPadding.add(baseCipherName);
                     }
                     if (!"AndroidOpenSSL".equals(provider.getName())) {
@@ -1362,7 +1447,7 @@ public final class CipherTest extends TestCase {
         } catch (IllegalStateException expected) {
         }
 
-        // TODO: test keys from different factories (e.g. OpenSSLRSAPrivateKey vs JCERSAPrivateKey)
+        // TODO: test keys from different factories (e.g. OpenSSLRSAPrivateKey vs BCRSAPrivateKey)
         Key encryptKey = getEncryptKey(algorithm);
 
         final AlgorithmParameterSpec encryptSpec = getEncryptAlgorithmParameterSpec(algorithm);
@@ -1429,9 +1514,11 @@ public final class CipherTest extends TestCase {
         final AlgorithmParameterSpec decryptSpec = getDecryptAlgorithmParameterSpec(encryptSpec, c);
         int decryptMode = getDecryptMode(algorithm);
 
-        test_Cipher_init_Decrypt_NullParameters(c, decryptMode, encryptKey, decryptSpec != null);
+        Key decryptKey = getDecryptKey(algorithm);
 
-        c.init(decryptMode, getDecryptKey(algorithm), decryptSpec);
+        test_Cipher_init_Decrypt_NullParameters(c, decryptMode, decryptKey, decryptSpec != null);
+
+        c.init(decryptMode, decryptKey, decryptSpec);
         assertEquals(cipherID + " getBlockSize() decryptMode",
                      getExpectedBlockSize(algorithm, decryptMode, providerName), c.getBlockSize());
         assertEquals(cipherID + " getOutputSize(0) decryptMode",
@@ -1470,8 +1557,7 @@ public final class CipherTest extends TestCase {
 
         // Test wrapping a key.  Every cipher should be able to wrap. Except those that can't.
         /* Bouncycastle is broken for wrapping because getIV() fails. */
-        if (isSupportedForWrapping(algorithm)
-                && !algorithm.equals("AES/GCM/NOPADDING") && !providerName.equals("BC")) {
+        if (isSupportedForWrapping(algorithm) && !providerName.equals("BC")) {
             // Generate a small SecretKey for AES.
             KeyGenerator kg = KeyGenerator.getInstance("AES");
             kg.init(128);
@@ -1482,7 +1568,7 @@ public final class CipherTest extends TestCase {
             byte[] cipherText = c.wrap(sk);
 
             // Unwrap it
-            c.init(Cipher.UNWRAP_MODE, getDecryptKey(algorithm), decryptSpec);
+            c.init(Cipher.UNWRAP_MODE, decryptKey, decryptSpec);
             Key decryptedKey = c.unwrap(cipherText, sk.getAlgorithm(), Cipher.SECRET_KEY);
 
             assertEquals(cipherID
@@ -1503,7 +1589,7 @@ public final class CipherTest extends TestCase {
                 byte[] cipherText2 = c.doFinal(getActualPlainText(algorithm));
                 assertEquals(cipherID, Arrays.toString(cipherText), Arrays.toString(cipherText2));
             }
-            c.init(Cipher.DECRYPT_MODE, getDecryptKey(algorithm), decryptSpec);
+            c.init(Cipher.DECRYPT_MODE, decryptKey, decryptSpec);
             if (isAEAD(algorithm)) {
                 c.updateAAD(new byte[24]);
             }
@@ -4551,6 +4637,39 @@ public final class CipherTest extends TestCase {
                 assertEquals("Key size: " + keysize, Arrays.toString(ORIGINAL_PLAIN_TEXT),
                         Arrays.toString(actualPlaintext));
             }
+        }
+    }
+
+    public void testAES_keyConstrained() throws Exception {
+        Provider[] providers = Security.getProviders();
+        for (Provider p : providers) {
+            for (Provider.Service s : p.getServices()) {
+                if (s.getType().equals("Cipher")) {
+                    if (s.getAlgorithm().startsWith("AES_128/")) {
+                        Cipher c = Cipher.getInstance(s.getAlgorithm(), p);
+                        assertTrue(s.getAlgorithm(), checkAES_keyConstraint(c, 128));
+                        assertFalse(s.getAlgorithm(), checkAES_keyConstraint(c, 192));
+                        assertFalse(s.getAlgorithm(), checkAES_keyConstraint(c, 256));
+                    } else if (s.getAlgorithm().startsWith("AES_256/")) {
+                        Cipher c = Cipher.getInstance(s.getAlgorithm(), p);
+                        assertFalse(s.getAlgorithm(), checkAES_keyConstraint(c, 128));
+                        assertFalse(s.getAlgorithm(), checkAES_keyConstraint(c, 192));
+                        assertTrue(s.getAlgorithm(), checkAES_keyConstraint(c, 256));
+                    }
+                }
+            }
+        }
+    }
+
+    private boolean checkAES_keyConstraint(Cipher c, int keySize) throws Exception {
+        KeyGenerator kg = KeyGenerator.getInstance(getBaseAlgorithm(c.getAlgorithm()));
+        kg.init(keySize);
+        SecretKey key = kg.generateKey();
+        try {
+            c.init(Cipher.ENCRYPT_MODE, key);
+            return true;
+        } catch (InvalidKeyException e) {
+            return false;
         }
     }
 

@@ -60,6 +60,8 @@ public final class Byte extends Number implements Comparable<Byte> {
      * {@code byte}.
      */
     @SuppressWarnings("unchecked")
+    // Android-changed: Avoid use of removed Class.getPrimitiveClass method.
+    // public static final Class<Byte>     TYPE = (Class<Byte>) Class.getPrimitiveClass("byte");
     public static final Class<Byte>     TYPE = (Class<Byte>) byte[].class.getComponentType();
 
     /**
@@ -518,7 +520,8 @@ public final class Byte extends Number implements Comparable<Byte> {
     /** use serialVersionUID from JDK 1.1. for interoperability */
     private static final long serialVersionUID = -7183698231559129828L;
 
-    /** ----- BEGIN android -----
+    // BEGIN Android-added: toHexString() for internal use.
+    /**
      * @hide
      */
     public static String toHexString(byte b, boolean upperCase) {
@@ -541,5 +544,5 @@ public final class Byte extends Number implements Comparable<Byte> {
         'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
         'U', 'V', 'W', 'X', 'Y', 'Z'
     };
-    // ----- END android -----
+    // END Android-added: toHexString() for internal use.
 }

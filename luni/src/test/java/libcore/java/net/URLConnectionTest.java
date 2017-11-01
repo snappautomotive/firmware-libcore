@@ -37,6 +37,8 @@ import java.io.OutputStream;
 import java.net.Authenticator;
 import java.net.CacheRequest;
 import java.net.CacheResponse;
+import java.net.CookieHandler;
+import java.net.CookieManager;
 import java.net.HttpRetryException;
 import java.net.HttpURLConnection;
 import java.net.InetAddress;
@@ -94,6 +96,8 @@ import static com.google.mockwebserver.SocketPolicy.DISCONNECT_AT_START;
 import static com.google.mockwebserver.SocketPolicy.FAIL_HANDSHAKE;
 import static com.google.mockwebserver.SocketPolicy.SHUTDOWN_INPUT_AT_END;
 import static com.google.mockwebserver.SocketPolicy.SHUTDOWN_OUTPUT_AT_END;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
 public final class URLConnectionTest extends TestCase {
 
@@ -154,7 +158,20 @@ public final class URLConnectionTest extends TestCase {
         // allow (but strip) trailing \n, \r and \r\n
         // assertForbiddenRequestHeaderValue("\r");
         // End of workaround
-        assertEquals("a valid\tvalue", setAndReturnRequestHeaderValue("a valid\tvalue"));
+
+        // '\t' in header values can either be (a) forbidden or (b) allowed.
+        // The original version of Android N (API 23) implemented behavior
+        // (a), but OEMs can backport a fix that changes the behavior to (b).
+        // Therefore, this test has been relaxed for Android N CTS to allow
+        // either behavior. It is planned that future versions of Android only
+        // allow behavior (b).
+        try {
+            // throws IAE in case (a), passes in case (b)
+            assertEquals("a valid\tvalue", setAndReturnRequestHeaderValue("a valid\tvalue"));
+        } catch (IllegalArgumentException tolerated) {
+            // verify case (a)
+            assertForbiddenRequestHeaderValue("\t");
+        }
         assertForbiddenRequestHeaderValue("\u001f");
         assertForbiddenRequestHeaderValue("\u007f");
 
@@ -1060,6 +1077,67 @@ public final class URLConnectionTest extends TestCase {
             in.read();
             fail("Expected a connection closed exception");
         } catch (IOException expected) {
+        }
+    }
+
+    // http://b/33763156
+    public void testDisconnectDuringConnect_getInputStream() throws IOException {
+        checkDisconnectDuringConnect(HttpURLConnection::getInputStream);
+    }
+
+    // http://b/33763156
+    public void testDisconnectDuringConnect_getOutputStream() throws IOException {
+        checkDisconnectDuringConnect(HttpURLConnection::getOutputStream);
+    }
+
+    // http://b/33763156
+    public void testDisconnectDuringConnect_getResponseCode() throws IOException {
+        checkDisconnectDuringConnect(HttpURLConnection::getResponseCode);
+    }
+
+    // http://b/33763156
+    public void testDisconnectDuringConnect_getResponseMessage() throws IOException {
+        checkDisconnectDuringConnect(HttpURLConnection::getResponseMessage);
+    }
+
+    interface ConnectStrategy {
+        /**
+         * Causes the given {@code connection}, which was previously disconnected,
+         * to initiate the connection.
+         */
+        void connect(HttpURLConnection connection) throws IOException;
+    }
+
+    // http://b/33763156
+    private void checkDisconnectDuringConnect(ConnectStrategy connectStrategy) throws IOException {
+        server.enqueue(new MockResponse().setBody("This should never be sent"));
+        server.play();
+
+        final AtomicReference<HttpURLConnection> connectionHolder = new AtomicReference<>();
+        class DisconnectingCookieHandler extends CookieManager {
+            @Override
+            public Map<String, List<String>> get(URI uri, Map<String, List<String>> map)
+                    throws IOException {
+                Map<String, List<String>> result = super.get(uri, map);
+                connectionHolder.get().disconnect();
+                return result;
+            }
+        }
+        CookieHandler defaultCookieHandler = CookieHandler.getDefault();
+        try {
+            CookieHandler.setDefault(new DisconnectingCookieHandler());
+            HttpURLConnection connection = (HttpURLConnection) server.getUrl("/").openConnection();
+            connectionHolder.set(connection);
+            try {
+                connectStrategy.connect(connection);
+                fail();
+            } catch (IOException expected) {
+                assertEquals("Canceled", expected.getMessage());
+            } finally {
+                connection.disconnect();
+            }
+        } finally {
+            CookieHandler.setDefault(defaultCookieHandler);
         }
     }
 

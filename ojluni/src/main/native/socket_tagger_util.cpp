@@ -18,8 +18,8 @@
  * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
  */
 
-#include "JNIHelp.h"
-#include "JniConstants.h"
+#include <nativehelper/JNIHelp.h>
+#include <nativehelper/JniConstants.h>
 
 extern "C" {
 
@@ -35,19 +35,6 @@ int tagSocket(JNIEnv* env, int fd) {
     jobject fileDescriptor = jniCreateFileDescriptor(env, fd);
     env->CallVoidMethod(socketTagger, tag, fileDescriptor);
     return fd;
-}
-
-void untagSocket(JNIEnv* env, int fd) {
-    if (env->ExceptionOccurred()) { return; }
-    jmethodID get = env->GetStaticMethodID(JniConstants::socketTaggerClass,
-                                           "get", "()Ldalvik/system/SocketTagger;");
-    jobject socketTagger =
-        env->CallStaticObjectMethod(JniConstants::socketTaggerClass, get);
-    jmethodID untag = env->GetMethodID(JniConstants::socketTaggerClass,
-                                       "untag", "(Ljava/io/FileDescriptor;)V");
-
-    jobject fileDescriptor = jniCreateFileDescriptor(env, fd);
-    env->CallVoidMethod(socketTagger, untag, fileDescriptor);
 }
 
 }

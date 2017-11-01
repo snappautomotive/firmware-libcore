@@ -21,18 +21,24 @@ import android.system.StructStat;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.List;
 import libcore.io.Libcore;
 
 /**
- * Manipulates DEX files. The class is similar in principle to
- * {@link java.util.zip.ZipFile}. It is used primarily by class loaders.
- * <p>
- * Note we don't directly open and read the DEX file here. They're memory-mapped
- * read-only by the VM.
+ * Loads DEX files. This class is meant for internal use and should not be used
+ * by applications.
+ *
+ * @deprecated This class should not be used directly by applications. It will hurt
+ *     performance in most cases and will lead to incorrect execution of bytecode in
+ *     the worst case. Applications should use one of the standard classloaders such
+ *     as {@link dalvik.system.PathClassLoader} instead. <b>This API will be removed
+ *     in a future Android release</b>.
  */
+@Deprecated
 public final class DexFile {
   /**
    * If close is called, mCookie becomes null but the internal cookie is preserved if the close
@@ -43,22 +49,13 @@ public final class DexFile {
     private final String mFileName;
 
     /**
-     * Opens a DEX file from a given File object. This will usually be a ZIP/JAR
-     * file with a "classes.dex" inside.
+     * Opens a DEX file from a given File object.
      *
-     * The VM will generate the name of the corresponding file in
-     * /data/dalvik-cache and open it, possibly creating or updating
-     * it first if system permissions allow.  Don't pass in the name of
-     * a file in /data/dalvik-cache, as the named file is expected to be
-     * in its original (pre-dexopt) state.
-     *
-     * @param file
-     *            the File object referencing the actual DEX file
-     *
-     * @throws IOException
-     *             if an I/O error occurs, such as the file not being found or
-     *             access rights missing for opening it
+     * @deprecated Applications should use one of the standard classloaders such
+     *     as {@link dalvik.system.PathClassLoader} instead. <b>This API will be removed
+     *     in a future Android release</b>.
      */
+    @Deprecated
     public DexFile(File file) throws IOException {
         this(file.getPath());
     }
@@ -78,22 +75,13 @@ public final class DexFile {
     }
 
     /**
-     * Opens a DEX file from a given filename. This will usually be a ZIP/JAR
-     * file with a "classes.dex" inside.
+     * Opens a DEX file from a given filename.
      *
-     * The VM will generate the name of the corresponding file in
-     * /data/dalvik-cache and open it, possibly creating or updating
-     * it first if system permissions allow.  Don't pass in the name of
-     * a file in /data/dalvik-cache, as the named file is expected to be
-     * in its original (pre-dexopt) state.
-     *
-     * @param fileName
-     *            the filename of the DEX file
-     *
-     * @throws IOException
-     *             if an I/O error occurs, such as the file not being found or
-     *             access rights missing for opening it
+     * @deprecated Applications should use one of the standard classloaders such
+     *     as {@link dalvik.system.PathClassLoader} instead. <b>This API will be removed
+     *     in a future Android release</b>.
      */
+    @Deprecated
     public DexFile(String fileName) throws IOException {
         this(fileName, null, null);
     }
@@ -113,6 +101,12 @@ public final class DexFile {
         mInternalCookie = mCookie;
         mFileName = fileName;
         //System.out.println("DEX FILE cookie is " + mCookie + " fileName=" + fileName);
+    }
+
+    DexFile(ByteBuffer buf) throws IOException {
+        mCookie = openInMemoryDexFile(buf);
+        mInternalCookie = mCookie;
+        mFileName = null;
     }
 
     /**
@@ -157,24 +151,11 @@ public final class DexFile {
      * to be current, it will be used; if not, the VM will attempt to
      * regenerate it.
      *
-     * This is intended for use by applications that wish to download
-     * and execute DEX files outside the usual application installation
-     * mechanism.  This function should not be called directly by an
-     * application; instead, use a class loader such as
-     * dalvik.system.DexClassLoader.
-     *
-     * @param sourcePathName
-     *  Jar or APK file with "classes.dex".  (May expand this to include
-     *  "raw DEX" in the future.)
-     * @param outputPathName
-     *  File that will hold the optimized form of the DEX data.
-     * @param flags
-     *  Enable optional features.  (Currently none defined.)
-     * @return
-     *  A new or previously-opened DexFile.
-     * @throws IOException
-     *  If unable to open the source or output file.
+     * @deprecated Applications should use one of the standard classloaders such
+     *     as {@link dalvik.system.PathClassLoader} instead. <b>This API will be removed
+     *     in a future Android release</b>.
      */
+    @Deprecated
     static public DexFile loadDex(String sourcePathName, String outputPathName,
         int flags) throws IOException {
 
@@ -230,7 +211,11 @@ public final class DexFile {
     }
 
     @Override public String toString() {
-        return getName();
+        if (mFileName != null) {
+            return getName();
+        } else {
+            return "InMemoryDexFile[cookie=" + Arrays.toString((long[]) mCookie) + "]";
+        }
     }
 
     /**
@@ -374,6 +359,17 @@ public final class DexFile {
                                  elements);
     }
 
+    private static Object openInMemoryDexFile(ByteBuffer buf) throws IOException {
+        if (buf.isDirect()) {
+            return createCookieWithDirectBuffer(buf, buf.position(), buf.limit());
+        } else {
+            return createCookieWithArray(buf.array(), buf.position(), buf.limit());
+        }
+    }
+
+    private static native Object createCookieWithDirectBuffer(ByteBuffer buf, int start, int end);
+    private static native Object createCookieWithArray(byte[] buf, int start, int end);
+
     /*
      * Returns true if the dex file is backed by a valid oat file.
      */
@@ -415,7 +411,7 @@ public final class DexFile {
     /**
      * No dexopt should (or can) be done to update the apk/jar.
      *
-     * See {@link #getDexOptNeeded(String, String, int)}.
+     * See {@link #getDexOptNeeded(String, String, String, boolean, boolean)}.
      *
      * @hide
      */
@@ -424,7 +420,7 @@ public final class DexFile {
     /**
      * dex2oat should be run to update the apk/jar from scratch.
      *
-     * See {@link #getDexOptNeeded(String, String, int)}.
+     * See {@link #getDexOptNeeded(String, String, String, boolean, boolean)}.
      *
      * @hide
      */
@@ -434,7 +430,7 @@ public final class DexFile {
      * dex2oat should be run to update the apk/jar because the existing code
      * is out of date with respect to the boot image.
      *
-     * See {@link #getDexOptNeeded(String, String, int)}.
+     * See {@link #getDexOptNeeded(String, String, String, boolean, boolean)}.
      *
      * @hide
      */
@@ -444,7 +440,7 @@ public final class DexFile {
      * dex2oat should be run to update the apk/jar because the existing code
      * is out of date with respect to the target compiler filter.
      *
-     * See {@link #getDexOptNeeded(String, String, int)}.
+     * See {@link #getDexOptNeeded(String, String, String, boolean, boolean)}.
      *
      * @hide
      */
@@ -454,11 +450,26 @@ public final class DexFile {
      * dex2oat should be run to update the apk/jar because the existing code
      * is not relocated to match the boot image.
      *
-     * See {@link #getDexOptNeeded(String, String, int)}.
+     * See {@link #getDexOptNeeded(String, String, String, boolean, boolean)}.
      *
      * @hide
      */
     public static final int DEX2OAT_FOR_RELOCATION = 4;
+
+
+    /**
+     * Calls {@link #getDexOptNeeded(String, String, String, String, String, boolean, boolean)}
+     * with a null class loader context.
+     *
+     * TODO(ngeoffray, calin): deprecate / remove.
+     * @hide
+     */
+    public static int getDexOptNeeded(String fileName,
+        String instructionSet, String compilerFilter, boolean newProfile, boolean downgrade)
+        throws FileNotFoundException, IOException {
+            return getDexOptNeeded(
+                fileName, instructionSet, compilerFilter, null, newProfile, downgrade);
+    }
 
     /**
      * Returns the VM's opinion of what kind of dexopt is needed to make the
@@ -468,9 +479,13 @@ public final class DexFile {
      *
      * @param fileName the absolute path to the apk/jar file to examine.
      * @param compilerFilter a compiler filter to use for what a caller considers up-to-date.
+     * @param classLoaderContext a string encoding the class loader context the dex file
+     *        is intended to have at runtime.
      * @param newProfile flag that describes whether a profile corresponding
      *        to the dex file has been recently updated and should be considered
      *        in the state of the file.
+     * @param downgrade flag that describes if the purpose of dexopt is to downgrade the
+     *        compiler filter. If set to false, will be evaluated as an upgrade request.
      * @return NO_DEXOPT_NEEDED, or DEX2OAT_*. See documentation
      *         of the particular status code for more information on its
      *         meaning. Returns a positive status code if the status refers to
@@ -485,7 +500,8 @@ public final class DexFile {
      * @hide
      */
     public static native int getDexOptNeeded(String fileName,
-            String instructionSet, String compilerFilter, boolean newProfile)
+            String instructionSet, String compilerFilter, String classLoaderContext,
+            boolean newProfile, boolean downgrade)
             throws FileNotFoundException, IOException;
 
     /**
@@ -500,11 +516,11 @@ public final class DexFile {
         throws FileNotFoundException;
 
     /**
-     * Returns the full file path of the optimized dex file {@code fileName}.  The returned string
-     * is the full file name including path of optimized dex file, if it exists.
+     * Returns the paths of the optimized files generated for {@code fileName}.
+     * If no optimized code exists the method returns null.
      * @hide
      */
-    public static native String getDexFileOutputPath(String fileName, String instructionSet)
+    public static native String[] getDexFileOutputPaths(String fileName, String instructionSet)
         throws FileNotFoundException;
 
     /**
@@ -529,5 +545,14 @@ public final class DexFile {
      * @hide
      */
     public native static String getNonProfileGuidedCompilerFilter(String filter);
+
+    /**
+     * Returns the version of the compiler filter that is suitable for safe mode.
+     * If the input is not a valid filter, or the filter is already suitable for
+     * safe mode, this returns the input.
+     *
+     * @hide
+     */
+    public native static String getSafeModeCompilerFilter(String filter);
 
 }

@@ -16,6 +16,10 @@
 
 package libcore.java.security;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+
 import java.security.Security;
 import java.security.spec.DSAPrivateKeySpec;
 import java.security.spec.DSAPublicKeySpec;
@@ -36,7 +40,6 @@ import java.util.Map;
 import java.util.Set;
 import javax.crypto.spec.DHPrivateKeySpec;
 import javax.crypto.spec.DHPublicKeySpec;
-import junit.framework.Assert;
 
 /**
  * This class defines expected string names for protocols, key types,
@@ -63,7 +66,7 @@ import junit.framework.Assert;
  * Java &trade; PKCS#11 Reference Guide
  * </a>.
  */
-public final class StandardNames extends Assert {
+public final class StandardNames {
 
     public static final boolean IS_RI
             = !"Dalvik Core Library".equals(System.getProperty("java.specification.name"));
@@ -107,7 +110,7 @@ public final class StandardNames extends Assert {
     private static void provide(String type, String algorithm) {
         Set<String> algorithms = PROVIDER_ALGORITHMS.get(type);
         if (algorithms == null) {
-            algorithms = new HashSet();
+            algorithms = new HashSet<String>();
             PROVIDER_ALGORITHMS.put(type, algorithms);
         }
         assertTrue("Duplicate " + type + " " + algorithm,
@@ -321,10 +324,7 @@ public final class StandardNames extends Assert {
 
         // Not documented as in RI 6 but mentioned in Standard Names
         provide("AlgorithmParameters", "PBE");
-        // Android does not support SSLv3
-        if (IS_RI) {
-            provide("SSLContext", "SSL");
-        }
+        provide("SSLContext", "SSL");
         provide("SSLContext", "TLS");
 
         // Not documented as in RI 6 but that exist in RI 6
@@ -493,6 +493,16 @@ public final class StandardNames extends Assert {
             provide("Cipher", "PBEWITHSHAAND40BITRC2-CBC");
             provide("Cipher", "PBEWITHSHAAND40BITRC4");
             provide("Cipher", "PBEWITHSHAANDTWOFISH-CBC");
+            provide("Cipher", "PBEWithHmacSHA1AndAES_128");
+            provide("Cipher", "PBEWithHmacSHA224AndAES_128");
+            provide("Cipher", "PBEWithHmacSHA256AndAES_128");
+            provide("Cipher", "PBEWithHmacSHA384AndAES_128");
+            provide("Cipher", "PBEWithHmacSHA512AndAES_128");
+            provide("Cipher", "PBEWithHmacSHA1AndAES_256");
+            provide("Cipher", "PBEWithHmacSHA224AndAES_256");
+            provide("Cipher", "PBEWithHmacSHA256AndAES_256");
+            provide("Cipher", "PBEWithHmacSHA384AndAES_256");
+            provide("Cipher", "PBEWithHmacSHA512AndAES_256");
             provide("Mac", "PBEWITHHMACSHA");
             provide("Mac", "PBEWITHHMACSHA1");
             provide("SecretKeyFactory", "PBEWITHHMACSHA1");
@@ -532,6 +542,20 @@ public final class StandardNames extends Assert {
             provide("Cipher", "AES/OFB/NOPADDING");
             provide("Cipher", "AES/OFB/PKCS5PADDING");
             provide("Cipher", "AES/OFB/PKCS7PADDING");
+            provide("Cipher", "AES_128/CBC/NOPADDING");
+            provide("Cipher", "AES_128/CBC/PKCS5PADDING");
+            provide("Cipher", "AES_128/CBC/PKCS7PADDING");
+            provide("Cipher", "AES_128/ECB/NOPADDING");
+            provide("Cipher", "AES_128/ECB/PKCS5PADDING");
+            provide("Cipher", "AES_128/ECB/PKCS7PADDING");
+            provide("Cipher", "AES_128/GCM/NOPADDING");
+            provide("Cipher", "AES_256/CBC/NOPADDING");
+            provide("Cipher", "AES_256/CBC/PKCS5PADDING");
+            provide("Cipher", "AES_256/CBC/PKCS7PADDING");
+            provide("Cipher", "AES_256/ECB/NOPADDING");
+            provide("Cipher", "AES_256/ECB/PKCS5PADDING");
+            provide("Cipher", "AES_256/ECB/PKCS7PADDING");
+            provide("Cipher", "AES_256/GCM/NOPADDING");
             provide("Cipher", "DESEDE/CBC/NOPADDING");
             provide("Cipher", "DESEDE/CBC/PKCS5PADDING");
             provide("Cipher", "DESEDE/CBC/PKCS7PADDING");
@@ -579,7 +603,7 @@ public final class StandardNames extends Assert {
             unprovide("AlgorithmParameters", "PBEWithMD5AndDES"); // 1.2.840.113549.1.5.3
 
             // EC support
-            // provide("AlgorithmParameters", "EC");
+            provide("AlgorithmParameters", "EC");
             provide("KeyAgreement", "ECDH");
             provide("KeyFactory", "EC");
             provide("KeyPairGenerator", "EC");
@@ -614,6 +638,7 @@ public final class StandardNames extends Assert {
             provideSslContextEnabledProtocols("TLSv1.2", TLSVersion.SSLv3, TLSVersion.TLSv12);
             provideSslContextEnabledProtocols("Default", TLSVersion.SSLv3, TLSVersion.TLSv1);
         } else {
+            provideSslContextEnabledProtocols("SSL", TLSVersion.TLSv1, TLSVersion.TLSv12);
             provideSslContextEnabledProtocols("TLS", TLSVersion.TLSv1, TLSVersion.TLSv12);
             provideSslContextEnabledProtocols("TLSv1", TLSVersion.TLSv1, TLSVersion.TLSv12);
             provideSslContextEnabledProtocols("TLSv1.1", TLSVersion.TLSv1, TLSVersion.TLSv12);
@@ -625,6 +650,7 @@ public final class StandardNames extends Assert {
     public static final String SSL_CONTEXT_PROTOCOLS_DEFAULT = "Default";
     public static final Set<String> SSL_CONTEXT_PROTOCOLS = new HashSet<String>(Arrays.asList(
         SSL_CONTEXT_PROTOCOLS_DEFAULT,
+        "SSL",
         "TLS",
         "TLSv1",
         "TLSv1.1",
@@ -757,11 +783,9 @@ public final class StandardNames extends Assert {
         addBoth(   "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA");
         addBoth(   "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA");
         addBoth(   "TLS_RSA_WITH_AES_256_CBC_SHA");
-        addBoth(   "TLS_DHE_RSA_WITH_AES_256_CBC_SHA");
         addBoth(   "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA");
         addBoth(   "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA");
         addBoth(   "TLS_RSA_WITH_AES_128_CBC_SHA");
-        addBoth(   "TLS_DHE_RSA_WITH_AES_128_CBC_SHA");
         addBoth(   "SSL_RSA_WITH_3DES_EDE_CBC_SHA");
 
         // TLSv1.2 cipher suites
@@ -769,10 +793,6 @@ public final class StandardNames extends Assert {
         addBoth(   "TLS_RSA_WITH_AES_256_CBC_SHA256");
         addOpenSsl("TLS_RSA_WITH_AES_128_GCM_SHA256");
         addOpenSsl("TLS_RSA_WITH_AES_256_GCM_SHA384");
-        addBoth(   "TLS_DHE_RSA_WITH_AES_128_CBC_SHA256");
-        addBoth(   "TLS_DHE_RSA_WITH_AES_256_CBC_SHA256");
-        addOpenSsl("TLS_DHE_RSA_WITH_AES_128_GCM_SHA256");
-        addOpenSsl("TLS_DHE_RSA_WITH_AES_256_GCM_SHA384");
         addBoth(   "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256");
         addBoth(   "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA384");
         addOpenSsl("TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256");
@@ -830,11 +850,11 @@ public final class StandardNames extends Assert {
         addRi(     "SSL_RSA_WITH_RC4_128_MD5");
 
         // Dropped
-        addNeither("SSL_DH_DSS_EXPORT_WITH_DES40_CBC_SHA");
-        addNeither("SSL_DH_RSA_EXPORT_WITH_DES40_CBC_SHA");
         addRi(     "SSL_DHE_RSA_EXPORT_WITH_DES40_CBC_SHA");
         addRi(     "SSL_DHE_RSA_WITH_3DES_EDE_CBC_SHA");
         addRi(     "SSL_DHE_RSA_WITH_DES_CBC_SHA");
+        addNeither("SSL_DH_DSS_EXPORT_WITH_DES40_CBC_SHA");
+        addNeither("SSL_DH_RSA_EXPORT_WITH_DES40_CBC_SHA");
         addRi(     "SSL_DH_anon_EXPORT_WITH_DES40_CBC_SHA");
         addRi(     "SSL_DH_anon_EXPORT_WITH_RC4_40_MD5");
         addRi(     "SSL_DH_anon_WITH_3DES_EDE_CBC_SHA");
@@ -845,6 +865,12 @@ public final class StandardNames extends Assert {
         addRi(     "SSL_RSA_WITH_DES_CBC_SHA");
         addRi(     "SSL_RSA_WITH_NULL_MD5");
         addRi(     "SSL_RSA_WITH_NULL_SHA");
+        addRi(     "TLS_DHE_RSA_WITH_AES_128_CBC_SHA");
+        addRi(     "TLS_DHE_RSA_WITH_AES_128_CBC_SHA256");
+        addNeither("TLS_DHE_RSA_WITH_AES_128_GCM_SHA256");
+        addNeither("TLS_DHE_RSA_WITH_AES_128_GCM_SHA384");
+        addRi(     "TLS_DHE_RSA_WITH_AES_256_CBC_SHA");
+        addRi(     "TLS_DHE_RSA_WITH_AES_256_CBC_SHA256");
         addRi(     "TLS_DH_anon_WITH_AES_128_CBC_SHA");
         addRi(     "TLS_DH_anon_WITH_AES_128_CBC_SHA256");
         addNeither("TLS_DH_anon_WITH_AES_128_GCM_SHA256");
@@ -919,14 +945,10 @@ public final class StandardNames extends Assert {
             "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
             "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
             "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
-            "TLS_DHE_RSA_WITH_AES_128_GCM_SHA256",
-            "TLS_DHE_RSA_WITH_AES_256_GCM_SHA384",
             "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA",
             "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA",
             "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
             "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
-            "TLS_DHE_RSA_WITH_AES_128_CBC_SHA",
-            "TLS_DHE_RSA_WITH_AES_256_CBC_SHA",
             "TLS_RSA_WITH_AES_128_GCM_SHA256",
             "TLS_RSA_WITH_AES_256_GCM_SHA384",
             "TLS_RSA_WITH_AES_128_CBC_SHA",
@@ -943,14 +965,10 @@ public final class StandardNames extends Assert {
             "TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256",
             "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256",
             "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
-            "TLS_DHE_RSA_WITH_AES_128_GCM_SHA256",
-            "TLS_DHE_RSA_WITH_AES_256_GCM_SHA384",
             "TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA",
             "TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA",
             "TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA",
             "TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA",
-            "TLS_DHE_RSA_WITH_AES_128_CBC_SHA",
-            "TLS_DHE_RSA_WITH_AES_256_CBC_SHA",
             "TLS_RSA_WITH_AES_128_GCM_SHA256",
             "TLS_RSA_WITH_AES_256_GCM_SHA384",
             "TLS_RSA_WITH_AES_128_CBC_SHA",

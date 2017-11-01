@@ -42,9 +42,6 @@ import javax.crypto.CipherSpi;
 import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.BadPaddingException;
 import javax.crypto.NoSuchPaddingException;
-/* BEGIN ANDROID-REMOVED: this debugging mechanism is not available in Android.
-import sun.security.util.Debug;
- * END ANDROID-REMOVED */
 import sun.security.jca.*;
 import sun.security.jca.GetInstance.Instance;
 
@@ -102,106 +99,142 @@ import sun.security.jca.GetInstance.Instance;
  *
  * <p> Android provides the following {@code Signature} algorithms:
  * <table>
- *     <thead>
- *         <tr>
- *             <th>Name</th>
- *             <th>Supported (API Levels)</th>
- *         </tr>
- *     </thead>
- *     <tbody>
- *         <tr>
- *             <td>DSA</td>
- *             <td>1+</td>
- *         </tr>
- *         <tr>
- *             <td>DSAwithSHA1</td>
- *             <td>1+</td>
- *         </tr>
- *         <tr>
- *             <td>DSS</td>
- *             <td>1&ndash;19</td>
- *         </tr>
- *         <tr>
- *             <td>ECDSA</td>
- *             <td>11+</td>
- *         </tr>
- *         <tr>
- *             <td>ECDSAwithSHA1</td>
- *             <td>11+</td>
- *         </tr>
- *         <tr>
- *             <td>MD2withRSA</td>
- *             <td>1&ndash;3</td>
- *         </tr>
- *         <tr>
- *             <td>MD4withRSA</td>
- *             <td>1&ndash;8</td>
- *         </tr>
- *         <tr>
- *             <td>MD5withRSA</td>
- *             <td>1+</td>
- *         </tr>
- *         <tr>
- *             <td>MD5withRSA/ISO9796-2</td>
- *             <td>1&ndash;8</td>
- *         </tr>
- *         <tr>
- *             <td>NONEwithDSA</td>
- *             <td>1+</td>
- *         </tr>
- *         <tr>
- *             <td>NONEwithECDSA</td>
- *             <td>11+</td>
- *         </tr>
- *         <tr>
- *             <td>NONEwithRSA</td>
- *             <td>17+</td>
- *         </tr>
- *         <tr>
- *             <td>RSASSA-PSS</td>
- *             <td>1&ndash;8</td>
- *         </tr>
- *         <tr>
- *             <td>SHA1withDSA</td>
- *             <td>1+</td>
- *         </tr>
- *         <tr>
- *             <td>SHA1withECDSA</td>
- *             <td>11+</td>
- *         </tr>
- *         <tr>
- *             <td>SHA1withRSA</td>
- *             <td>1+</td>
- *         </tr>
- *         <tr>
- *             <td>SHA1withRSA/ISO9796-2</td>
- *             <td>1&ndash;8</td>
- *         </tr>
- *         <tr>
- *             <td>SHA256withECDSA</td>
- *             <td>11+</td>
- *         </tr>
- *         <tr>
- *             <td>SHA256withRSA</td>
- *             <td>1+</td>
- *         </tr>
- *         <tr>
- *             <td>SHA384withECDSA</td>
- *             <td>11+</td>
- *         </tr>
- *         <tr>
- *             <td>SHA384withRSA</td>
- *             <td>1+</td>
- *         </tr>
- *         <tr>
- *             <td>SHA512withECDSA</td>
- *             <td>11+</td>
- *         </tr>
- *         <tr>
- *             <td>SHA512withRSA</td>
- *             <td>1+</td>
- *         </tr>
- *     </tbody>
+ *   <thead>
+ *     <tr>
+ *       <th>Algorithm</th>
+ *       <th>Supported API Levels</th>
+ *     </tr>
+ *   </thead>
+ *   <tbody>
+ *     <tr>
+ *       <td>DSA</td>
+ *       <td>1+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>DSAwithSHA1</td>
+ *       <td>1+</td>
+ *     </tr>
+ *     <tr class="deprecated">
+ *       <td>DSS</td>
+ *       <td>1-19</td>
+ *     </tr>
+ *     <tr>
+ *       <td>ECDSA</td>
+ *       <td>11+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>ECDSAwithSHA1</td>
+ *       <td>11+</td>
+ *     </tr>
+ *     <tr class="deprecated">
+ *       <td>MD2withRSA</td>
+ *       <td>1-3</td>
+ *     </tr>
+ *     <tr class="deprecated">
+ *       <td>MD4withRSA</td>
+ *       <td>1-8</td>
+ *     </tr>
+ *     <tr>
+ *       <td>MD5withRSA</td>
+ *       <td>1+</td>
+ *     </tr>
+ *     <tr class="deprecated">
+ *       <td>MD5withRSA/ISO9796-2</td>
+ *       <td>1-8</td>
+ *     </tr>
+ *     <tr>
+ *       <td>NONEwithDSA</td>
+ *       <td>1+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>NONEwithECDSA</td>
+ *       <td>11+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>NONEwithRSA</td>
+ *       <td>17+</td>
+ *     </tr>
+ *     <tr class="deprecated">
+ *       <td>RSASSA-PSS</td>
+ *       <td>1-8</td>
+ *     </tr>
+ *     <tr>
+ *       <td>SHA1withDSA</td>
+ *       <td>1+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>SHA1withECDSA</td>
+ *       <td>11+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>SHA1withRSA</td>
+ *       <td>1+</td>
+ *     </tr>
+ *     <tr class="deprecated">
+ *       <td>SHA1withRSA/ISO9796-2</td>
+ *       <td>1-8</td>
+ *     </tr>
+ *     <tr>
+ *       <td>SHA1withRSA/PSS</td>
+ *       <td>23+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>SHA224withDSA</td>
+ *       <td>20+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>SHA224withECDSA</td>
+ *       <td>20+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>SHA224withRSA</td>
+ *       <td>20+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>SHA224withRSA/PSS</td>
+ *       <td>23+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>SHA256withDSA</td>
+ *       <td>1+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>SHA256withECDSA</td>
+ *       <td>11+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>SHA256withRSA</td>
+ *       <td>1+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>SHA256withRSA/PSS</td>
+ *       <td>23+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>SHA384withECDSA</td>
+ *       <td>11+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>SHA384withRSA</td>
+ *       <td>1+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>SHA384withRSA/PSS</td>
+ *       <td>23+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>SHA512withECDSA</td>
+ *       <td>11+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>SHA512withRSA</td>
+ *       <td>1+</td>
+ *     </tr>
+ *     <tr>
+ *       <td>SHA512withRSA/PSS</td>
+ *       <td>23+</td>
+ *     </tr>
+ *   </tbody>
  * </table>
  *
  * These algorithms are described in the <a href=
@@ -215,7 +248,8 @@ import sun.security.jca.GetInstance.Instance;
 
 public abstract class Signature extends SignatureSpi {
 
-    /* BEGIN ANDROID-REMOVED: this debugging mechanism not available in Android
+    // BEGIN Android-removed: this debugging mechanism is not supported in Android.
+    /*
     private static final Debug debug =
                         Debug.getInstance("jca", "Signature");
 
@@ -223,7 +257,8 @@ public abstract class Signature extends SignatureSpi {
                         Debug.getInstance("provider", "Provider");
     private static final boolean skipDebug =
         Debug.isOn("engine=") && !Debug.isOn("signature");
-     * END ANDROID-REMOVED */
+    // END Android-removed: this debugging mechanism is not supported in Android.
+    */
 
     /*
      * The algorithm for this signature object.
@@ -333,6 +368,8 @@ public abstract class Signature extends SignatureSpi {
         do {
             Service s = t.next();
             if (isSpi(s)) {
+                // Android-changed: Delegate constructor only takes algorithm.
+                // return new Delegate(s, t, algorithm);
                 return new Delegate(algorithm);
             } else {
                 // must be a subclass of Signature, disable dynamic selection
@@ -394,13 +431,15 @@ public abstract class Signature extends SignatureSpi {
                 // instance of SignatureSpi but not Signature
                 boolean r = (instance instanceof SignatureSpi)
                                 && (instance instanceof Signature == false);
-                /* BEGIN ANDROID-REMOVED: this mechanism not available in Android
+                // BEGIN Android-removed: this debugging mechanism is not supported in Android.
+                /*
                 if ((debug != null) && (r == false)) {
                     debug.println("Not a SignatureSpi " + className);
                     debug.println("Delayed provider selection may not be "
                         + "available for algorithm " + s.getAlgorithm());
                 }
-                 * END ANDROID-REMOVED */
+                */
+                // END Android-removed: this debugging mechanism is not supported in Android.
                 result = Boolean.valueOf(r);
                 signatureInfo.put(className, result);
             } catch (Exception e) {
@@ -459,6 +498,8 @@ public abstract class Signature extends SignatureSpi {
             }
             return getInstanceRSA(p);
         }
+        // Android-added: Check for Bouncy Castle deprecation
+        Providers.checkBouncyCastleDeprecation(provider, "Signature", algorithm);
         Instance instance = GetInstance.getInstance
                 ("Signature", SignatureSpi.class, algorithm, provider);
         return getInstance(instance, algorithm);
@@ -502,6 +543,8 @@ public abstract class Signature extends SignatureSpi {
             }
             return getInstanceRSA(provider);
         }
+        // Android-added: Check for Bouncy Castle deprecation
+        Providers.checkBouncyCastleDeprecation(provider, "Signature", algorithm);
         Instance instance = GetInstance.getInstance
                 ("Signature", SignatureSpi.class, algorithm, provider);
         return getInstance(instance, algorithm);
@@ -558,12 +601,14 @@ public abstract class Signature extends SignatureSpi {
         engineInitVerify(publicKey);
         state = VERIFY;
 
-        /* BEGIN ANDROID-REMOVED: this debugging mechanism not supported in Android.
+        // BEGIN Android-removed: this debugging mechanism is not supported in Android.
+        /*
         if (!skipDebug && pdebug != null) {
             pdebug.println("Signature." + algorithm +
                 " verification algorithm from: " + this.provider.getName());
         }
-         * END ANDROID-REMOVED */
+        */
+        // END Android-removed: this debugging mechanism is not supported in Android.
     }
 
     /**
@@ -609,12 +654,14 @@ public abstract class Signature extends SignatureSpi {
         engineInitVerify(publicKey);
         state = VERIFY;
 
-        /* BEGIN ANDROID-REMOVED: this debugging mechanism is not supported in Android.
+        // BEGIN Android-removed: this debugging mechanism is not supported in Android.
+        /*
         if (!skipDebug && pdebug != null) {
             pdebug.println("Signature." + algorithm +
                 " verification algorithm from: " + this.provider.getName());
         }
-         * END ANDROID-REMOVED */
+        */
+        // END Android-removed: this debugging mechanism is not supported in Android.
     }
 
     /**
@@ -632,12 +679,14 @@ public abstract class Signature extends SignatureSpi {
         engineInitSign(privateKey);
         state = SIGN;
 
-        /* BEGIN ANDROID-REMOVED: this debugging mechanism is not supported in Android.
+        // BEGIN Android-removed: this debugging mechanism is not supported in Android.
+        /*
         if (!skipDebug && pdebug != null) {
             pdebug.println("Signature." + algorithm +
                 " signing algorithm from: " + this.provider.getName());
         }
-         * END ANDROID-REMOVED */
+        */
+        // END Android-removed: this debugging mechanism is not supported in Android.
     }
 
     /**
@@ -657,12 +706,14 @@ public abstract class Signature extends SignatureSpi {
         engineInitSign(privateKey, random);
         state = SIGN;
 
-        /* BEGIN ANDROID-REMOVED: this debugging mechanism is not supported in Android.
+        // BEGIN Android-removed: this debugging mechanism is not supported in Android.
+        /*
         if (!skipDebug && pdebug != null) {
             pdebug.println("Signature." + algorithm +
                 " signing algorithm from: " + this.provider.getName());
         }
-         * END ANDROID-REMOVED */
+        */
+        // END Android-removed: this debugging mechanism is not supported in Android.
     }
 
     /**
@@ -1019,7 +1070,7 @@ public abstract class Signature extends SignatureSpi {
      * @deprecated Deprecated.
      */
     @Deprecated
-    // Android changed add "Deprecated."
+    // Android-changed: add "Deprecated."
     public final Object getParameter(String param)
             throws InvalidParameterException {
         return engineGetParameter(param);
@@ -1041,6 +1092,7 @@ public abstract class Signature extends SignatureSpi {
         }
     }
 
+    // BEGIN Android-added: Allow access to the current SPI for testing purposes.
     /**
      * Returns the {@code SignatureSpi} backing this {@code Signature}.
      *
@@ -1049,6 +1101,7 @@ public abstract class Signature extends SignatureSpi {
     public SignatureSpi getCurrentSpi() {
       return null;
     }
+    // END Android-added: Allow access to the current SPI for testing purposes.
 
     /*
      * The following class allows providers to extend from SignatureSpi
@@ -1069,25 +1122,43 @@ public abstract class Signature extends SignatureSpi {
 
         // The provider implementation (delegate)
         // filled in once the provider is selected
-        // BEGIN android-added
+        // BEGIN Android-note: Note on sigSpi invariants.
         // (Not necessarily Android specific)
         // Invariant to be preserved: sigSpi cannot be changed once it was assigned to something
-        // different than null and lock is null. That is the case when sigSpi is specified in the
-        // constructor.
-        // END android-added
+        // different than null and lock is null. That is only the case when sigSpi is specified
+        // in the constructor.
+        // END Android-note: Note on sigSpi invariants.
         private SignatureSpi sigSpi;
 
         // lock for mutex during provider selection
         private final Object lock;
 
+        // BEGIN Android-removed: Redo the provider selection logic to allow reselecting provider.
+        // When only the algorithm is specified, we want to allow the Signature provider for that
+        // algorithm to change if multiple providers exist and they support different subsets of
+        // keys.  To that end, we don't hold an iterator and exhaust it when we need to choose
+        // a provider like the upstream implementation, we reestablish the list of providers
+        // each time.
+        /*
+        // next service to try in provider selection
+        // null once provider is selected
+        private Service firstService;
+
+        // remaining services to try in provider selection
+        // null once provider is selected
+        private Iterator<Service> serviceIterator;
+        */
+        // END Android-removed: Redo the provider selection logic to allow reselecting provider.
+
         // constructor
         Delegate(SignatureSpi sigSpi, String algorithm) {
             super(algorithm);
             this.sigSpi = sigSpi;
-            this.lock = null;
+            this.lock = null; // no lock needed
         }
 
         // used with delayed provider selection
+        // Android-changed: Remove Service and Iterator from constructor args.
         Delegate(String algorithm) {
             super(algorithm);
             this.lock = new Object();
@@ -1153,7 +1224,8 @@ public abstract class Signature extends SignatureSpi {
                 if (sigSpi != null) {
                     return;
                 }
-                /* BEGIN ANDROID-REMOVED: this debugging mechanism is not supported in Android.
+                // BEGIN Android-removed: this debugging mechanism is not supported in Android.
+                /*
                 if (debug != null) {
                     int w = --warnCount;
                     if (w >= 0) {
@@ -1166,8 +1238,10 @@ public abstract class Signature extends SignatureSpi {
                         new Exception("Call trace").printStackTrace();
                     }
                 }
-                 * END ANDROID-REMOVED */
+                */
+                // END Android-removed: this debugging mechanism is not supported in Android.
                 Exception lastException = null;
+// BEGIN Android-changed: Provider selection; loop over a new list each time.
                 List<Service> list;
                 if (((Signature)this).algorithm.equalsIgnoreCase(RSA_SIGNATURE)) {
                     list = GetInstance.getServices(rsaIds);
@@ -1176,12 +1250,19 @@ public abstract class Signature extends SignatureSpi {
                             ((Signature)this).algorithm);
                 }
                 for (Service s : list) {
+// END Android-changed: Provider selection; loop over a new list each time.
                     if (isSpi(s) == false) {
                         continue;
                     }
                     try {
                         sigSpi = newInstance(s);
                         provider = s.getProvider();
+                        // Android-removed: Provider selection; loop over a new list each time.
+                        /*
+                        // not needed any more
+                        firstService = null;
+                        serviceIterator = null;
+                        */
                         return;
                     } catch (NoSuchAlgorithmException e) {
                         lastException = e;
@@ -1199,11 +1280,14 @@ public abstract class Signature extends SignatureSpi {
         private void chooseProvider(int type, Key key, SecureRandom random)
                 throws InvalidKeyException {
             synchronized (lock) {
+                // Android-changed: Use the currently-selected provider only if no key was provided.
+                // if (sigSpi != null) {
                 if (sigSpi != null && key == null) {
                     init(sigSpi, type, key, random);
                     return;
                 }
                 Exception lastException = null;
+// BEGIN Android-changed: Provider selection; loop over a new list each time.
                 List<Service> list;
                 if (((Signature)this).algorithm.equalsIgnoreCase(RSA_SIGNATURE)) {
                     list = GetInstance.getServices(rsaIds);
@@ -1212,6 +1296,7 @@ public abstract class Signature extends SignatureSpi {
                             ((Signature)this).algorithm);
                 }
                 for (Service s : list) {
+// END Android-changed: Provider selection; loop over a new list each time.
                     // if provider says it does not support this key, ignore it
                     if (s.supportsParameter(key) == false) {
                         continue;
@@ -1225,6 +1310,11 @@ public abstract class Signature extends SignatureSpi {
                         init(spi, type, key, random);
                         provider = s.getProvider();
                         sigSpi = spi;
+                        // Android-removed: Provider selection; loop over a new list each time.
+                        /*
+                        firstService = null;
+                        serviceIterator = null;
+                        */
                         return;
                     } catch (Exception e) {
                         // NoSuchAlgorithmException from newInstance()
@@ -1233,6 +1323,7 @@ public abstract class Signature extends SignatureSpi {
                         if (lastException == null) {
                             lastException = e;
                         }
+                        // Android-added: Throw InvalidKeyException immediately.
                         if (lastException instanceof InvalidKeyException) {
                           throw (InvalidKeyException)lastException;
                         }
@@ -1275,6 +1366,8 @@ public abstract class Signature extends SignatureSpi {
 
         protected void engineInitVerify(PublicKey publicKey)
                 throws InvalidKeyException {
+            // Android-changed: Use the currently-selected provider only if no key was provided.
+            // if (sigSpi != null) {
             if (sigSpi != null && (lock == null || publicKey == null)) {
                 sigSpi.engineInitVerify(publicKey);
             } else {
@@ -1284,6 +1377,8 @@ public abstract class Signature extends SignatureSpi {
 
         protected void engineInitSign(PrivateKey privateKey)
                 throws InvalidKeyException {
+            // Android-changed: Use the currently-selected provider only if no key was provided.
+            // if (sigSpi != null) {
             if (sigSpi != null && (lock == null || privateKey == null)) {
                 sigSpi.engineInitSign(privateKey);
             } else {
@@ -1293,6 +1388,8 @@ public abstract class Signature extends SignatureSpi {
 
         protected void engineInitSign(PrivateKey privateKey, SecureRandom sr)
                 throws InvalidKeyException {
+            // Android-changed: Use the currently-selected provider only if no key was provided.
+            // if (sigSpi != null) {
             if (sigSpi != null  && (lock == null || privateKey == null)) {
                 sigSpi.engineInitSign(privateKey, sr);
             } else {
@@ -1362,6 +1459,7 @@ public abstract class Signature extends SignatureSpi {
             return sigSpi.engineGetParameters();
         }
 
+        // BEGIN Android-added: Allow access to the current SPI for testing purposes.
         @Override
         public SignatureSpi getCurrentSpi() {
             if (lock == null) {
@@ -1371,6 +1469,7 @@ public abstract class Signature extends SignatureSpi {
                 return sigSpi;
             }
         }
+        // END Android-added: Allow access to the current SPI for testing purposes.
     }
 
     // adapter for RSA/ECB/PKCS1Padding ciphers

@@ -26,6 +26,9 @@
 
 package java.lang.reflect;
 
+import dalvik.annotation.optimization.FastNative;
+import libcore.util.EmptyArray;
+
 import java.lang.annotation.Annotation;
 import java.util.Comparator;
 
@@ -126,11 +129,17 @@ public final class Constructor<T> extends Executable {
     @Override
     public Class<?>[] getParameterTypes() {
         // Android-changed: This is handled by Executable.
-        return super.getParameterTypesInternal();
+        Class<?>[] paramTypes = super.getParameterTypesInternal();
+        if (paramTypes == null) {
+            return EmptyArray.CLASS;
+        }
+
+        return paramTypes;
     }
 
     /**
      * {@inheritDoc}
+     * @since 1.8
      */
     public int getParameterCount() {
         // Android-changed: This is handled by Executable.
@@ -153,6 +162,7 @@ public final class Constructor<T> extends Executable {
      * {@inheritDoc}
      */
     @Override
+    @FastNative
     public native Class<?>[] getExceptionTypes();
 
     /**
@@ -177,7 +187,7 @@ public final class Constructor<T> extends Executable {
         if (obj != null && obj instanceof Constructor) {
             Constructor<?> other = (Constructor<?>)obj;
             if (getDeclaringClass() == other.getDeclaringClass()) {
-                // Android changed: Use getParameterTypes.
+                // Android-changed: Use getParameterTypes.
                 return equalParamTypes(getParameterTypes(), other.getParameterTypes());
             }
         }
@@ -212,7 +222,7 @@ public final class Constructor<T> extends Executable {
      * @jls 8.8.3. Constructor Modifiers
      */
     public String toString() {
-        // Android changed: Use getParameterTypes().
+        // Android-changed: Use getParameterTypes().
         return sharedToString(Modifier.constructorModifiers(),
                               false,
                               getParameterTypes(),
@@ -327,9 +337,11 @@ public final class Constructor<T> extends Executable {
         }
     }
 
+    @FastNative
     private static native Object newInstanceFromSerialization(Class<?> ctorClass, Class<?> allocClass)
         throws InstantiationException, IllegalArgumentException, InvocationTargetException;
 
+    @FastNative
     private native T newInstance0(Object... args) throws InstantiationException,
             IllegalAccessException, IllegalArgumentException, InvocationTargetException;
 
