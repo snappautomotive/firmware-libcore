@@ -4,6 +4,8 @@ filegroup {
     srcs: [
         "luni/src/main/java/android/system/ErrnoException.java",
         "luni/src/main/java/android/system/GaiException.java",
+        "luni/src/main/java/android/system/Int32Ref.java",
+        "luni/src/main/java/android/system/Int64Ref.java",
         "luni/src/main/java/android/system/NetlinkSocketAddress.java",
         "luni/src/main/java/android/system/Os.java",
         "luni/src/main/java/android/system/OsConstants.java",
@@ -73,7 +75,7 @@ filegroup {
         "luni/src/main/java/java/lang/FindBugsSuppressWarnings.java",
         "libart/src/main/java/java/lang/VMClassLoader.java",
         "libart/src/main/java/java/lang/invoke/ArrayElementVarHandle.java",
-        "libart/src/main/java/java/lang/invoke/ByteArrayVarHandle.java",
+        "libart/src/main/java/java/lang/invoke/ByteArrayViewVarHandle.java",
         "libart/src/main/java/java/lang/invoke/ByteBufferViewVarHandle.java",
         "libart/src/main/java/java/lang/invoke/FieldVarHandle.java",
         "luni/src/main/java/java/lang/ref/FinalizerReference.java",
