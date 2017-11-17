@@ -226,11 +226,8 @@ abstract class FileSystem {
 
     // Flags for enabling/disabling performance optimizations for file
     // name canonicalization
-    // Android-changed: Disabled caches for security reasons (b/62301183)
-    //static boolean useCanonCaches      = true;
-    //static boolean useCanonPrefixCache = true;
-    static boolean useCanonCaches      = false;
-    static boolean useCanonPrefixCache = false;
+    static boolean useCanonCaches      = true;
+    static boolean useCanonPrefixCache = true;
 
     private static boolean getBooleanProperty(String prop, boolean defaultVal) {
         String val = System.getProperty(prop);
