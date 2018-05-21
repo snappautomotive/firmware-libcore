@@ -1570,24 +1570,17 @@ public abstract class VarHandle {
     Object getAndBitwiseXorRelease(Object... args);
 
 
+    // Android-changed: remove unused return type in AccessType constructor.
     enum AccessType {
-        GET(Object.class),
-        SET(void.class),
-        COMPARE_AND_SWAP(boolean.class),
-        COMPARE_AND_EXCHANGE(Object.class),
-        GET_AND_UPDATE(Object.class),
+        GET,
+        SET,
+        COMPARE_AND_SWAP,
+        COMPARE_AND_EXCHANGE,
+        GET_AND_UPDATE,
         // Android-added: Finer grained access types.
         // These are used to help categorize the access modes that a VarHandle supports.
-        GET_AND_UPDATE_BITWISE(Object.class),
-        GET_AND_UPDATE_NUMERIC(Object.class);
-
-        final Class<?> returnType;
-        final boolean isMonomorphicInReturnType;
-
-        AccessType(Class<?> returnType) {
-            this.returnType = returnType;
-            isMonomorphicInReturnType = returnType != Object.class;
-        }
+        GET_AND_UPDATE_BITWISE,
+        GET_AND_UPDATE_NUMERIC;
 
         MethodType accessModeType(Class<?> receiver, Class<?> value,
                                   Class<?>... intermediate) {
@@ -2044,7 +2037,8 @@ public abstract class VarHandle {
         // END Android-removed: no vform field in Android implementation.
 
         // Android-added: basic implementation following description in javadoc for this method.
-        return MethodHandles.varHandleInvoker(accessMode, accessModeType(accessMode)).bindTo(this);
+        MethodType type = accessModeType(accessMode);
+        return MethodHandles.varHandleExactInvoker(accessMode, type).bindTo(this);
     }
 
     // BEGIN Android-removed: Not used in Android implementation.
@@ -2289,9 +2283,6 @@ public abstract class VarHandle {
     /** BitMask of all access modes. */
     private final static int ALL_MODES_BIT_MASK;
 
-    /** Indicator of machine word size. */
-    private final static boolean RUNNING_ON_64BIT = VMRuntime.getRuntime().is64Bit();
-
     static {
         // Check we're not about to overflow the storage of the
         // bitmasks here and in the accessModesBitMask field.
@@ -2368,13 +2359,11 @@ public abstract class VarHandle {
         //
         // The supported access modes are described in:
         // @see java.lang.invoke.MethodHandles#byteArrayViewVarHandle
-        int bitMask = 0;
 
-        // Read/write access modes supported for all types except for
-        // long and double on 32-bit platforms.
-        if (RUNNING_ON_64BIT || (varType != long.class && varType != double.class)) {
-            bitMask |= READ_ACCESS_MODES_BIT_MASK | WRITE_ACCESS_MODES_BIT_MASK;
-        }
+        // Read/write access modes supported for all types including
+        // long and double on 32-bit platforms (though these accesses
+        // may not be atomic).
+        int bitMask = READ_ACCESS_MODES_BIT_MASK | WRITE_ACCESS_MODES_BIT_MASK;
 
         // int, long, float, double support atomic update modes per documentation.
         if (varType == int.class || varType == long.class ||

@@ -18,6 +18,7 @@ package libcore.io;
 
 import android.system.ErrnoException;
 import android.system.GaiException;
+import android.system.Int64Ref;
 import android.system.OsConstants;
 import android.system.StructAddrinfo;
 import android.system.StructLinger;
@@ -33,7 +34,6 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
-import libcore.util.MutableLong;
 
 import static android.system.OsConstants.*;
 
@@ -289,9 +289,9 @@ public class BlockGuardOs extends ForwardingOs {
         os.rename(oldPath, newPath);
     }
 
-    @Override public long sendfile(FileDescriptor outFd, FileDescriptor inFd, MutableLong inOffset, long byteCount) throws ErrnoException {
+    @Override public long sendfile(FileDescriptor outFd, FileDescriptor inFd, Int64Ref offset, long byteCount) throws ErrnoException {
         BlockGuard.getThreadPolicy().onWriteToDisk();
-        return os.sendfile(outFd, inFd, inOffset, byteCount);
+        return os.sendfile(outFd, inFd, offset, byteCount);
     }
 
     @Override public int sendto(FileDescriptor fd, ByteBuffer buffer, int flags, InetAddress inetAddress, int port) throws ErrnoException, SocketException {
@@ -396,5 +396,13 @@ public class BlockGuardOs extends ForwardingOs {
     @Override public void unlink(String pathname) throws ErrnoException {
         BlockGuard.getThreadPolicy().onWriteToDisk();
         os.unlink(pathname);
+    }
+
+    @Override public long splice(FileDescriptor fdIn, Int64Ref offIn, FileDescriptor fdOut, Int64Ref offOut, long len, int flags) throws ErrnoException {
+        // It's infeasible to figure out if splice will result in read or write (would require fstat to figure out which fd is pipe).
+        // So, signal both read and write.
+        BlockGuard.getThreadPolicy().onWriteToDisk();
+        BlockGuard.getThreadPolicy().onReadFromDisk();
+        return os.splice(fdIn, offIn, fdOut, offOut, len, flags);
     }
 }
