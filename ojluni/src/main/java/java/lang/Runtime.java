@@ -29,6 +29,8 @@ package java.lang;
 import dalvik.annotation.optimization.FastNative;
 import java.io.*;
 import java.util.StringTokenizer;
+
+import dalvik.system.BlockGuard;
 import sun.reflect.CallerSensitive;
 import java.lang.ref.FinalizerReference;
 import java.util.ArrayList;
@@ -765,7 +767,14 @@ public class Runtime {
      * The method {@link System#gc()} is the conventional and convenient
      * means of invoking this method.
      */
-    public native void gc();
+    // Android-changed: Added BlockGuard check to gc()
+    // public native void gc();
+    public void gc() {
+        BlockGuard.getThreadPolicy().onExplicitGc();
+        nativeGc();
+    }
+
+    private native void nativeGc();
 
     /* Wormhole for calling java.lang.ref.Finalizer.runFinalization */
     private static native void runFinalization0();
@@ -909,7 +918,7 @@ public class Runtime {
         if (absolutePath == null) {
             throw new NullPointerException("absolutePath == null");
         }
-        String error = doLoad(absolutePath, loader);
+        String error = nativeLoad(absolutePath, loader);
         if (error != null) {
             throw new UnsatisfiedLinkError(error);
         }
@@ -923,7 +932,7 @@ public class Runtime {
         if (filename == null) {
             throw new NullPointerException("filename == null");
         }
-        String error = doLoad(filename, fromClass.getClassLoader());
+        String error = nativeLoad(filename, fromClass.getClassLoader());
         if (error != null) {
             throw new UnsatisfiedLinkError(error);
         }
@@ -1011,7 +1020,7 @@ public class Runtime {
                 throw new UnsatisfiedLinkError(loader + " couldn't find \"" +
                                                System.mapLibraryName(libraryName) + "\"");
             }
-            String error = doLoad(filename, loader);
+            String error = nativeLoad(filename, loader);
             if (error != null) {
                 throw new UnsatisfiedLinkError(error);
             }
@@ -1026,7 +1035,7 @@ public class Runtime {
             candidates.add(candidate);
 
             if (IoUtils.canOpenReadOnly(candidate)) {
-                String error = doLoad(candidate, loader);
+                String error = nativeLoad(candidate, loader);
                 if (error == null) {
                     return; // We successfully loaded the library. Job done.
                 }
@@ -1067,42 +1076,8 @@ public class Runtime {
         }
         return paths;
     }
-    private String doLoad(String name, ClassLoader loader) {
-        // Android apps are forked from the zygote, so they can't have a custom LD_LIBRARY_PATH,
-        // which means that by default an app's shared library directory isn't on LD_LIBRARY_PATH.
 
-        // The PathClassLoader set up by frameworks/base knows the appropriate path, so we can load
-        // libraries with no dependencies just fine, but an app that has multiple libraries that
-        // depend on each other needed to load them in most-dependent-first order.
-
-        // We added API to Android's dynamic linker so we can update the library path used for
-        // the currently-running process. We pull the desired path out of the ClassLoader here
-        // and pass it to nativeLoad so that it can call the private dynamic linker API.
-
-        // We didn't just change frameworks/base to update the LD_LIBRARY_PATH once at the
-        // beginning because multiple apks can run in the same process and third party code can
-        // use its own BaseDexClassLoader.
-
-        // We didn't just add a dlopen_with_custom_LD_LIBRARY_PATH call because we wanted any
-        // dlopen(3) calls made from a .so's JNI_OnLoad to work too.
-
-        // So, find out what the native library search path is for the ClassLoader in question...
-        String librarySearchPath = null;
-        if (loader != null && loader instanceof BaseDexClassLoader) {
-            BaseDexClassLoader dexClassLoader = (BaseDexClassLoader) loader;
-            librarySearchPath = dexClassLoader.getLdLibraryPath();
-        }
-        // nativeLoad should be synchronized so there's only one LD_LIBRARY_PATH in use regardless
-        // of how many ClassLoaders are in the system, but dalvik doesn't support synchronized
-        // internal natives.
-        synchronized (this) {
-            return nativeLoad(name, loader, librarySearchPath);
-        }
-    }
-
-    // TODO: should be synchronized, but dalvik doesn't support synchronized internal natives.
-    private static native String nativeLoad(String filename, ClassLoader loader,
-                                            String librarySearchPath);
+    private static native String nativeLoad(String filename, ClassLoader loader);
 
     /**
      * Creates a localized version of an input stream. This method takes

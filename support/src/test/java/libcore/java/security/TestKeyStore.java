@@ -230,7 +230,7 @@ public final class TestKeyStore {
                 .aliasPrefix("server")
                 .signer(INTERMEDIATE_CA.getPrivateKey("RSA", "RSA"))
                 .rootCa(INTERMEDIATE_CA.getRootCertificate("RSA"))
-                .addSubjectAltNameIpAddress(LOCAL_HOST_ADDRESS)
+                .addSubjectAltName(new GeneralName(GeneralName.dNSName, LOCAL_HOST_NAME))
                 .certificateSerialNumber(BigInteger.valueOf(3))
                 .build();
         CLIENT = new TestKeyStore(createClient(INTERMEDIATE_CA.keyStore), null, null);
@@ -641,7 +641,7 @@ public final class TestKeyStore {
         }
 
         private X500Principal localhost() {
-            return new X500Principal("CN=" + LOCAL_HOST_NAME);
+            return new X500Principal("CN=Local Host");
         }
     }
 
@@ -693,13 +693,13 @@ public final class TestKeyStore {
         String keyAlgorithm = privateKey.getAlgorithm();
         String signatureAlgorithm;
         if (keyAlgorithm.equals("RSA")) {
-            signatureAlgorithm = "sha1WithRSA";
+            signatureAlgorithm = "sha256WithRSA";
         } else if (keyAlgorithm.equals("DSA")) {
-            signatureAlgorithm = "sha1WithDSA";
+            signatureAlgorithm = "sha256WithDSA";
         } else if (keyAlgorithm.equals("EC")) {
-            signatureAlgorithm = "sha1WithECDSA";
+            signatureAlgorithm = "sha256WithECDSA";
         } else if (keyAlgorithm.equals("EC_RSA")) {
-            signatureAlgorithm = "sha1WithRSA";
+            signatureAlgorithm = "sha256WithRSA";
         } else {
             throw new IllegalArgumentException("Unknown key algorithm " + keyAlgorithm);
         }

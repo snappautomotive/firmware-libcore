@@ -18,6 +18,8 @@ package libcore.io;
 
 import android.system.ErrnoException;
 import android.system.GaiException;
+import android.system.Int32Ref;
+import android.system.Int64Ref;
 import android.system.StructAddrinfo;
 import android.system.StructCapUserData;
 import android.system.StructCapUserHeader;
@@ -41,8 +43,6 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
-import libcore.util.MutableInt;
-import libcore.util.MutableLong;
 
 public interface Os {
     public FileDescriptor accept(FileDescriptor fd, SocketAddress peerAddress) throws ErrnoException, SocketException;
@@ -76,10 +76,6 @@ public interface Os {
     public int getegid();
     public int geteuid();
     public int getgid();
-    /* Should the number of groups change during the execution of this call, the call may
-       return an arbitrary subset. This may be worth reconsidering should this be exposed
-       as public API. */
-    public int[] getgroups() throws ErrnoException;
     public String getenv(String name);
     /* TODO: break into getnameinfoHost and getnameinfoService? */
     public String getnameinfo(InetAddress address, int flags) throws GaiException;
@@ -106,7 +102,7 @@ public interface Os {
     public InetAddress inet_pton(int family, String address);
     public int ioctlFlags(FileDescriptor fd, String interfaceName) throws ErrnoException;
     public InetAddress ioctlInetAddress(FileDescriptor fd, int cmd, String interfaceName) throws ErrnoException;
-    public int ioctlInt(FileDescriptor fd, int cmd, MutableInt arg) throws ErrnoException;
+    public int ioctlInt(FileDescriptor fd, int cmd, Int32Ref arg) throws ErrnoException;
     public int ioctlMTU(FileDescriptor fd, String interfaceName) throws ErrnoException;
     public boolean isatty(FileDescriptor fd);
     public void kill(int pid, int signal) throws ErrnoException;
@@ -147,12 +143,11 @@ public interface Os {
     public int sendto(FileDescriptor fd, ByteBuffer buffer, int flags, InetAddress inetAddress, int port) throws ErrnoException, SocketException;
     public int sendto(FileDescriptor fd, byte[] bytes, int byteOffset, int byteCount, int flags, InetAddress inetAddress, int port) throws ErrnoException, SocketException;
     public int sendto(FileDescriptor fd, byte[] bytes, int byteOffset, int byteCount, int flags, SocketAddress address) throws ErrnoException, SocketException;
-    public long sendfile(FileDescriptor outFd, FileDescriptor inFd, MutableLong inOffset, long byteCount) throws ErrnoException;
+    public long sendfile(FileDescriptor outFd, FileDescriptor inFd, Int64Ref offset, long byteCount) throws ErrnoException;
     public void setegid(int egid) throws ErrnoException;
     public void setenv(String name, String value, boolean overwrite) throws ErrnoException;
     public void seteuid(int euid) throws ErrnoException;
     public void setgid(int gid) throws ErrnoException;
-    public void setgroups(int[] gids) throws ErrnoException;
     public void setpgid(int pid, int pgid) throws ErrnoException;
     public void setregid(int rgid, int egid) throws ErrnoException;
     public void setreuid(int ruid, int euid) throws ErrnoException;
@@ -169,6 +164,7 @@ public interface Os {
     public void shutdown(FileDescriptor fd, int how) throws ErrnoException;
     public FileDescriptor socket(int domain, int type, int protocol) throws ErrnoException;
     public void socketpair(int domain, int type, int protocol, FileDescriptor fd1, FileDescriptor fd2) throws ErrnoException;
+    public long splice(FileDescriptor fdIn, Int64Ref offIn, FileDescriptor fdOut, Int64Ref offOut, long len, int flags) throws ErrnoException;
     public StructStat stat(String path) throws ErrnoException;
     public StructStatVfs statvfs(String path) throws ErrnoException;
     public String strerror(int errno);
@@ -181,7 +177,7 @@ public interface Os {
     public StructUtsname uname();
     public void unlink(String pathname) throws ErrnoException;
     public void unsetenv(String name) throws ErrnoException;
-    public int waitpid(int pid, MutableInt status, int options) throws ErrnoException;
+    public int waitpid(int pid, Int32Ref status, int options) throws ErrnoException;
     public int write(FileDescriptor fd, ByteBuffer buffer) throws ErrnoException, InterruptedIOException;
     public int write(FileDescriptor fd, byte[] bytes, int byteOffset, int byteCount) throws ErrnoException, InterruptedIOException;
     public int writev(FileDescriptor fd, Object[] buffers, int[] offsets, int[] byteCounts) throws ErrnoException, InterruptedIOException;

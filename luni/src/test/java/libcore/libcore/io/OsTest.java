@@ -44,6 +44,7 @@ import java.net.ServerSocket;
 import java.net.SocketOptions;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -54,11 +55,9 @@ import junit.framework.TestCase;
 import libcore.io.IoBridge;
 import libcore.io.IoUtils;
 import libcore.io.Libcore;
-import libcore.util.MutableLong;
 
 import static android.system.OsConstants.*;
 import static libcore.libcore.io.OsTest.SendFileImpl.ANDROID_SYSTEM_OS_INT64_REF;
-import static libcore.libcore.io.OsTest.SendFileImpl.ANDROID_SYSTEM_OS_MUTABLE_LONG;
 import static libcore.libcore.io.OsTest.SendFileImpl.LIBCORE_OS;
 
 public class OsTest extends TestCase {
@@ -840,7 +839,7 @@ public class OsTest extends TestCase {
   public void test_sendfile_errno() throws Exception {
     try {
         // FileDescriptor.out is not open for input, will cause EBADF
-        MutableLong offset = new MutableLong(10);
+        Int64Ref offset = new Int64Ref(10);
         Libcore.os.sendfile(FileDescriptor.out, FileDescriptor.out, offset, 10);
         fail();
     } catch(ErrnoException expected) {
@@ -851,7 +850,6 @@ public class OsTest extends TestCase {
     File in = createTempFile("test_sendfile_null", "Hello, world!");
     try {
       int len = "Hello".length();
-      assertEquals("Hello", checkSendfile(ANDROID_SYSTEM_OS_MUTABLE_LONG, in, null, len, null));
       assertEquals("Hello", checkSendfile(ANDROID_SYSTEM_OS_INT64_REF, in, null, len, null));
       assertEquals("Hello", checkSendfile(LIBCORE_OS, in, null, len, null));
     } finally {
@@ -864,20 +862,16 @@ public class OsTest extends TestCase {
     try {
       // checkSendfile(sendFileImplToUse, in, startOffset, maxBytes, expectedEndOffset)
 
-      assertEquals("Hello", checkSendfile(ANDROID_SYSTEM_OS_MUTABLE_LONG, in, 0L, 5, 5L));
       assertEquals("Hello", checkSendfile(ANDROID_SYSTEM_OS_INT64_REF, in, 0L, 5, 5L));
       assertEquals("Hello", checkSendfile(LIBCORE_OS, in, 0L, 5, 5L));
 
-      assertEquals("ello,", checkSendfile(ANDROID_SYSTEM_OS_MUTABLE_LONG, in, 1L, 5, 6L));
       assertEquals("ello,", checkSendfile(ANDROID_SYSTEM_OS_INT64_REF, in, 1L, 5, 6L));
       assertEquals("ello,", checkSendfile(LIBCORE_OS, in, 1L, 5, 6L));
 
       // At offset 9, only 4 bytes/chars available, even though we're asking for 5.
-      assertEquals("rld!", checkSendfile(ANDROID_SYSTEM_OS_MUTABLE_LONG, in, 9L, 5, 13L));
       assertEquals("rld!", checkSendfile(ANDROID_SYSTEM_OS_INT64_REF, in, 9L, 5, 13L));
       assertEquals("rld!", checkSendfile(LIBCORE_OS, in, 9L, 5, 13L));
 
-      assertEquals("", checkSendfile(ANDROID_SYSTEM_OS_MUTABLE_LONG, in, 1L, 0, 1L));
       assertEquals("", checkSendfile(ANDROID_SYSTEM_OS_INT64_REF, in, 1L, 0, 1L));
       assertEquals("", checkSendfile(LIBCORE_OS, in, 1L, 0, 1L));
     } finally {
@@ -887,7 +881,6 @@ public class OsTest extends TestCase {
 
   /** Which of the {@code sendfile()} implementations to use. */
   enum SendFileImpl {
-    ANDROID_SYSTEM_OS_MUTABLE_LONG,
     ANDROID_SYSTEM_OS_INT64_REF,
     LIBCORE_OS
   }
@@ -901,13 +894,6 @@ public class OsTest extends TestCase {
       try (FileOutputStream outStream = new FileOutputStream(out)) {
         FileDescriptor outFd = outStream.getFD();
         switch (sendFileImplToUse) {
-          case ANDROID_SYSTEM_OS_MUTABLE_LONG: {
-            android.util.MutableLong offset = (startOffset == null) ? null :
-                    new android.util.MutableLong(startOffset);
-            android.system.Os.sendfile(outFd, inFd, offset, maxBytes);
-            assertEquals(expectedEndOffset, offset == null ? null : offset.value);
-            break;
-          }
           case ANDROID_SYSTEM_OS_INT64_REF: {
             Int64Ref offset = (startOffset == null) ? null : new Int64Ref(startOffset);
             android.system.Os.sendfile(outFd, inFd, offset, maxBytes);
@@ -915,8 +901,7 @@ public class OsTest extends TestCase {
             break;
           }
           case LIBCORE_OS: {
-            libcore.util.MutableLong offset = (startOffset == null) ? null :
-                    new libcore.util.MutableLong(startOffset);
+            Int64Ref offset = (startOffset == null) ? null : new Int64Ref(startOffset);
             libcore.io.Libcore.os.sendfile(outFd, inFd, offset, maxBytes);
             assertEquals(expectedEndOffset, offset == null ? null : offset.value);
             break;
@@ -941,21 +926,88 @@ public class OsTest extends TestCase {
     return f;
   }
 
-  public void test_getgroups() throws Exception {
-    int[] gids = Libcore.os.getgroups();
-    assertNotNull(gids);
-  }
-
-  public void test_setgroups() throws Exception {
-    final long ngroupsMax = Libcore.os.sysconf(_SC_NGROUPS_MAX);
-    final int expectedError = ngroupsMax == 0 ? EINVAL : EPERM;
-
+  public void test_odirect() throws Exception {
+    File testFile = createTempFile("test_odirect", "");
     try {
-      Libcore.os.setgroups(new int[] {-1});
-      fail();
-    } catch (ErrnoException expected) {
-      assertEquals(expectedError, expected.errno);
+      FileDescriptor fd =
+            Libcore.os.open(testFile.toString(), O_WRONLY | O_DIRECT, S_IRUSR | S_IWUSR);
+      assertNotNull(fd);
+      assertTrue(fd.valid());
+      int flags = Libcore.os.fcntlVoid(fd, F_GETFL);
+      assertTrue("Expected file flags to include " + O_DIRECT + ", actual value: " + flags,
+            0 != (flags & O_DIRECT));
+      Libcore.os.close(fd);
+    } finally {
+      testFile.delete();
     }
   }
 
+  public void test_splice() throws Exception {
+    FileDescriptor[] pipe = Libcore.os.pipe2(0);
+    File in = createTempFile("splice1", "foobar");
+    File out = createTempFile("splice2", "");
+
+    Int64Ref offIn = new Int64Ref(1);
+    Int64Ref offOut = new Int64Ref(0);
+
+    // Splice into pipe
+    try (FileInputStream streamIn = new FileInputStream(in)) {
+      FileDescriptor fdIn = streamIn.getFD();
+      long result = Libcore.os.splice(fdIn, offIn, pipe[1], null /* offOut */ , 10 /* len */, 0 /* flags */);
+      assertEquals(5, result);
+      assertEquals(6, offIn.value);
+    }
+
+    // Splice from pipe
+    try (FileOutputStream streamOut = new FileOutputStream(out)) {
+      FileDescriptor fdOut = streamOut.getFD();
+      long result = Libcore.os.splice(pipe[0], null /* offIn */, fdOut, offOut, 10 /* len */, 0 /* flags */);
+      assertEquals(5, result);
+      assertEquals(5, offOut.value);
+    }
+
+    assertEquals("oobar", IoUtils.readFileAsString(out.getPath()));
+
+    Libcore.os.close(pipe[0]);
+    Libcore.os.close(pipe[1]);
+  }
+
+  public void test_splice_errors() throws Exception {
+    File in = createTempFile("splice3", "");
+    File out = createTempFile("splice4", "");
+    FileDescriptor[] pipe = Libcore.os.pipe2(0);
+
+    //.fdIn == null
+    try {
+      Libcore.os.splice(null /* fdIn */, null /* offIn */, pipe[1],
+          null /*offOut*/, 10 /* len */, 0 /* flags */);
+      fail();
+    } catch(ErrnoException expected) {
+      assertEquals(EBADF, expected.errno);
+    }
+
+    //.fdOut == null
+    try {
+      Libcore.os.splice(pipe[0] /* fdIn */, null /* offIn */, null  /* fdOut */,
+          null /*offOut*/, 10 /* len */, 0 /* flags */);
+      fail();
+    } catch(ErrnoException expected) {
+      assertEquals(EBADF, expected.errno);
+    }
+
+    // No pipe fd
+    try (FileOutputStream streamOut = new FileOutputStream(out)) {
+      try (FileInputStream streamIn = new FileInputStream(in)) {
+        FileDescriptor fdIn = streamIn.getFD();
+        FileDescriptor fdOut = streamOut.getFD();
+        Libcore.os.splice(fdIn, null  /* offIn */, fdOut, null /* offOut */, 10 /* len */, 0 /* flags */);
+        fail();
+      } catch(ErrnoException expected) {
+        assertEquals(EINVAL, expected.errno);
+      }
+    }
+
+    Libcore.os.close(pipe[0]);
+    Libcore.os.close(pipe[1]);
+  }
 }

@@ -35,6 +35,7 @@
 
 package java.util.concurrent;
 
+import dalvik.annotation.optimization.ReachabilitySensitive;
 import java.util.ArrayList;
 import java.util.ConcurrentModificationException;
 import java.util.HashSet;
@@ -393,6 +394,8 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
      * that workerCount is 0 (which sometimes entails a recheck -- see
      * below).
      */
+    // Android-added: @ReachabilitySensitive
+    @ReachabilitySensitive
     private final AtomicInteger ctl = new AtomicInteger(ctlOf(RUNNING, 0));
     private static final int COUNT_BITS = Integer.SIZE - 3;
     private static final int CAPACITY   = (1 << COUNT_BITS) - 1;
@@ -481,6 +484,8 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
      * Set containing all worker threads in pool. Accessed only when
      * holding mainLock.
      */
+    // Android-added: @ReachabilitySensitive
+    @ReachabilitySensitive
     private final HashSet<Worker> workers = new HashSet<>();
 
     /**
@@ -1540,6 +1545,7 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
         return handler;
     }
 
+    // Android-changed: Tolerate maximumPoolSize >= corePoolSize during setCorePoolSize().
     /**
      * Sets the core number of threads.  This overrides any value set
      * in the constructor.  If the new value is smaller than the
@@ -1551,15 +1557,15 @@ public class ThreadPoolExecutor extends AbstractExecutorService {
      * @throws IllegalArgumentException if {@code corePoolSize < 0}
      * @see #getCorePoolSize
      */
-     // Android-changed: Reverted code that threw an IAE when
-     // {@code corePoolSize} is greater than the {@linkplain #getMaximumPoolSize()
-     // maximum pool size}. This is due to defective code in a commonly used third
-     // party library that does something like :
-     //
-     // exec.setCorePoolSize(N);
-     // exec.setMaxPoolSize(N);
     public void setCorePoolSize(int corePoolSize) {
+        // BEGIN Android-changed: Tolerate maximumPoolSize >= corePoolSize during setCorePoolSize().
+        // This reverts a change that threw an IAE on that condition. This is due to defective code
+        // in a commonly used third party library that does something like exec.setCorePoolSize(N)
+        // before doing exec.setMaxPoolSize(N).
+        //
+        // if (corePoolSize < 0 || maximumPoolSize < corePoolSize)
         if (corePoolSize < 0)
+        // END Android-changed: Tolerate maximumPoolSize >= corePoolSize during setCorePoolSize().
             throw new IllegalArgumentException();
         int delta = corePoolSize - this.corePoolSize;
         this.corePoolSize = corePoolSize;

@@ -137,6 +137,7 @@ LOCAL_NO_STANDARD_LIBRARIES := true
 LOCAL_MODULE := filesystemstest
 LOCAL_JAVA_LIBRARIES := core-oj core-libart
 LOCAL_DEX_PREOPT := false
+LOCAL_ERROR_PRONE_FLAGS := -Xep:MissingOverride:OFF
 include $(BUILD_JAVA_LIBRARY)
 
 filesystemstest_jar := $(intermediates)/$(LOCAL_MODULE).jar
@@ -151,6 +152,7 @@ LOCAL_MODULE := parameter-metadata-test
 LOCAL_JAVA_LIBRARIES := core-oj core-libart
 LOCAL_DEX_PREOPT := false
 LOCAL_JAVACFLAGS := -parameters
+LOCAL_ERROR_PRONE_FLAGS := -Xep:MissingOverride:OFF
 include $(BUILD_JAVA_LIBRARY)
 
 parameter_metadata_test_jar := $(intermediates)/$(LOCAL_MODULE).jar
@@ -183,7 +185,10 @@ LOCAL_STATIC_JAVA_LIBRARIES := \
 	tzdata-testing
 LOCAL_JAVACFLAGS := $(local_javac_flags)
 LOCAL_JACK_FLAGS := $(local_jack_flags)
-LOCAL_ERROR_PRONE_FLAGS := -Xep:TryFailThrowable:ERROR -Xep:ComparisonOutOfRange:ERROR
+LOCAL_ERROR_PRONE_FLAGS := \
+        -Xep:TryFailThrowable:ERROR \
+        -Xep:ComparisonOutOfRange:ERROR \
+        -Xep:MissingOverride:OFF
 LOCAL_MODULE := core-tests
 include $(BUILD_STATIC_JAVA_LIBRARY)
 endif
@@ -200,16 +205,19 @@ ifeq ($(LIBCORE_SKIP_TESTS),)
     LOCAL_DX_FLAGS := --core-library
     LOCAL_MODULE_TAGS := optional
     LOCAL_MODULE := core-ojtests
-    # jack bug workaround: int[] java.util.stream.StatefulTestOp.-getjava-util-stream-StreamShapeSwitchesValues() is a private synthetic method in an interface which causes a hard verifier error
-    LOCAL_DEX_PREOPT := false # disable AOT preverification which breaks the build. it will still throw VerifyError at runtime.
+    LOCAL_ERROR_PRONE_FLAGS := -Xep:MissingOverride:OFF
     include $(BUILD_JAVA_LIBRARY)
 endif
 
 # Make the core-ojtests-public library. Excludes any private API tests.
 ifeq ($(LIBCORE_SKIP_TESTS),)
     include $(CLEAR_VARS)
-    # Filter out SerializedLambdaTest because it depends on stub classes and won't actually run.
-    LOCAL_SRC_FILES := $(filter-out %/DeserializeMethodTest.java %/SerializedLambdaTest.java ojluni/src/test/java/util/stream/boot%,$(ojtest_src_files)) # Do not include anything from the boot* directories. Those directories need a custom bootclasspath to run.
+    # Filter out the following:
+    # 1.) DeserializeMethodTest and SerializedLambdaTest, because they depends on stub classes
+    #     and won't actually run, and
+    # 2.) util/stream/boot*. Those directories contain classes in the package java.util.stream;
+    #     excluding them means we don't need LOCAL_PATCH_MODULE := java.base
+    LOCAL_SRC_FILES := $(filter-out %/DeserializeMethodTest.java %/SerializedLambdaTest.java ojluni/src/test/java/util/stream/boot%,$(ojtest_src_files))
     # Include source code as part of JAR
     LOCAL_JAVA_RESOURCE_DIRS := ojluni/src/test/dist $(ojtest_resource_dirs)
     LOCAL_NO_STANDARD_LIBRARIES := true
@@ -224,8 +232,7 @@ ifeq ($(LIBCORE_SKIP_TESTS),)
     LOCAL_DX_FLAGS := --core-library
     LOCAL_MODULE_TAGS := optional
     LOCAL_MODULE := core-ojtests-public
-    # jack bug workaround: int[] java.util.stream.StatefulTestOp.-getjava-util-stream-StreamShapeSwitchesValues() is a private synthetic method in an interface which causes a hard verifier error
-    LOCAL_DEX_PREOPT := false # disable AOT preverification which breaks the build. it will still throw VerifyError at runtime.
+    LOCAL_ERROR_PRONE_FLAGS := -Xep:MissingOverride:OFF
     include $(BUILD_JAVA_LIBRARY)
 endif
 
@@ -262,6 +269,7 @@ ifeq ($(LIBCORE_SKIP_TESTS),)
     LOCAL_JAVACFLAGS := $(local_javac_flags)
     LOCAL_MODULE_TAGS := optional
     LOCAL_MODULE := core-tests-hostdex
+    LOCAL_ERROR_PRONE_FLAGS := -Xep:MissingOverride:OFF
     include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
 endif
 
@@ -280,55 +288,27 @@ ifeq ($(LIBCORE_SKIP_TESTS),)
     LOCAL_DX_FLAGS := --core-library
     LOCAL_MODULE_TAGS := optional
     LOCAL_MODULE := core-ojtests-hostdex
+    # ojluni/src/test/java/util/stream/{bootlib,boottest}
+    # contains tests that are in packages from java.base;
+    # By default, OpenJDK 9's javac will only compile such
+    # code if it's declared to also be in java.base at
+    # compile time.
+    #
+    # For now, we use --patch-module to put all sources
+    # and dependencies from this make target into java.base;
+    # other source directories in this make target are in
+    # packages not from java.base; if this becomes a proble
+    # in future, this could be addressed eg. by splitting
+    # boot{lib,test} out into a separate make target,
+    # deleting those tests or moving them to a different
+    # package.
+    LOCAL_PATCH_MODULE := java.base
+    LOCAL_ERROR_PRONE_FLAGS := -Xep:MissingOverride:OFF
     include $(BUILD_HOST_DALVIK_JAVA_LIBRARY)
 endif
 
 endif # HOST_OS == linux
 
-#
-# Local droiddoc for faster libcore testing
-#
-#
-# Run with:
-#     mm -j32 libcore-docs
-#
-# Main output:
-#     ../out/target/common/docs/libcore/reference/packages.html
-#
-# All text for proofreading (or running tools over):
-#     ../out/target/common/docs/libcore-proofread.txt
-#
-# TODO list of missing javadoc, etc:
-#     ../out/target/common/docs/libcore-docs-todo.html
-#
-# Rerun:
-#     rm -rf ../out/target/common/docs/libcore-timestamp && mm -j32 libcore-docs
-#
-include $(CLEAR_VARS)
-
-# for shared defintion of libcore_to_document
-include $(LOCAL_PATH)/Docs.mk
-
-# The libcore_to_document paths are relative to $(TOPDIR). We are in libcore so we must prepend
-# ../ to make LOCAL_SRC_FILES relative to $(LOCAL_PATH).
-LOCAL_SRC_FILES := $(addprefix ../, $(libcore_to_document))
-LOCAL_INTERMEDIATE_SOURCES := \
-    $(patsubst $(TARGET_OUT_COMMON_INTERMEDIATES)/%,%,$(libcore_to_document_generated))
-LOCAL_ADDITIONAL_DEPENDENCIES := $(libcore_to_document_generated)
-# rerun doc generation without recompiling the java
-LOCAL_JAVACFLAGS := $(local_javac_flags)
-LOCAL_MODULE_CLASS:=JAVA_LIBRARIES
-
-LOCAL_MODULE := libcore
-
-LOCAL_DROIDDOC_OPTIONS := \
- -offlinemode \
- -title "libcore" \
- -proofread $(OUT_DOCS)/$(LOCAL_MODULE)-proofread.txt \
- -todo ../$(LOCAL_MODULE)-docs-todo.html \
- -knowntags ./libcore/known_oj_tags.txt \
- -hdf android.whichdoc offline
-
-LOCAL_DROIDDOC_CUSTOM_TEMPLATE_DIR:=external/doclava/res/assets/templates-sdk
-
-include $(BUILD_DROIDDOC)
+# Archive a copy of the classes.jar in SDK build.
+full_classes_jar := $(call intermediates-dir-for,JAVA_LIBRARIES,core.current.stubs,,COMMON)/classes.jar
+$(call dist-for-goals,sdk win_sdk,$(full_classes_jar):core.current.stubs.jar)

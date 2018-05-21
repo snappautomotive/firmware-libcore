@@ -18,6 +18,7 @@ package dalvik.system;
 
 import android.system.ErrnoException;
 import android.system.StructStat;
+import dalvik.annotation.optimization.ReachabilitySensitive;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -44,7 +45,9 @@ public final class DexFile {
    * If close is called, mCookie becomes null but the internal cookie is preserved if the close
    * failed so that we can free resources in the finalizer.
    */
+    @ReachabilitySensitive
     private Object mCookie;
+
     private Object mInternalCookie;
     private final String mFileName;
 
@@ -378,6 +381,13 @@ public final class DexFile {
     }
 
     /*
+     * Set the dex file as trusted: it can access hidden APIs of the platform.
+     */
+    /*package*/ void setTrusted() {
+        setTrusted(mCookie);
+    }
+
+    /*
      * Returns true if we managed to close the dex file.
      */
     private static native boolean closeDexFile(Object cookie);
@@ -386,6 +396,7 @@ public final class DexFile {
             throws ClassNotFoundException, NoClassDefFoundError;
     private static native String[] getClassNameList(Object cookie);
     private static native boolean isBackedByOatFile(Object cookie);
+    private static native void setTrusted(Object cookie);
     /*
      * Open a DEX file.  The value returned is a magic VM cookie.  On
      * failure, an IOException is thrown.
@@ -514,6 +525,21 @@ public final class DexFile {
      */
     public static native String getDexFileStatus(String fileName, String instructionSet)
         throws FileNotFoundException;
+
+    /**
+     * Returns the optimization status of the dex file {@code fileName}. The returned
+     * array will have 2 elements which specify:
+     *   - index 0: the level of optimizations
+     *   - index 1: the optimization reason. The reason might be "unknown" if the
+     *              the compiler artifacts were not annotated during optimizations.
+     *
+     * The output is only meant for debugging and is not guaranteed to be stable across
+     * releases and/or devices.
+     *
+     * @hide
+     */
+    public static native String[] getDexFileOptimizationStatus(
+            String fileName, String instructionSet) throws FileNotFoundException;
 
     /**
      * Returns the paths of the optimized files generated for {@code fileName}.

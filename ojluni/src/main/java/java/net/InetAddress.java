@@ -454,14 +454,18 @@ class InetAddress implements java.io.Serializable {
     }
 
 
+    // Android-changed: Document that impl tries ICMP ECHO REQUESTs first.
+    // The sole implementation, Inet6AddressImpl.isReachable(), tries ICMP ECHO REQUESTs before
+    // TCP ECHO REQUESTs on Android. On Android, these are both possible without root access.
     /**
      * Test whether that address is reachable. Best effort is made by the
      * implementation to try to reach the host, but firewalls and server
      * configuration may block requests resulting in a unreachable status
      * while some specific ports may be accessible.
-     * A typical implementation will use ICMP ECHO REQUESTs if the
-     * privilege can be obtained, otherwise it will try to establish
-     * a TCP connection on port 7 (Echo) of the destination host.
+     * <p>
+     * Android implementation attempts ICMP ECHO REQUESTs first, on failure it
+     * will fall back to TCP ECHO REQUESTs. Success on either protocol will
+     * return true.
      * <p>
      * The timeout value, in milliseconds, indicates the maximum amount of time
      * the try should take. If the operation times out before getting an
@@ -1699,16 +1703,6 @@ class InetAddress implements java.io.Serializable {
         return impl.lookupAllHostAddr(host, netId).clone();
     }
     // END Android-added: Add methods required by frameworks/base.
-
-    // Only called by java.net.SocketPermission.
-    static InetAddress[] getAllByName0(String authHost, boolean check) throws UnknownHostException {
-        throw new UnsupportedOperationException();
-    }
-
-    // Only called by java.net.SocketPermission.
-    String getHostName(boolean check) {
-        throw new UnsupportedOperationException();
-    }
 }
 // BEGIN Android-removed: Android doesn't load user-provided implementation.
 /*

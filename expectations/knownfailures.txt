@@ -1527,15 +1527,6 @@
   ]
 },
 {
-  description: "Conscrypt fails these tests in 32-bit mode",
-  bug: 36636626,
-  result: EXEC_FAILED,
-  names: [
-    "com.google.security.wycheproof.EcdhTest#testModifiedPublic",
-    "com.google.security.wycheproof.EcdhTest#testModifiedPublicSpec"
-  ]
-},
-{
   description: "Bullhead kernel does not block send when buffer is supposed to have saturated",
   bug: 36691333,
   result: EXEC_FAILED,
@@ -1832,17 +1823,5 @@
   result: EXEC_FAILED,
   bug: 62408076,
   name: "libcore.java.lang.reflect.annotations.AnnotatedElementParameterTest#testImplicitConstructorParameters_singleAnnotation"
-},
-{
-  description: "Broken after zlib update in 7291b8caf1884",
-  result: EXEC_FAILED,
-  bug: 67395816,
-  name: "libcore.java.util.zip.DeflateRegressionTest#deterministicOutput"
-},
-{
-  description: "Awaiting fix in fast-path UTF-8 decoder / CharsetDecoder",
-  result: EXEC_FAILED,
-  bug: 69599767,
-  name: "libcore.java.lang.StringTest#test_23831"
 }
 ]

@@ -68,6 +68,7 @@ import sun.util.calendar.CalendarUtils;
 import static java.text.DateFormatSymbols.*;
 
 // Android-changed: Added supported API level, removed unnecessary <br>
+// Android-changed: Clarified info about X symbol time zone parsing
 /**
  * <code>SimpleDateFormat</code> is a concrete class for formatting and
  * parsing dates in a locale-sensitive manner. It allows for formatting
@@ -363,10 +364,10 @@ import static java.text.DateFormatSymbols.*;
  *     is ignored. For example, if the pattern is {@code "X"} and the time zone is
  *     {@code "GMT+05:30"}, {@code "+05"} is produced.
  *
- *     <p>For parsing, {@code "Z"} is parsed as the UTC time zone designator.
+ *     <p>For parsing, the letter {@code "Z"} is parsed as the UTC time zone designator (therefore
+ *     {@code "09:30Z"} is parsed as {@code "09:30 UTC"}.
  *     <a href="#timezone">General time zones</a> are <em>not</em> accepted.
- *
- *     <p>If the number of pattern letters is 4 or more, {@link
+ *     <p>If the number of {@code "X"} pattern letters is 4 or more (e.g. {@code XXXX}), {@link
  *     IllegalArgumentException} is thrown when constructing a {@code
  *     SimpleDateFormat} or {@linkplain #applyPattern(String) applying a
  *     pattern}.
@@ -574,8 +575,41 @@ public class SimpleDateFormat extends DateFormat {
      * class.
      */
     public SimpleDateFormat() {
+        // Android-changed: Android has no LocaleProviderAdapter. Use ICU locale data.
+        // this("", Locale.getDefault(Locale.Category.FORMAT));
+        // applyPatternImpl(LocaleProviderAdapter.getResourceBundleBased().getLocaleResources(locale)
+        //                  .getDateTimePattern(SHORT, SHORT, calendar));
         this(SHORT, SHORT, Locale.getDefault(Locale.Category.FORMAT));
     }
+
+    // BEGIN Android-added: Ctor used by DateFormat to remove use of LocaleProviderAdapter.
+    /**
+     * Constructs a <code>SimpleDateFormat</code> using the given date and time formatting styles.
+     * @param timeStyle the given date formatting style.
+     * @param dateStyle the given time formatting style.
+     * @param locale the locale whose pattern and date format symbols should be used
+     */
+    SimpleDateFormat(int timeStyle, int dateStyle, Locale locale) {
+        this(getDateTimeFormat(timeStyle, dateStyle, locale), locale);
+    }
+
+    private static String getDateTimeFormat(int timeStyle, int dateStyle, Locale locale) {
+        LocaleData localeData = LocaleData.get(locale);
+        if ((timeStyle >= 0) && (dateStyle >= 0)) {
+            Object[] dateTimeArgs = {
+                localeData.getDateFormat(dateStyle),
+                localeData.getTimeFormat(timeStyle),
+            };
+            return MessageFormat.format("{0} {1}", dateTimeArgs);
+        } else if (timeStyle >= 0) {
+            return localeData.getTimeFormat(timeStyle);
+        } else if (dateStyle >= 0) {
+            return localeData.getDateFormat(dateStyle);
+        } else {
+            throw new IllegalArgumentException("No date or time style specified");
+        }
+    }
+    // END Android-added: Ctor used by DateFormat to remove use of LocaleProviderAdapter.
 
     /**
      * Constructs a <code>SimpleDateFormat</code> using the given pattern and
@@ -645,40 +679,6 @@ public class SimpleDateFormat extends DateFormat {
         initializeCalendar(this.locale);
         initialize(this.locale);
         useDateFormatSymbols = true;
-    }
-
-    /* Package-private, called by DateFormat factory methods */
-    SimpleDateFormat(int timeStyle, int dateStyle, Locale loc) {
-        if (loc == null) {
-            throw new NullPointerException();
-        }
-
-        this.locale = loc;
-        // initialize calendar and related fields
-        initializeCalendar(loc);
-
-        // BEGIN Android-changed: Use ICU for locale data.
-        formatData = DateFormatSymbols.getInstanceRef(loc);
-        LocaleData localeData = LocaleData.get(loc);
-        if ((timeStyle >= 0) && (dateStyle >= 0)) {
-            Object[] dateTimeArgs = {
-                localeData.getDateFormat(dateStyle),
-                localeData.getTimeFormat(timeStyle),
-            };
-            pattern = MessageFormat.format("{0} {1}", dateTimeArgs);
-        }
-        else if (timeStyle >= 0) {
-            pattern = localeData.getTimeFormat(timeStyle);
-        }
-        else if (dateStyle >= 0) {
-            pattern = localeData.getDateFormat(dateStyle);
-        }
-        else {
-            throw new IllegalArgumentException("No date or time style specified");
-        }
-        // END Android-changed: Use ICU for locale data.
-
-        initialize(loc);
     }
 
     /* Initialize compiledPattern and numberFormat fields */
@@ -1150,18 +1150,6 @@ public class SimpleDateFormat extends DateFormat {
         Field.AM_PM
     };
 
-    // BEGIN Android-added: Special handling for UTC time zone.
-    private static final String UTC = "UTC";
-
-    /**
-     * The list of time zone ids formatted as "UTC".
-     * This mirrors isUtc in libcore_icu_TimeZoneNames.cpp
-     */
-    private static final Set<String> UTC_ZONE_IDS = Collections.unmodifiableSet(new HashSet<>(
-            Arrays.asList("Etc/UCT", "Etc/UTC", "Etc/Universal", "Etc/Zulu", "UCT", "UTC",
-                    "Universal", "Zulu")));
-    // END Android-added: Special handling for UTC time zone.
-
     /**
      * Private member function that does the real date/time formatting.
      */
@@ -1307,25 +1295,19 @@ public class SimpleDateFormat extends DateFormat {
                     zoneString = libcore.icu.TimeZoneNames.getDisplayName(
                             formatData.getZoneStringsWrapper(), tz.getID(), daylight, tzstyle);
                 } else {
-                    if (UTC_ZONE_IDS.contains(tz.getID())) {
-                        // ICU used to not have name strings UTC, explicitly print it as "UTC".
-                        // TODO: remove special case now that ICU has that data (http://b/36337342).
-                        zoneString = UTC;
+                    TimeZoneNames.NameType nameType;
+                    if (count < 4) {
+                        nameType = daylight
+                                ? TimeZoneNames.NameType.SHORT_DAYLIGHT
+                                : TimeZoneNames.NameType.SHORT_STANDARD;
                     } else {
-                        TimeZoneNames.NameType nameType;
-                        if (count < 4) {
-                            nameType = daylight
-                                    ? TimeZoneNames.NameType.SHORT_DAYLIGHT
-                                    : TimeZoneNames.NameType.SHORT_STANDARD;
-                        } else {
-                            nameType = daylight
-                                    ? TimeZoneNames.NameType.LONG_DAYLIGHT
-                                    : TimeZoneNames.NameType.LONG_STANDARD;
-                        }
-                        String canonicalID = android.icu.util.TimeZone.getCanonicalID(tz.getID());
-                        zoneString = getTimeZoneNames()
-                                .getDisplayName(canonicalID, nameType, calendar.getTimeInMillis());
+                        nameType = daylight
+                                ? TimeZoneNames.NameType.LONG_DAYLIGHT
+                                : TimeZoneNames.NameType.LONG_STANDARD;
                     }
+                    String canonicalID = android.icu.util.TimeZone.getCanonicalID(tz.getID());
+                    zoneString = getTimeZoneNames()
+                            .getDisplayName(canonicalID, nameType, calendar.getTimeInMillis());
                 }
                 if (zoneString != null) {
                     buffer.append(zoneString);
@@ -1339,7 +1321,7 @@ public class SimpleDateFormat extends DateFormat {
             break;
 
         case PATTERN_ZONE_VALUE: // 'Z' ("-/+hhmm" form)
-        // BEGIN Android-Changed: use shared code in TimeZone for zone offset string.
+        // BEGIN Android-changed: use shared code in TimeZone for zone offset string.
         {
             value = calendar.get(Calendar.ZONE_OFFSET) + calendar.get(Calendar.DST_OFFSET);
             final boolean includeSeparator = (count >= 4);
@@ -1348,7 +1330,7 @@ public class SimpleDateFormat extends DateFormat {
 
             break;
         }
-        // END Android-Changed: use shared code in TimeZone for zone offset string.
+        // END Android-changed: use shared code in TimeZone for zone offset string.
 
         case PATTERN_ISO_ZONE:   // 'X'
             value = calendar.get(Calendar.ZONE_OFFSET)
@@ -1840,38 +1822,31 @@ public class SimpleDateFormat extends DateFormat {
         // which are avoided in some cases, so they are computed lazily.
         Set<String> currentTzMetaZoneIds = null;
 
-        // ICU doesn't parse the string "UTC", so manually check for it.
-        if (start + UTC.length() <= text.length() &&
-                text.regionMatches(true /* ignoreCase */, start, UTC, 0, UTC.length())) {
-            bestMatch = new TimeZoneNames.MatchInfo(
-                    TimeZoneNames.NameType.SHORT_GENERIC, UTC, null, UTC.length());
-        } else {
-            Collection<TimeZoneNames.MatchInfo> matches = tzNames.find(text, start, NAME_TYPES);
-            for (TimeZoneNames.MatchInfo match : matches) {
-                if (bestMatch == null || bestMatch.matchLength() < match.matchLength()) {
+        Collection<TimeZoneNames.MatchInfo> matches = tzNames.find(text, start, NAME_TYPES);
+        for (TimeZoneNames.MatchInfo match : matches) {
+            if (bestMatch == null || bestMatch.matchLength() < match.matchLength()) {
+                bestMatch = match;
+            } else if (bestMatch.matchLength() == match.matchLength()) {
+                if (currentTimeZoneID.equals(match.tzID())) {
+                    // Prefer the currently set timezone over other matches, even if they are
+                    // the same length.
                     bestMatch = match;
-                } else if (bestMatch.matchLength() == match.matchLength()) {
-                    if (currentTimeZoneID.equals(match.tzID())) {
-                        // Prefer the currently set timezone over other matches, even if they are
-                        // the same length.
+                    break;
+                } else if (match.mzID() != null) {
+                    if (currentTzMetaZoneIds == null) {
+                        currentTzMetaZoneIds =
+                                tzNames.getAvailableMetaZoneIDs(currentTimeZoneID);
+                    }
+                    if (currentTzMetaZoneIds.contains(match.mzID())) {
                         bestMatch = match;
                         break;
-                    } else if (match.mzID() != null) {
-                        if (currentTzMetaZoneIds == null) {
-                            currentTzMetaZoneIds =
-                                    tzNames.getAvailableMetaZoneIDs(currentTimeZoneID);
-                        }
-                        if (currentTzMetaZoneIds.contains(match.mzID())) {
-                            bestMatch = match;
-                            break;
-                        }
                     }
                 }
             }
-            if (bestMatch == null) {
-                // No match found, return error.
-                return -start;
-            }
+        }
+        if (bestMatch == null) {
+            // No match found, return error.
+            return -start;
         }
 
         String tzId = bestMatch.tzID();
