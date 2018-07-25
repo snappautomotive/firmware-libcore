@@ -229,9 +229,10 @@ public final class IoBridge {
     }
 
     /**
-     * Closes the supplied file descriptor and sends a signal to any threads are currently blocking.
-     * In order for the signal to be sent the blocked threads must have registered with
-     * the AsynchronousCloseMonitor before they entered the blocking operation.
+     * Closes the Unix file descriptor associated with the supplied file descriptor and sends a
+     * signal to any threads are currently blocking. In order for the signal to be sent the blocked
+     * threads must have registered with the AsynchronousCloseMonitor before they entered the
+     * blocking operation. {@code fd} will be invalid after this call.
      *
      * <p>This method is a no-op if passed a {@code null} or already-closed file descriptor.
      */
@@ -239,15 +240,13 @@ public final class IoBridge {
         if (fd == null || !fd.valid()) {
             return;
         }
-        int intFd = fd.getInt$();
-        fd.setInt$(-1);
-        FileDescriptor oldFd = new FileDescriptor();
-        oldFd.setInt$(intFd);
+        // fd is invalid after we call release.
+        FileDescriptor oldFd = fd.release$();
         AsynchronousCloseMonitor.signalBlockedThreads(oldFd);
         try {
             Libcore.os.close(oldFd);
         } catch (ErrnoException errnoException) {
-            // TODO: are there any cases in which we should throw?
+            throw errnoException.rethrowAsIOException();
         }
     }
 
@@ -275,7 +274,9 @@ public final class IoBridge {
         }
         String detail = createMessageForException(fd, inetAddress, port, timeoutMs, cause);
         if (cause.errno == ETIMEDOUT) {
-            throw new SocketTimeoutException(detail, cause);
+            SocketTimeoutException e = new SocketTimeoutException(detail);
+            e.initCause(cause);
+            throw e;
         }
         throw new ConnectException(detail, cause);
     }
@@ -629,7 +630,9 @@ public final class IoBridge {
             if (isConnected && errnoException.errno == ECONNREFUSED) {
                 throw new PortUnreachableException("ICMP Port Unreachable", errnoException);
             } else if (errnoException.errno == EAGAIN) {
-                throw new SocketTimeoutException(errnoException);
+                SocketTimeoutException e = new SocketTimeoutException();
+                e.initCause(errnoException);
+                throw e;
             } else {
                 throw errnoException.rethrowAsSocketException();
             }
