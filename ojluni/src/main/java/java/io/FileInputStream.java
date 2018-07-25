@@ -34,6 +34,7 @@ import dalvik.system.CloseGuard;
 import sun.nio.ch.FileChannelImpl;
 import libcore.io.IoBridge;
 import libcore.io.IoTracker;
+import libcore.io.IoUtils;
 
 
 /**
@@ -159,10 +160,15 @@ class FileInputStream extends InputStream
 
         path = name;
 
-        // Android-added: BlockGuard support.
+        // BEGIN Android-added: BlockGuard support.
         BlockGuard.getThreadPolicy().onReadFromDisk();
+        BlockGuard.getVmPolicy().onPathAccess(path);
+        // END Android-added: BlockGuard support.
 
         open(name);
+
+        // Android-added: File descriptor ownership tracking.
+        IoUtils.setFdOwner(this.fd, this);
 
         // Android-added: CloseGuard support.
         guard.open("close");

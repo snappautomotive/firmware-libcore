@@ -1489,11 +1489,7 @@ class Thread implements Runnable {
      *         the specified object.
      * @since 1.4
      */
-    public static boolean holdsLock(Object obj) {
-        return currentThread().nativeHoldsLock(obj);
-    }
-
-    private native boolean nativeHoldsLock(Object object);
+    public static native boolean holdsLock(Object obj);
 
     private static final StackTraceElement[] EMPTY_STACK_TRACE
         = new StackTraceElement[0];
@@ -1890,7 +1886,8 @@ class Thread implements Runnable {
      * throwables thrown by the handler will be ignored by
      * {@link #dispatchUncaughtException(Throwable)}.
      *
-     * @hide only for use by the Android framework (RuntimeInit) b/29624607
+     * @hide used when configuring the runtime for exception logging; see
+     *     {@link dalvik.system.RuntimeHooks} b/29624607
      */
     public static void setUncaughtExceptionPreHandler(UncaughtExceptionHandler eh) {
         uncaughtExceptionPreHandler = eh;
