@@ -19,8 +19,11 @@ package libcore.libcore.icu;
 import org.junit.Test;
 
 import android.icu.text.TimeZoneNames;
+import android.icu.util.VersionInfo;
 
+import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
@@ -30,9 +33,16 @@ import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
 import libcore.icu.ICU;
-import libcore.util.TimeZoneFinder;
-import libcore.util.ZoneInfoDB;
+import libcore.timezone.TimeZoneDataFiles;
+import libcore.timezone.TimeZoneFinder;
+import libcore.timezone.TzDataSetVersion;
+import libcore.timezone.ZoneInfoDB;
+import libcore.util.CoreLibraryDebug;
+import libcore.util.DebugInfo;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -181,6 +191,146 @@ public class TimeZoneIntegrationTest {
 
         String tzLookupTzVersion = TimeZoneFinder.getInstance().getIanaVersion();
         assertEquals(icu4jTzVersion, tzLookupTzVersion);
+    }
+
+    /**
+     * Asserts that the time zone format major / minor versions meets expectations.
+     *
+     * <p>If a set of time zone files is to be compatible with a device then the format of the files
+     * must meet the Android team's expectations. This is a sanity check to ensure that devices
+     * running the test (e.g. under CTS) have not modified the TzDataSetVersion major / minor
+     * versions for some reason: if they have it would render updated time zone files sent to the
+     * device incompatible.
+     */
+    @Test
+    public void testTimeZoneFormatVersion() {
+        // The code below compares the final static int constant values (inlined at test compile
+        // time) with the version reported at runtime. This saves us hardcoding the numbers in two
+        // places.
+        assertEquals(TzDataSetVersion.CURRENT_FORMAT_MAJOR_VERSION,
+                TzDataSetVersion.currentFormatMajorVersion());
+        assertEquals(TzDataSetVersion.CURRENT_FORMAT_MINOR_VERSION,
+                TzDataSetVersion.currentFormatMinorVersion());
+    }
+
+    /**
+     * Asserts that all expected sets of time zone files meet format expectations.
+     *
+     * <p>This uses the device's knowledge of the format version it expects and the
+     * {@link TzDataSetVersion} files that accompany the known time zone data files.
+     *
+     * <p>This is a sanity check to ensure that there's no way of installing incompatible data
+     * on a device. It assumes that {@link TzDataSetVersion} is updated as it should be when changes
+     * are made that might affect time zone code / time zone data compatibility.
+     */
+    @Test
+    public void testTzDataSetVersions() throws Exception {
+        String moduleTzVersionFile = "tz/" + TzDataSetVersion.DEFAULT_FILE_NAME;
+
+        String timeZoneModuleVersionFile =
+                TimeZoneDataFiles.getTimeZoneModuleFile(moduleTzVersionFile);
+        // We currently treat the time zone APEX as optional in code. Its is also not present on ART
+        // host environments.
+        if (fileExists(timeZoneModuleVersionFile)) {
+            assertTzDataSetVersionIsCompatible(timeZoneModuleVersionFile);
+        }
+
+        assertTzDataSetVersionIsCompatible(
+                TimeZoneDataFiles.getRuntimeModuleFile(moduleTzVersionFile));
+
+        // TODO: Remove this once the /system copy of time zone files have gone away. See also
+        // testTimeZoneDebugInfo().
+        assertTzDataSetVersionIsCompatible(
+                TimeZoneDataFiles.getSystemTimeZoneFile(TzDataSetVersion.DEFAULT_FILE_NAME));
+    }
+
+    private static void assertTzDataSetVersionIsCompatible(String versionFile) throws Exception {
+        TzDataSetVersion actualVersion =
+                TzDataSetVersion.readFromFile(new File(versionFile));
+        assertEquals(
+                TzDataSetVersion.currentFormatMajorVersion(),
+                actualVersion.formatMajorVersion);
+        int minDeviceMinorVersion = TzDataSetVersion.currentFormatMinorVersion();
+        assertTrue(actualVersion.formatMinorVersion >= minDeviceMinorVersion);
+    }
+
+    /**
+     * A test for confirming debug information matches file system state on device.
+     * It can also be used to confirm that device and host environments satisfy file system
+     * expectations.
+     */
+    @Test
+    public void testTimeZoneDebugInfo() {
+        DebugInfo debugInfo = CoreLibraryDebug.getDebugInfo();
+
+        // Devices are expected to have a time zone module which overrides or extends the data in
+        // the runtime module depending on the file. It's not actually mandatory for all Android
+        // devices right now although it may be required for some subset of Android devices. It
+        // isn't present on host ART.
+        String tzModuleStatus = getDebugStringValue(debugInfo,
+                "core_library.timezone.source.tzdata_module_status");
+        String apexRootDir = TimeZoneDataFiles.getTimeZoneModuleFile("");
+        List<String> dataModuleFiles =
+                createModuleTzFileNames(TimeZoneDataFiles::getTimeZoneModuleFile);
+        String icuOverlayFile = TimeZoneDataFiles.getTimeZoneModuleFile("icu/icu_tzdata.dat");
+        if (fileExists(apexRootDir)) {
+            assertEquals("OK", tzModuleStatus);
+            dataModuleFiles.forEach(TimeZoneIntegrationTest::assertFileExists);
+            assertFileExists(icuOverlayFile);
+        } else {
+            assertEquals("NOT_FOUND", tzModuleStatus);
+            dataModuleFiles.forEach(TimeZoneIntegrationTest::assertFileDoesNotExist);
+            assertFileDoesNotExist(icuOverlayFile);
+        }
+
+        // Every device should have a runtime module copy of time zone data since we expect every
+        // device to have a runtime module. This is the base copy of time zone data that can be
+        // updated when we update the runtime module. Host ART should match device.
+        assertEquals("OK", getDebugStringValue(debugInfo,
+                "core_library.timezone.source.runtime_module_status"));
+        assertFileExists(TimeZoneDataFiles.getRuntimeModuleFile(""));
+        List<String> runtimeModuleFiles =
+                createModuleTzFileNames(TimeZoneDataFiles::getRuntimeModuleFile);
+        runtimeModuleFiles.forEach(TimeZoneIntegrationTest::assertFileExists);
+
+        String icuDatFileName = "icudt" + VersionInfo.ICU_VERSION.getMajor() + "l.dat";
+        assertFileExists(TimeZoneDataFiles.getRuntimeModuleFile("icu/" + icuDatFileName));
+
+        // Devices currently have a subset of the time zone files in /system. These are going away
+        // but we test them while they exist. Host ART should match device.
+        assertEquals("OK", getDebugStringValue(debugInfo,
+                "core_library.timezone.source.system_status"));
+        assertFileExists(
+                TimeZoneDataFiles.getSystemTimeZoneFile(TzDataSetVersion.DEFAULT_FILE_NAME));
+        assertFileExists(TimeZoneDataFiles.getSystemTimeZoneFile("tzdata"));
+        // The following files once existed in /system but have been removed as part of APEX work.
+        assertFileDoesNotExist(TimeZoneDataFiles.getSystemIcuFile(icuDatFileName));
+        assertFileDoesNotExist(TimeZoneDataFiles.getSystemTimeZoneFile("tzlookup.xml"));
+    }
+
+    private static List<String> createModuleTzFileNames(
+            Function<String, String> pathCreationFunction) {
+        List<String> relativePaths = Arrays.asList(
+                "tz/" + TzDataSetVersion.DEFAULT_FILE_NAME,
+                "tz/tzdata",
+                "tz/tzlookup.xml");
+        return relativePaths.stream().map(pathCreationFunction).collect(Collectors.toList());
+    }
+
+    private static boolean fileExists(String fileName) {
+        return new File(fileName).exists();
+    }
+
+    private static void assertFileDoesNotExist(String fileName) {
+        assertFalse(fileName + " must not exist", fileExists(fileName));
+    }
+
+    private static void assertFileExists(String fileName) {
+        assertTrue(fileName + " must exist", fileExists(fileName));
+    }
+
+    private String getDebugStringValue(DebugInfo debugInfo, String key) {
+        return debugInfo.getDebugEntry(key).getStringValue();
     }
 
     /**
