@@ -18,6 +18,7 @@ package dalvik.system;
 
 import libcore.util.NonNull;
 
+import dalvik.annotation.compat.UnsupportedAppUsage;
 import java.util.Objects;
 
 /**
@@ -33,6 +34,8 @@ import java.util.Objects;
  *
  * @hide
  */
+@libcore.api.CorePlatformApi
+@libcore.api.IntraCoreApi
 public final class BlockGuard {
 
     // TODO: refactor class name to something more generic, since its scope is
@@ -40,26 +43,36 @@ public final class BlockGuard {
 
     /**
      * Per-thread interface used to implement {@code StrictMode.ThreadPolicy}.
+     *
+     * @hide
      */
+    @libcore.api.CorePlatformApi
+    @libcore.api.IntraCoreApi
     public interface Policy {
         /**
          * Called on disk writes.
          */
+        @libcore.api.CorePlatformApi
         void onWriteToDisk();
 
         /**
          * Called on disk reads.
          */
+        @UnsupportedAppUsage
+        @libcore.api.CorePlatformApi
         void onReadFromDisk();
 
         /**
          * Called on network operations.
          */
+        @UnsupportedAppUsage
+        @libcore.api.IntraCoreApi
         void onNetwork();
 
         /**
          * Called on unbuffered input/ouput operations.
          */
+        @libcore.api.CorePlatformApi
         void onUnbufferedIO();
 
         /**
@@ -73,12 +86,15 @@ public final class BlockGuard {
          * there.  The bits in the mask are from the DISALLOW_* and
          * PENALTY_* constants.
          */
+        @libcore.api.CorePlatformApi
         int getPolicyMask();
     }
 
     /**
      * Per-process interface used to implement {@code StrictMode.VmPolicy}.
+     * @hide
      */
+    @libcore.api.CorePlatformApi
     public interface VmPolicy {
         /**
          * Called by core libraries code when the given path is accessed. This
@@ -99,6 +115,7 @@ public final class BlockGuard {
          * @param path The path in the local file system that is being accessed
          *            for reading or writing.
          */
+        @libcore.api.CorePlatformApi
         void onPathAccess(String path);
     }
 
@@ -108,14 +125,18 @@ public final class BlockGuard {
     @Deprecated
     public static class BlockGuardPolicyException extends RuntimeException {
         // bitmask of DISALLOW_*, PENALTY_*, etc flags
+        @UnsupportedAppUsage
         private final int mPolicyState;
+        @UnsupportedAppUsage
         private final int mPolicyViolated;
+        @UnsupportedAppUsage
         private final String mMessage;   // may be null
 
         public BlockGuardPolicyException(int policyState, int policyViolated) {
             this(policyState, policyViolated, null);
         }
 
+        @UnsupportedAppUsage
         public BlockGuardPolicyException(int policyState, int policyViolated, String message) {
             mPolicyState = policyState;
             mPolicyViolated = policyViolated;
@@ -146,6 +167,8 @@ public final class BlockGuard {
     /**
      * The default, permissive per-thread policy.
      */
+    @UnsupportedAppUsage
+    @libcore.api.CorePlatformApi
     public static final Policy LAX_POLICY = new Policy() {
         @Override public String toString() { return "LAX_POLICY"; }
         @Override public void onWriteToDisk() {}
@@ -163,11 +186,13 @@ public final class BlockGuard {
     /**
      * The default, permissive per-process policy.
      */
+    @libcore.api.CorePlatformApi
     public static final VmPolicy LAX_VM_POLICY = new VmPolicy() {
         @Override public String toString() { return "LAX_VM_POLICY"; }
         @Override public void onPathAccess(String path) {}
     };
 
+    @UnsupportedAppUsage
     private static ThreadLocal<Policy> threadPolicy = new ThreadLocal<Policy>() {
         @Override protected Policy initialValue() {
             return LAX_POLICY;
@@ -182,6 +207,9 @@ public final class BlockGuard {
      * @return the current thread's policy. Will return the {@link #LAX_POLICY}
      *         instance if nothing else is set.
      */
+    @UnsupportedAppUsage
+    @libcore.api.CorePlatformApi
+    @libcore.api.IntraCoreApi
     public static @NonNull Policy getThreadPolicy() {
         return threadPolicy.get();
     }
@@ -195,6 +223,8 @@ public final class BlockGuard {
      * @param policy policy to set. Use the public {@link #LAX_POLICY} if you
      *            want to unset the active policy.
      */
+    @UnsupportedAppUsage
+    @libcore.api.CorePlatformApi
     public static void setThreadPolicy(@NonNull Policy policy) {
         threadPolicy.set(Objects.requireNonNull(policy));
     }
@@ -205,6 +235,7 @@ public final class BlockGuard {
      * @return the current process's policy. Will return the
      *         {@link #LAX_VM_POLICY} instance if nothing else is set.
      */
+    @libcore.api.CorePlatformApi
     public static @NonNull VmPolicy getVmPolicy() {
         return vmPolicy;
     }
@@ -218,6 +249,7 @@ public final class BlockGuard {
      * @param policy policy to set. Use the public {@link #LAX_VM_POLICY} if you
      *            want to unset the active policy.
      */
+    @libcore.api.CorePlatformApi
     public static void setVmPolicy(@NonNull VmPolicy policy) {
         vmPolicy = Objects.requireNonNull(policy);
     }

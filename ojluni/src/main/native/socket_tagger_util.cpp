@@ -20,22 +20,22 @@
  */
 
 #include <nativehelper/JNIHelp.h>
-#include <nativehelper/JniConstants.h>
 
-extern "C" {
+#include "JniConstants.h"
 
-int tagSocket(JNIEnv* env, int fd) {
-    if (env->ExceptionOccurred()) { return fd; }
-    jmethodID get = env->GetStaticMethodID(JniConstants::socketTaggerClass,
-                                           "get", "()Ldalvik/system/SocketTagger;");
-    jobject socketTagger =
-        env->CallStaticObjectMethod(JniConstants::socketTaggerClass, get);
-    jmethodID tag = env->GetMethodID(JniConstants::socketTaggerClass,
-                                     "tag", "(Ljava/io/FileDescriptor;)V");
+extern "C" int tagSocket(JNIEnv* env, int fd) {
+    if (env->ExceptionOccurred()) {
+      return fd;
+    }
+
+    jclass socketTaggerClass = JniConstants::GetSocketTaggerClass(env);
+    jmethodID get = env->GetStaticMethodID(socketTaggerClass,
+                                           "get",
+                                           "()Ldalvik/system/SocketTagger;");
+    jobject socketTagger = env->CallStaticObjectMethod(socketTaggerClass, get);
+    jmethodID tag = env->GetMethodID(socketTaggerClass, "tag", "(Ljava/io/FileDescriptor;)V");
 
     jobject fileDescriptor = jniCreateFileDescriptor(env, fd);
     env->CallVoidMethod(socketTagger, tag, fileDescriptor);
     return fd;
-}
-
 }

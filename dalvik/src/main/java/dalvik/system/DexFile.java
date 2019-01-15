@@ -17,6 +17,7 @@
 package dalvik.system;
 
 import android.system.ErrnoException;
+import dalvik.annotation.compat.UnsupportedAppUsage;
 import dalvik.annotation.optimization.ReachabilitySensitive;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -37,16 +38,20 @@ import libcore.io.Libcore;
  *     as {@link dalvik.system.PathClassLoader} instead. <b>This API will be removed
  *     in a future Android release</b>.
  */
+@libcore.api.CorePlatformApi
 @Deprecated
 public final class DexFile {
   /**
    * If close is called, mCookie becomes null but the internal cookie is preserved if the close
    * failed so that we can free resources in the finalizer.
    */
+    @UnsupportedAppUsage
     @ReachabilitySensitive
     private Object mCookie;
 
+    @UnsupportedAppUsage
     private Object mInternalCookie;
+    @UnsupportedAppUsage
     private final String mFileName;
 
     /**
@@ -189,6 +194,7 @@ public final class DexFile {
      * @throws IOException
      *  If unable to open the source or output file.
      */
+    @UnsupportedAppUsage
     static DexFile loadDex(String sourcePathName, String outputPathName,
         int flags, ClassLoader loader, DexPathList.Element[] elements) throws IOException {
 
@@ -272,6 +278,7 @@ public final class DexFile {
      *
      * @hide
      */
+    @UnsupportedAppUsage
     public Class loadClassBinaryName(String name, ClassLoader loader, List<Throwable> suppressed) {
         return defineClass(name, loader, mCookie, this, suppressed);
     }
@@ -308,6 +315,7 @@ public final class DexFile {
      */
     private static class DFEnum implements Enumeration<String> {
         private int mIndex;
+        @UnsupportedAppUsage
         private String[] mNameList;
 
         DFEnum(DexFile df) {
@@ -348,6 +356,7 @@ public final class DexFile {
      * Open a DEX file.  The value returned is a magic VM cookie.  On
      * failure, an IOException is thrown.
      */
+    @UnsupportedAppUsage
     private static Object openDexFile(String sourceName, String outputName, int flags,
             ClassLoader loader, DexPathList.Element[] elements) throws IOException {
         // Use absolute paths to enable the use of relative paths when testing on host.
@@ -374,6 +383,7 @@ public final class DexFile {
     /*
      * Returns true if the dex file is backed by a valid oat file.
      */
+    @UnsupportedAppUsage
     /*package*/ boolean isBackedByOatFile() {
         return isBackedByOatFile(mCookie);
     }
@@ -392,6 +402,7 @@ public final class DexFile {
     private static native Class defineClassNative(String name, ClassLoader loader, Object cookie,
                                                   DexFile dexFile)
             throws ClassNotFoundException, NoClassDefFoundError;
+    @UnsupportedAppUsage
     private static native String[] getClassNameList(Object cookie);
     private static native boolean isBackedByOatFile(Object cookie);
     private static native void setTrusted(Object cookie);
@@ -399,6 +410,7 @@ public final class DexFile {
      * Open a DEX file.  The value returned is a magic VM cookie.  On
      * failure, an IOException is thrown.
      */
+    @UnsupportedAppUsage
     private static native Object openDexFileNative(String sourceName, String outputName, int flags,
             ClassLoader loader, DexPathList.Element[] elements);
 
@@ -424,6 +436,7 @@ public final class DexFile {
      *
      * @hide
      */
+    @libcore.api.CorePlatformApi
     public static final int NO_DEXOPT_NEEDED = 0;
 
     /**
@@ -453,17 +466,8 @@ public final class DexFile {
      *
      * @hide
      */
+    @libcore.api.CorePlatformApi
     public static final int DEX2OAT_FOR_FILTER = 3;
-
-    /**
-     * dex2oat should be run to update the apk/jar because the existing code
-     * is not relocated to match the boot image.
-     *
-     * See {@link #getDexOptNeeded(String, String, String, boolean, boolean)}.
-     *
-     * @hide
-     */
-    public static final int DEX2OAT_FOR_RELOCATION = 4;
 
 
     /**
@@ -508,6 +512,7 @@ public final class DexFile {
      *
      * @hide
      */
+    @libcore.api.CorePlatformApi
     public static native int getDexOptNeeded(String fileName,
             String instructionSet, String compilerFilter, String classLoaderContext,
             boolean newProfile, boolean downgrade)
@@ -532,6 +537,7 @@ public final class DexFile {
      *
      * @hide
      */
+    @libcore.api.CorePlatformApi
     public static final class OptimizationInfo {
         // The optimization status.
         private final String status;
@@ -544,10 +550,12 @@ public final class DexFile {
             this.reason = reason;
         }
 
+        @libcore.api.CorePlatformApi
         public String getStatus() {
             return status;
         }
 
+        @libcore.api.CorePlatformApi
         public String getReason() {
             return reason;
         }
@@ -558,6 +566,7 @@ public final class DexFile {
      *
      * @hide
      */
+    @libcore.api.CorePlatformApi
     public static OptimizationInfo getDexFileOptimizationInfo(
             String fileName, String instructionSet) throws FileNotFoundException {
         String[] status = getDexFileOptimizationStatus(fileName, instructionSet);
@@ -584,6 +593,7 @@ public final class DexFile {
      * If no optimized code exists the method returns null.
      * @hide
      */
+    @libcore.api.CorePlatformApi
     public static native String[] getDexFileOutputPaths(String fileName, String instructionSet)
         throws FileNotFoundException;
 
@@ -592,6 +602,7 @@ public final class DexFile {
      *
      * @hide
      */
+    @libcore.api.CorePlatformApi
     public native static boolean isValidCompilerFilter(String filter);
 
     /**
@@ -599,6 +610,7 @@ public final class DexFile {
      *
      * @hide
      */
+    @libcore.api.CorePlatformApi
     public native static boolean isProfileGuidedCompilerFilter(String filter);
 
     /**
@@ -617,6 +629,7 @@ public final class DexFile {
      *
      * @hide
      */
+    @libcore.api.CorePlatformApi
     public native static String getSafeModeCompilerFilter(String filter);
 
     /**

@@ -22,6 +22,7 @@
  */
 package libcore.util;
 
+import dalvik.annotation.compat.UnsupportedAppUsage;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.util.Arrays;
@@ -30,6 +31,7 @@ import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.TimeZone;
 import libcore.io.BufferIterator;
+import libcore.timezone.ZoneInfoDB;
 
 /**
  * Our concrete TimeZone implementation, backed by zoneinfo data.
@@ -60,8 +62,12 @@ import libcore.io.BufferIterator;
  * dates before 1900 and after 2038. There is an extended version of the table that uses 64 bits
  * to store the data but that information is not used by this.
  *
+ * <p>This class should be in libcore.timezone but this class is Serializable so cannot
+ * be moved there without breaking apps that have (for some reason) serialized TimeZone objects.
+ *
  * @hide - used to implement TimeZone
  */
+@libcore.api.CorePlatformApi
 public final class ZoneInfo extends TimeZone {
     private static final long MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
     private static final long MILLISECONDS_PER_400_YEARS =
@@ -131,6 +137,7 @@ public final class ZoneInfo extends TimeZone {
      *
      * @see #mTypes
      */
+    @UnsupportedAppUsage
     private final long[] mTransitions;
 
     /**
@@ -290,8 +297,6 @@ public final class ZoneInfo extends TimeZone {
 
         // Use the latest non-daylight offset (if any) as the raw offset.
         if (mTransitions.length == 0) {
-            // This case is no longer expected to occur in the data used on Android after changes
-            // made in zic version 2014c. It is kept as a fallback.
             // If there are no transitions then use the first GMT offset.
             mRawOffset = gmtOffsets[0];
         } else {
@@ -698,7 +703,10 @@ public final class ZoneInfo extends TimeZone {
      *
      * <p>All offsets are considered to be safe for addition / subtraction / multiplication without
      * worrying about overflow. All absolute time arithmetic is checked for overflow / underflow.
+     *
+     * @hide
      */
+    @libcore.api.CorePlatformApi
     public static class WallTime {
 
         // We use a GregorianCalendar (set to UTC) to handle all the date/time normalization logic
@@ -718,6 +726,7 @@ public final class ZoneInfo extends TimeZone {
         private int isDst;
         private int gmtOffsetSeconds;
 
+        @libcore.api.CorePlatformApi
         public WallTime() {
             this.calendar = new GregorianCalendar(0, 0, 0, 0, 0, 0);
             calendar.setTimeZone(TimeZone.getTimeZone("UTC"));
@@ -730,6 +739,7 @@ public final class ZoneInfo extends TimeZone {
          * <p>When going from an instant to a wall time it is always unambiguous because there
          * is only one offset rule acting at any given instant. We do not consider leap seconds.
          */
+        @libcore.api.CorePlatformApi
         public void localtime(int timeSeconds, ZoneInfo zoneInfo) {
             try {
                 int offsetSeconds = zoneInfo.mRawOffset / 1000;
@@ -789,6 +799,7 @@ public final class ZoneInfo extends TimeZone {
          * <p>We do not assume that adjacent transitions modify the DST state; adjustments can
          * occur for other reasons such as when a zone changes its raw offset.
          */
+        @libcore.api.CorePlatformApi
         public int mktime(ZoneInfo zoneInfo) {
             // Normalize isDst to -1, 0 or 1 to simplify isDst equality checks below.
             this.isDst = this.isDst > 0 ? this.isDst = 1 : this.isDst < 0 ? this.isDst = -1 : 0;
@@ -1079,82 +1090,102 @@ public final class ZoneInfo extends TimeZone {
             return null;
         }
 
+        @libcore.api.CorePlatformApi
         public void setYear(int year) {
             this.year = year;
         }
 
+        @libcore.api.CorePlatformApi
         public void setMonth(int month) {
             this.month = month;
         }
 
+        @libcore.api.CorePlatformApi
         public void setMonthDay(int monthDay) {
             this.monthDay = monthDay;
         }
 
+        @libcore.api.CorePlatformApi
         public void setHour(int hour) {
             this.hour = hour;
         }
 
+        @libcore.api.CorePlatformApi
         public void setMinute(int minute) {
             this.minute = minute;
         }
 
+        @libcore.api.CorePlatformApi
         public void setSecond(int second) {
             this.second = second;
         }
 
+        @libcore.api.CorePlatformApi
         public void setWeekDay(int weekDay) {
             this.weekDay = weekDay;
         }
 
+        @libcore.api.CorePlatformApi
         public void setYearDay(int yearDay) {
             this.yearDay = yearDay;
         }
 
+        @libcore.api.CorePlatformApi
         public void setIsDst(int isDst) {
             this.isDst = isDst;
         }
 
+        @libcore.api.CorePlatformApi
         public void setGmtOffset(int gmtoff) {
             this.gmtOffsetSeconds = gmtoff;
         }
 
+        @libcore.api.CorePlatformApi
         public int getYear() {
             return year;
         }
 
+        @libcore.api.CorePlatformApi
         public int getMonth() {
             return month;
         }
 
+        @libcore.api.CorePlatformApi
         public int getMonthDay() {
             return monthDay;
         }
 
+        @libcore.api.CorePlatformApi
         public int getHour() {
             return hour;
         }
 
+        @libcore.api.CorePlatformApi
         public int getMinute() {
             return minute;
         }
 
+        @libcore.api.CorePlatformApi
         public int getSecond() {
             return second;
         }
 
+        @libcore.api.CorePlatformApi
         public int getWeekDay() {
             return weekDay;
         }
 
+        @libcore.api.CorePlatformApi
         public int getYearDay() {
             return yearDay;
         }
 
+        @libcore.api.CorePlatformApi
         public int getGmtOffset() {
             return gmtOffsetSeconds;
         }
 
+        @libcore.api.CorePlatformApi
         public int getIsDst() {
             return isDst;
         }

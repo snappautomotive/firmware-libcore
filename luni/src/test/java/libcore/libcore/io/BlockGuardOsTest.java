@@ -28,6 +28,7 @@ import android.system.OsConstants;
 import android.system.StructAddrinfo;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.net.InetAddress;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -120,6 +121,9 @@ public class BlockGuardOsTest {
     public void test_checkNewMethodsInPosix() {
         List<String> methodsNotRequireBlockGuardChecks = Arrays.asList(
                 "android_fdsan_exchange_owner_tag(java.io.FileDescriptor,long,long)",
+                "android_fdsan_get_owner_tag(java.io.FileDescriptor)",
+                "android_fdsan_get_tag_type(long)",
+                "android_fdsan_get_tag_value(long)",
                 "bind(java.io.FileDescriptor,java.net.InetAddress,int)",
                 "bind(java.io.FileDescriptor,java.net.SocketAddress)",
                 "capget(android.system.StructCapUserHeader)",
@@ -212,7 +216,11 @@ public class BlockGuardOsTest {
 
         // Verify that all the methods in libcore.io.Os should either be overridden in BlockGuardOs
         // or else they should be in the "methodsNotRequiredBlockGuardCheckSet".
+        // We don't care about static methods because they can't be overridden.
         for (Method method : Os.class.getDeclaredMethods()) {
+            if (Modifier.isStatic(method.getModifiers())) {
+                continue;
+            }
             String methodSignature = method.toString();
             String methodNameAndParameters = getMethodNameAndParameters(methodSignature);
             if (!methodsNotRequiredBlockGuardCheckSet.contains(methodNameAndParameters) &&

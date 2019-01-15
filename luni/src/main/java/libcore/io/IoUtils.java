@@ -27,10 +27,14 @@ import java.net.Socket;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
-import java.util.Random;
+
+import dalvik.annotation.compat.UnsupportedAppUsage;
 import libcore.util.NonNull;
 import static android.system.OsConstants.*;
 
+/** @hide */
+@libcore.api.CorePlatformApi
+@libcore.api.IntraCoreApi
 public final class IoUtils {
     private IoUtils() {
     }
@@ -48,6 +52,7 @@ public final class IoUtils {
      * @param fd FileDescriptor to take ownership from, must be non-null.
      * @throws NullPointerException if fd is null
      */
+    @libcore.api.CorePlatformApi
     public static int acquireRawFd(@NonNull FileDescriptor fd) {
         Objects.requireNonNull(fd);
 
@@ -64,6 +69,47 @@ public final class IoUtils {
         return rawFd;
     }
 
+    private static boolean isParcelFileDescriptor(Object object) {
+        // We need to look up ParcelFileDescriptor dynamically, because there are cases where the
+        // framework classes will not be found on the classpath such as on-host development.
+        try {
+            Class<?> pfdClass = Class.forName("android.os.ParcelFileDescriptor");
+            if (pfdClass.isInstance(object)) {
+                return true;
+            }
+            return false;
+        } catch (ClassNotFoundException ex) {
+            return false;
+        }
+    }
+
+    private static long generateFdOwnerId(Object owner) {
+        if (owner == null) {
+            return 0;
+        }
+
+        // Type values from bionic's <android/fdsan.h>.
+        long tagType;
+        if (owner instanceof java.io.FileInputStream) {
+            tagType = 5;
+        } else if (owner instanceof java.io.FileOutputStream) {
+            tagType = 6;
+        } else if (owner instanceof java.io.RandomAccessFile) {
+            tagType = 7;
+        } else if (isParcelFileDescriptor(owner)) {
+            tagType = 8;
+        } else {
+            // Generic Java type.
+            tagType = 255;
+        }
+
+        // The owner ID is not required to be unique but should be stable and attempt to avoid
+        // collision with identifiers generated both here and in native code (which are simply the
+        // address of the owning object). identityHashCode(Object) meets these requirements.
+        long tagValue = System.identityHashCode(owner);
+        return tagType << 56 | tagValue;
+    }
+
     /**
      * Assigns ownership of an unowned FileDescriptor.
      *
@@ -78,6 +124,7 @@ public final class IoUtils {
      * @throws NullPointerException if fd or owner are null
      * @throws IllegalStateException if fd is already owned
      */
+    @libcore.api.CorePlatformApi
     public static void setFdOwner(@NonNull FileDescriptor fd, @NonNull Object owner) {
         Objects.requireNonNull(fd);
         Objects.requireNonNull(owner);
@@ -88,10 +135,7 @@ public final class IoUtils {
                                             "FileDescriptor");
         }
 
-        // ownerId is not required to be unique but should be stable and should attempt to avoid
-        // collision with identifiers generated both here and in native code (which are simply the
-        // address of the owning object). identityHashCode(Object) meets these requirements.
-        int ownerId = System.identityHashCode(owner);
+        long ownerId = generateFdOwnerId(owner);
         fd.setOwnerId$(ownerId);
 
         // Set the file descriptor's owner ID, aborting if the previous value isn't as expected.
@@ -102,6 +146,7 @@ public final class IoUtils {
      * Calls close(2) on 'fd'. Also resets the internal int to -1. Does nothing if 'fd' is null
      * or invalid.
      */
+    @libcore.api.CorePlatformApi
     public static void close(FileDescriptor fd) throws IOException {
         IoBridge.closeAndSignalBlockedThreads(fd);
     }
@@ -109,6 +154,9 @@ public final class IoUtils {
     /**
      * Closes 'closeable', ignoring any checked exceptions. Does nothing if 'closeable' is null.
      */
+    @UnsupportedAppUsage
+    @libcore.api.CorePlatformApi
+    @libcore.api.IntraCoreApi
     public static void closeQuietly(AutoCloseable closeable) {
         if (closeable != null) {
             try {
@@ -123,6 +171,8 @@ public final class IoUtils {
     /**
      * Closes 'fd', ignoring any exceptions. Does nothing if 'fd' is null or invalid.
      */
+    @UnsupportedAppUsage
+    @libcore.api.CorePlatformApi
     public static void closeQuietly(FileDescriptor fd) {
         try {
             IoUtils.close(fd);
@@ -133,6 +183,8 @@ public final class IoUtils {
     /**
      * Closes 'socket', ignoring any exceptions. Does nothing if 'socket' is null.
      */
+    @UnsupportedAppUsage
+    @libcore.api.CorePlatformApi
     public static void closeQuietly(Socket socket) {
         if (socket != null) {
             try {
@@ -145,6 +197,8 @@ public final class IoUtils {
     /**
      * Sets 'fd' to be blocking or non-blocking, according to the state of 'blocking'.
      */
+    @UnsupportedAppUsage
+    @libcore.api.CorePlatformApi
     public static void setBlocking(FileDescriptor fd, boolean blocking) throws IOException {
         try {
             int flags = Libcore.os.fcntlVoid(fd, F_GETFL);
@@ -162,6 +216,8 @@ public final class IoUtils {
     /**
      * Returns the contents of 'path' as a byte array.
      */
+    @UnsupportedAppUsage
+    @libcore.api.CorePlatformApi
     public static byte[] readFileAsByteArray(String absolutePath) throws IOException {
         return new FileReader(absolutePath).readFully().toByteArray();
     }
@@ -169,6 +225,8 @@ public final class IoUtils {
     /**
      * Returns the contents of 'path' as a string. The contents are assumed to be UTF-8.
      */
+    @UnsupportedAppUsage
+    @libcore.api.CorePlatformApi
     public static String readFileAsString(String absolutePath) throws IOException {
         return new FileReader(absolutePath).readFully().toString(StandardCharsets.UTF_8);
     }
@@ -180,8 +238,10 @@ public final class IoUtils {
      * Deliberately ignores errors, on the assumption that test cleanup is only
      * supposed to be best-effort.
      *
-     * @deprecated Use {@link #createTemporaryDirectory} instead.
+     * @deprecated Use {@link TestIoUtils#createTemporaryDirectory} instead.
      */
+    @libcore.api.CorePlatformApi
+    @Deprecated
     public static void deleteContents(File dir) throws IOException {
         File[] files = dir.listFiles();
         if (files != null) {
@@ -196,7 +256,11 @@ public final class IoUtils {
 
     /**
      * Creates a unique new temporary directory under "java.io.tmpdir".
+     *
+     * @deprecated Use {@link TestIoUtils#createTemporaryDirectory} instead.
      */
+    @libcore.api.CorePlatformApi
+    @Deprecated
     public static File createTemporaryDirectory(String prefix) {
         while (true) {
             String candidateName = prefix + Math.randomIntInternal();
