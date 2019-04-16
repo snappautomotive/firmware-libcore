@@ -50,10 +50,15 @@ public class DateTest extends TestCase {
         c.clear();
         c.set(Calendar.YEAR, 21);
         assertEquals("Wed Jan 01 00:00:00 PST 21", c.getTime().toString());
-        assertEquals("1 Jan 21 08:00:00 GMT", c.getTime().toGMTString());
+        String actual21GmtString = c.getTime().toGMTString();
+        // zic <= 2014b data produces -08:00:00, later ones produce -07:52:58 instead.
+        assertEquals("1 Jan 21 07:52:58 GMT", actual21GmtString);
+
         c.set(Calendar.YEAR, 321);
         assertEquals("Sun Jan 01 00:00:00 PST 321", c.getTime().toString());
-        assertEquals("1 Jan 321 08:00:00 GMT", c.getTime().toGMTString());
+        String actual321GmtString = c.getTime().toGMTString();
+        // zic <= 2014b data produces -08:00:00, later ones produce -07:52:58 instead.
+        assertEquals("1 Jan 321 07:52:58 GMT", actual321GmtString);
     }
 
     public void test_toGMTString_nonUs() throws Exception {
@@ -64,10 +69,15 @@ public class DateTest extends TestCase {
         c.clear();
         c.set(Calendar.YEAR, 21);
         assertEquals("Wed Jan 01 00:00:00 PST 21", c.getTime().toString());
-        assertEquals("1 Jan 21 08:00:00 GMT", c.getTime().toGMTString());
+        String actual21GmtString = c.getTime().toGMTString();
+        // zic <= 2014b data produces -08:00:00, later ones produce -07:52:58 instead.
+        assertEquals("1 Jan 21 07:52:58 GMT", actual21GmtString);
+
         c.set(Calendar.YEAR, 321);
         assertEquals("Sun Jan 01 00:00:00 PST 321", c.getTime().toString());
-        assertEquals("1 Jan 321 08:00:00 GMT", c.getTime().toGMTString());
+        String actual321GmtString = c.getTime().toGMTString();
+        // zic <= 2014b data produces -08:00:00, later ones produce -07:52:58 instead.
+        assertEquals("1 Jan 321 07:52:58 GMT", actual321GmtString);
     }
 
     public void test_parse_timezones() {
