@@ -36,6 +36,7 @@ import java.util.Set;
 import junitparams.JUnitParamsRunner;
 import junitparams.Parameters;
 import libcore.libcore.util.SerializationTester;
+import libcore.net.InetAddressUtils;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -192,6 +193,20 @@ public class InetAddressTest {
     }
 
     @Test
+    public void test_isNumeric_notNumeric_null() throws Exception {
+        try {
+            boolean result = InetAddress.isNumeric(null);
+            fail("Expected isNumeric(null) to throw a NPE but instead returned " + result);
+        } catch (NullPointerException expected) {
+        }
+    }
+
+    @Test
+    public void test_isNumeric_notNumeric_empty() throws Exception {
+        assertFalse(InetAddress.isNumeric(""));
+    }
+
+    @Test
     public void test_isNumeric_notNumeric() throws Exception {
         // Negative test
         assertFalse(InetAddress.isNumeric("example.com"));
@@ -298,8 +313,12 @@ public class InetAddressTest {
     public void test_getByName_invalid(String invalid) throws Exception {
         try {
             InetAddress.getByName(invalid);
-            fail("Invalid IP address incorrectly recognized as valid: "
-                + invalid);
+            String msg = "Invalid IP address incorrectly recognized as valid: \"" + invalid + "\"";
+            if (InetAddressUtils.parseNumericAddressNoThrowStripOptionalBrackets(invalid) == null) {
+                msg += " (it was probably unexpectedly resolved by this network's DNS)";
+            }
+            msg += ".";
+            fail(msg);
         } catch (UnknownHostException expected) {
         }
 

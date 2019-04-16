@@ -1,33 +1,5 @@
 // Signature format: 2.0
-package android.system {
-
-  public final class ErrnoException extends java.lang.Exception {
-    method @libcore.api.CorePlatformApi @libcore.api.IntraCoreApi public java.net.SocketException rethrowAsSocketException() throws java.net.SocketException;
-  }
-
-  public final class Os {
-    method @dalvik.annotation.compat.UnsupportedAppUsage @libcore.api.CorePlatformApi @libcore.api.IntraCoreApi public static void setsockoptTimeval(java.io.FileDescriptor, int, int, android.system.StructTimeval) throws android.system.ErrnoException;
-  }
-
-  @libcore.api.CorePlatformApi @libcore.api.IntraCoreApi public final class StructTimeval {
-    method @dalvik.annotation.compat.UnsupportedAppUsage @libcore.api.CorePlatformApi @libcore.api.IntraCoreApi public static android.system.StructTimeval fromMillis(long);
-    method @libcore.api.CorePlatformApi @libcore.api.IntraCoreApi public long toMillis();
-    field @libcore.api.CorePlatformApi @libcore.api.IntraCoreApi public final long tv_sec;
-    field @libcore.api.CorePlatformApi @libcore.api.IntraCoreApi public final long tv_usec;
-  }
-
-}
-
 package com.android.org.conscrypt {
-
-  @libcore.api.CorePlatformApi @libcore.api.IntraCoreApi public final class ClientSessionContext implements javax.net.ssl.SSLSessionContext {
-    method public final java.util.Enumeration<byte[]> getIds();
-    method public final javax.net.ssl.SSLSession getSession(byte[]);
-    method public final int getSessionCacheSize();
-    method public final int getSessionTimeout();
-    method public final void setSessionCacheSize(int) throws java.lang.IllegalArgumentException;
-    method public final void setSessionTimeout(int) throws java.lang.IllegalArgumentException;
-  }
 
   @libcore.api.IntraCoreApi public class DESEDESecretKeyFactory extends javax.crypto.SecretKeyFactorySpi {
     ctor @libcore.api.IntraCoreApi public DESEDESecretKeyFactory();
@@ -237,7 +209,7 @@ package com.android.org.conscrypt {
     ctor @libcore.api.IntraCoreApi public OpenSSLCipherChaCha20();
   }
 
-  @libcore.api.CorePlatformApi @libcore.api.IntraCoreApi public abstract class OpenSSLContextImpl extends javax.net.ssl.SSLContextSpi {
+  @libcore.api.IntraCoreApi public abstract class OpenSSLContextImpl extends javax.net.ssl.SSLContextSpi {
   }
 
   @libcore.api.IntraCoreApi public static final class OpenSSLContextImpl.TLSv1 extends com.android.org.conscrypt.OpenSSLContextImpl {
@@ -417,15 +389,6 @@ package com.android.org.conscrypt {
     ctor @libcore.api.IntraCoreApi public PSSParameters();
   }
 
-  @libcore.api.CorePlatformApi @libcore.api.IntraCoreApi public final class ServerSessionContext implements javax.net.ssl.SSLSessionContext {
-    method public final java.util.Enumeration<byte[]> getIds();
-    method public final javax.net.ssl.SSLSession getSession(byte[]);
-    method public final int getSessionCacheSize();
-    method public final int getSessionTimeout();
-    method public final void setSessionCacheSize(int) throws java.lang.IllegalArgumentException;
-    method public final void setSessionTimeout(int) throws java.lang.IllegalArgumentException;
-  }
-
 }
 
 package dalvik.annotation.compat {
@@ -490,22 +453,6 @@ package libcore.api {
   }
 
   @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE) @java.lang.annotation.Target({java.lang.annotation.ElementType.TYPE, java.lang.annotation.ElementType.FIELD, java.lang.annotation.ElementType.METHOD, java.lang.annotation.ElementType.CONSTRUCTOR, java.lang.annotation.ElementType.ANNOTATION_TYPE}) @libcore.api.IntraCoreApi public @interface IntraCoreApi {
-  }
-
-}
-
-package libcore.io {
-
-  @libcore.api.CorePlatformApi @libcore.api.IntraCoreApi public final class IoUtils {
-    method @dalvik.annotation.compat.UnsupportedAppUsage @libcore.api.CorePlatformApi @libcore.api.IntraCoreApi public static void closeQuietly(AutoCloseable);
-  }
-
-  @libcore.api.IntraCoreApi public final class Libcore {
-    field @dalvik.annotation.compat.UnsupportedAppUsage @libcore.api.IntraCoreApi public static volatile libcore.io.Os os;
-  }
-
-  @libcore.api.CorePlatformApi @libcore.api.IntraCoreApi public interface Os {
-    method @dalvik.annotation.compat.UnsupportedAppUsage @libcore.api.IntraCoreApi public void setsockoptTimeval(java.io.FileDescriptor, int, int, android.system.StructTimeval) throws android.system.ErrnoException;
   }
 
 }

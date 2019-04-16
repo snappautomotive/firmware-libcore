@@ -88,6 +88,8 @@ public final class VMRuntime {
         /**
          * Logs hidden API access
          *
+         * @param sampledValue value that was sampled, to be compared against the
+         *      sampling rate
          * @param appPackageName package name of the app attempting the access
          * @param signature signature of the method being called, i.e
          *      class_name->member_name:type_signature (e.g.
@@ -97,8 +99,8 @@ public final class VMRuntime {
          * @param accessType how the accessed was done
          * @param accessDenied whether the access was allowed or not
          */
-        public void hiddenApiUsed(String appPackageName, String signature,
-            int accessType, boolean accessDenied);
+        public void hiddenApiUsed(int sampledValue, String appPackageName,
+            String signature, int accessType, boolean accessDenied);
     }
 
     static HiddenApiUsageLogger hiddenApiUsageLogger;
@@ -115,14 +117,14 @@ public final class VMRuntime {
 
     /**
      * Records an attempted hidden API access to
-     * {@link HiddenApiUsageLogger#hiddenApiUsed(String, String, int, boolean}
+     * {@link HiddenApiUsageLogger#hiddenApiUsed(int, String, String, int, boolean}
      * if a logger is registered via {@link #setHiddenApiUsageLogger}.
      */
-    private static void hiddenApiUsed(String appPackageName, String signature,
+    private static void hiddenApiUsed(int sampledValue, String appPackageName, String signature,
          int accessType, boolean accessDenied) {
         if (VMRuntime.hiddenApiUsageLogger != null) {
-            VMRuntime.hiddenApiUsageLogger.hiddenApiUsed(appPackageName, signature,
-                accessType, accessDenied);
+            VMRuntime.hiddenApiUsageLogger.hiddenApiUsed(sampledValue, appPackageName,
+                signature, accessType, accessDenied);
         }
     }
 
@@ -226,6 +228,13 @@ public final class VMRuntime {
     public native float getTargetHeapUtilization();
 
     /**
+     * Retrieves the finalizer timeout in milliseconds.
+     * Finalizers that fail to terminate in this amount of time cause the
+     * runtime to abort.
+     */
+    public native long getFinalizerTimeoutMs();
+
+    /**
      * Sets the current ideal heap utilization, represented as a number
      * between zero and one.  After a GC happens, the Dalvik heap may
      * be resized so that (size of live objects) / (size of heap) is
@@ -263,7 +272,6 @@ public final class VMRuntime {
      * app starts to run, because it may change the VM's behavior in
      * dangerous ways. Defaults to {@link #SDK_VERSION_CUR_DEVELOPMENT}.
      */
-    @UnsupportedAppUsage
     @libcore.api.CorePlatformApi
     public synchronized void setTargetSdkVersion(int targetSdkVersion) {
         this.targetSdkVersion = targetSdkVersion;
@@ -457,34 +465,42 @@ public final class VMRuntime {
      * watermark, it is determined that the application is registering native allocations at an
      * unusually high rate and a GC is performed inside of the function to prevent memory usage
      * from excessively increasing. Memory allocated via system malloc() should not be included
-     * in this count. If only malloced() memory is allocated, bytes should be zero.
-     * The argument must be the same as that later passed to registerNativeFree(), but may
-     * otherwise be approximate.
+     * in this count. The argument must be the same as that later passed to registerNativeFree(),
+     * but may otherwise be approximate.
      */
     @UnsupportedAppUsage
     @libcore.api.CorePlatformApi
-    public void registerNativeAllocation(int bytes) {
-        if (bytes == 0) {
-            notifyNativeAllocation();
-        } else {
-            registerNativeAllocationInternal(bytes);
-        }
-    }
+    public native void registerNativeAllocation(long bytes);
 
-    private native void registerNativeAllocationInternal(int bytes);
+    /**
+     * Backward compatibility version of registerNativeAllocation. We used to pass an int instead
+     * of a long. The RenderScript support library looks it up via reflection.
+     * @deprecated Use long argument instead.
+     */
+    @UnsupportedAppUsage
+    @Deprecated
+    @libcore.api.CorePlatformApi
+    public void registerNativeAllocation(int bytes) {
+        registerNativeAllocation((long) bytes);
+    }
 
     /**
      * Registers a native free by reducing the number of native bytes accounted for.
      */
     @UnsupportedAppUsage
     @libcore.api.CorePlatformApi
-    public void registerNativeFree(int bytes) {
-        if (bytes != 0) {
-            registerNativeFreeInternal(bytes);
-        }
-    }
+    public native void registerNativeFree(long bytes);
 
-    private native void registerNativeFreeInternal(int bytes);
+    /**
+     * Backward compatibility version of registerNativeFree.
+     * @deprecated Use long argument instead.
+     */
+    @UnsupportedAppUsage
+    @Deprecated
+    @libcore.api.CorePlatformApi
+    public void registerNativeFree(int bytes) {
+        registerNativeFree((long) bytes);
+    }
 
     /**
      * Return the number of native objects that are reported by a single call to
@@ -495,7 +511,7 @@ public final class VMRuntime {
     /**
      * Report a native malloc()-only allocation to the GC.
      */
-    private void notifyNativeAllocation() {
+    public void notifyNativeAllocation() {
         // Minimize JNI calls by notifying once every notifyNativeInterval allocations.
         // The native code cannot do anything without calling mallinfo(), which is too
         // expensive to perform on every allocation. To avoid the JNI overhead on every
@@ -518,7 +534,7 @@ public final class VMRuntime {
      * allocations have occurred since the last call to notifyNativeAllocationsInternal().
      * Hints that we should check whether a GC is required.
      */
-    private native void notifyNativeAllocationsInternal();
+    public native void notifyNativeAllocationsInternal();
 
     /**
      * Wait for objects to be finalized.
@@ -560,6 +576,13 @@ public final class VMRuntime {
      */
     @libcore.api.CorePlatformApi
     public native void updateProcessState(int state);
+
+    /**
+     * Let the runtime know that the application startup is completed. This may affect behavior
+     * related to profiling and startup caches.
+     */
+    @libcore.api.CorePlatformApi
+    public native void notifyStartupCompleted();
 
     /**
      * Fill in dex caches with classes, fields, and methods that are
@@ -673,4 +696,10 @@ public final class VMRuntime {
      */
     @libcore.api.CorePlatformApi
     public static native void setProcessPackageName(String packageName);
+
+    /**
+     * Sets the full path to data directory of the app running in this process.
+     */
+    @libcore.api.CorePlatformApi
+    public static native void setProcessDataDirectory(String dataDir);
 }

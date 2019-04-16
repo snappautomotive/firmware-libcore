@@ -188,7 +188,6 @@ class HttpsURLConnection extends HttpURLConnection
      */
     private static class NoPreloadHolder {
         public static HostnameVerifier defaultHostnameVerifier;
-        public static final Class<? extends HostnameVerifier> originalDefaultHostnameVerifierClass;
         static {
             try {
                 /**
@@ -200,7 +199,6 @@ class HttpsURLConnection extends HttpURLConnection
                 defaultHostnameVerifier = (HostnameVerifier)
                         Class.forName("com.android.okhttp.internal.tls.OkHostnameVerifier")
                         .getField("INSTANCE").get(null);
-                originalDefaultHostnameVerifierClass = defaultHostnameVerifier.getClass();
             } catch (Exception e) {
                 throw new AssertionError("Failed to obtain okhttp HostnameVerifier", e);
             }
@@ -210,16 +208,53 @@ class HttpsURLConnection extends HttpURLConnection
     /**
      * The <code>hostnameVerifier</code> for this object.
      */
-    protected HostnameVerifier hostnameVerifier;
+    protected HostnameVerifier hostnameVerifier = NoPreloadHolder.defaultHostnameVerifier;
     // END Android-changed: Use holder class idiom for a lazily-created OkHttp hostname verifier.
 
+    // Android-changed: Modified the documentation to explain side effects / discourage method use.
     /**
      * Sets the default <code>HostnameVerifier</code> inherited by a
      * new instance of this class.
-     * <P>
-     * If this method is not called, the default
-     * <code>HostnameVerifier</code> assumes the connection should not
-     * be permitted.
+     * <p>
+     * Developers are <em>strongly</em> discouraged from changing the default
+     * {@code HostnameVerifier} as {@link #getDefaultHostnameVerifier()} is used by several
+     * classes for hostname verification on Android.
+     * <table>
+     *     <tr>
+     *         <th>User</th>
+     *         <th>Effect</th>
+     *     </tr>
+     *     <tr>
+     *         <td>Android's default {@link TrustManager}, as used with Android's default
+     *         {@link SSLContext}, {@link SSLSocketFactory} and {@link SSLSocket} implementations.
+     *         </td>
+     *         <td>The {@code HostnameVerifier} is used to verify the peer's
+     *         certificate hostname after connecting if {@code
+     *         SSLParameters.setEndpointIdentificationAlgorithm("HTTPS")} has been called.
+     *         Instances use the <em>current</em> default {@code HostnameVerifier} at verification
+     *         time.</td>
+     *     </tr>
+     *     <tr>
+     *         <td>{@link android.net.SSLCertificateSocketFactory}</td>
+     *         <td>The current default {@code HostnameVerifier} is used from various {@code
+     *         createSocket} methods. See {@link android.net.SSLCertificateSocketFactory} for
+     *         details; for example {@link
+     *         android.net.SSLCertificateSocketFactory#createSocket(String, int)}.
+     *         </td>
+     *     </tr>
+     *     <tr>
+     *         <td>Android's default {@link HttpsURLConnection} implementation.</td>
+     *         <td>The {@code HostnameVerifier} is used after a successful TLS handshake to verify
+     *         the URI host against the TLS session server. Instances use the default {@code
+     *         HostnameVerifier} set <em>when they were created</em> unless overridden with {@link
+     *         #setHostnameVerifier(HostnameVerifier)}.
+     *         Android's <code>HttpsURLConnection</code> relies on the {@code HostnameVerifier}
+     *         for the <em>entire</em> hostname verification step.</td>
+     *     </tr>
+     * </table>
+     * <p>
+     * If this method is not called, the default <code>HostnameVerifier</code> will check the
+     * hostname according to RFC 2818.
      *
      * @param v the default host name verifier
      * @throws IllegalArgumentException if the <code>HostnameVerifier</code>
@@ -257,6 +292,7 @@ class HttpsURLConnection extends HttpURLConnection
         return NoPreloadHolder.defaultHostnameVerifier;
     }
 
+    // Android-changed: Modified the documentation to explain Android behavior.
     /**
      * Sets the <code>HostnameVerifier</code> for this instance.
      * <P>
@@ -264,6 +300,9 @@ class HttpsURLConnection extends HttpURLConnection
      * verifier set by {@link #setDefaultHostnameVerifier(HostnameVerifier)
      * setDefaultHostnameVerifier}.  Calls to this method replace
      * this object's <code>HostnameVerifier</code>.
+     * <p>
+     * Android's <code>HttpsURLConnection</code> relies on the {@code HostnameVerifier}
+     * for the <em>entire</em> hostname verification step.
      *
      * @param v the host name verifier
      * @throws IllegalArgumentException if the <code>HostnameVerifier</code>
@@ -288,15 +327,6 @@ class HttpsURLConnection extends HttpURLConnection
      * @see #setDefaultHostnameVerifier(HostnameVerifier)
      */
     public HostnameVerifier getHostnameVerifier() {
-        // Android-added: Use the default verifier if none is set.
-        // Note that this also has the side effect of *setting* (if unset)
-        // hostnameVerifier to be the default one. It's not clear why this
-        // was done (commit abd00f0eaa46f71f98e75a631c268c812d1ec7c1) but
-        // we're keeping this behavior for lack of a strong reason to do
-        // otherwise.
-        if (hostnameVerifier == null) {
-            hostnameVerifier = NoPreloadHolder.defaultHostnameVerifier;
-        }
         return hostnameVerifier;
     }
 
