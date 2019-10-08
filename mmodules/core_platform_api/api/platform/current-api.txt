@@ -29,57 +29,6 @@ package android.compat.annotation {
 
 }
 
-package android.icu.impl {
-
-  public class CalendarAstronomer {
-    ctor public CalendarAstronomer(double, double);
-    method public long getSunRiseSet(boolean);
-    method public void setTime(long);
-  }
-
-  public class TimeZoneAdapter extends java.util.TimeZone {
-    method public static java.util.TimeZone wrap(android.icu.util.TimeZone);
-  }
-
-}
-
-package android.icu.text {
-
-  public final class StringPrep {
-    method public static android.icu.text.StringPrep getInstance(int);
-    method public String prepare(String, int) throws android.icu.text.StringPrepParseException;
-    field public static final int DEFAULT = 0; // 0x0
-    field public static final int RFC3920_RESOURCEPREP = 8; // 0x8
-  }
-
-}
-
-package android.icu.util {
-
-  public abstract class BasicTimeZone extends android.icu.util.TimeZone {
-    method public abstract android.icu.util.TimeZoneTransition getNextTransition(long, boolean);
-  }
-
-  public class Region implements java.lang.Comparable<android.icu.util.Region> {
-    method public static java.util.Set<android.icu.util.Region> getAvailable(android.icu.util.Region.RegionType);
-  }
-
-  public enum Region.RegionType {
-    enum_constant public static final android.icu.util.Region.RegionType TERRITORY;
-  }
-
-  public abstract class TimeZoneRule implements java.io.Serializable {
-    method public int getDSTSavings();
-  }
-
-  public class TimeZoneTransition {
-    method public android.icu.util.TimeZoneRule getFrom();
-    method public long getTime();
-    method public android.icu.util.TimeZoneRule getTo();
-  }
-
-}
-
 package android.system {
 
   public class Int32Ref {
@@ -415,6 +364,12 @@ package com.android.org.bouncycastle.crypto.digests {
     method public void update(byte[], int, int);
   }
 
+  public class MD4Digest extends com.android.org.bouncycastle.crypto.digests.GeneralDigest {
+    ctor public MD4Digest();
+    method public int doFinal(byte[], int);
+    method protected void processBlock();
+  }
+
   public class SHA1Digest extends com.android.org.bouncycastle.crypto.digests.GeneralDigest {
     ctor public SHA1Digest();
     method public int doFinal(byte[], int);
@@ -534,101 +489,15 @@ package com.android.org.bouncycastle.x509 {
 
 }
 
-package com.android.org.conscrypt {
+package dalvik.annotation.codegen {
 
-  public interface CertPinManager {
+  @java.lang.annotation.Repeatable(CovariantReturnType.CovariantReturnTypes.class) @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.CLASS) @java.lang.annotation.Target({java.lang.annotation.ElementType.METHOD}) public @interface CovariantReturnType {
+    method public abstract int presentAfter();
+    method public abstract Class<?> returnType();
   }
 
-  public final class ClientSessionContext implements javax.net.ssl.SSLSessionContext {
-    method public final java.util.Enumeration<byte[]> getIds();
-    method public final javax.net.ssl.SSLSession getSession(byte[]);
-    method public final int getSessionCacheSize();
-    method public final int getSessionTimeout();
-    method @dalvik.annotation.compat.UnsupportedAppUsage public void setPersistentCache(com.android.org.conscrypt.SSLClientSessionCache);
-    method public final void setSessionCacheSize(int) throws java.lang.IllegalArgumentException;
-    method public final void setSessionTimeout(int) throws java.lang.IllegalArgumentException;
-  }
-
-  public final class Conscrypt {
-    method public static javax.net.ssl.X509TrustManager getDefaultX509TrustManager() throws java.security.KeyManagementException;
-  }
-
-  public interface ConscryptCertStore {
-  }
-
-  public final class FileClientSessionCache {
-    method @dalvik.annotation.compat.UnsupportedAppUsage public static com.android.org.conscrypt.SSLClientSessionCache usingDirectory(java.io.File) throws java.io.IOException;
-  }
-
-  public final class OpenSSLProvider extends java.security.Provider {
-    ctor @dalvik.annotation.compat.UnsupportedAppUsage public OpenSSLProvider();
-  }
-
-  public abstract class OpenSSLSocketImpl extends javax.net.ssl.SSLSocket {
-    method public void addHandshakeCompletedListener(javax.net.ssl.HandshakeCompletedListener);
-    method public final void connect(java.net.SocketAddress) throws java.io.IOException;
-    method public final void connect(java.net.SocketAddress, int) throws java.io.IOException;
-    method @Deprecated @dalvik.annotation.compat.UnsupportedAppUsage public final byte[] getAlpnSelectedProtocol();
-    method @Deprecated @dalvik.annotation.compat.UnsupportedAppUsage public final byte[] getNpnSelectedProtocol();
-    method public final int getPort();
-    method public final int getSoTimeout() throws java.net.SocketException;
-    method public void removeHandshakeCompletedListener(javax.net.ssl.HandshakeCompletedListener);
-    method public final void sendUrgentData(int) throws java.io.IOException;
-    method @Deprecated @dalvik.annotation.compat.UnsupportedAppUsage public final void setAlpnProtocols(byte[]);
-    method @dalvik.annotation.compat.UnsupportedAppUsage public abstract void setChannelIdPrivateKey(java.security.PrivateKey);
-    method @dalvik.annotation.compat.UnsupportedAppUsage public void setHandshakeTimeout(int) throws java.net.SocketException;
-    method @dalvik.annotation.compat.UnsupportedAppUsage public void setHostname(String);
-    method @Deprecated @dalvik.annotation.compat.UnsupportedAppUsage public final void setNpnProtocols(byte[]);
-    method public final void setOOBInline(boolean) throws java.net.SocketException;
-    method public final void setSoTimeout(int) throws java.net.SocketException;
-    method @dalvik.annotation.compat.UnsupportedAppUsage public void setSoWriteTimeout(int) throws java.net.SocketException;
-    method @dalvik.annotation.compat.UnsupportedAppUsage public abstract void setUseSessionTickets(boolean);
-  }
-
-  public interface SSLClientSessionCache {
-  }
-
-  public final class TrustManagerImpl extends javax.net.ssl.X509ExtendedTrustManager {
-    ctor @dalvik.annotation.compat.UnsupportedAppUsage public TrustManagerImpl(java.security.KeyStore);
-    ctor public TrustManagerImpl(java.security.KeyStore, com.android.org.conscrypt.CertPinManager, com.android.org.conscrypt.ConscryptCertStore);
-    method public void checkClientTrusted(java.security.cert.X509Certificate[], String) throws java.security.cert.CertificateException;
-    method public void checkClientTrusted(java.security.cert.X509Certificate[], String, java.net.Socket) throws java.security.cert.CertificateException;
-    method public void checkClientTrusted(java.security.cert.X509Certificate[], String, javax.net.ssl.SSLEngine) throws java.security.cert.CertificateException;
-    method @dalvik.annotation.compat.UnsupportedAppUsage public java.util.List<java.security.cert.X509Certificate> checkServerTrusted(java.security.cert.X509Certificate[], String, String) throws java.security.cert.CertificateException;
-    method public java.util.List<java.security.cert.X509Certificate> getTrustedChainForServer(java.security.cert.X509Certificate[], String, java.net.Socket) throws java.security.cert.CertificateException;
-    method public java.util.List<java.security.cert.X509Certificate> getTrustedChainForServer(java.security.cert.X509Certificate[], String, javax.net.ssl.SSLEngine) throws java.security.cert.CertificateException;
-    method public void handleTrustStorageUpdate();
-  }
-
-  public final class TrustedCertificateIndex {
-    ctor public TrustedCertificateIndex();
-    method public java.util.Set<java.security.cert.TrustAnchor> findAllByIssuerAndSignature(java.security.cert.X509Certificate);
-    method public java.security.cert.TrustAnchor findByIssuerAndSignature(java.security.cert.X509Certificate);
-    method public java.security.cert.TrustAnchor findBySubjectAndPublicKey(java.security.cert.X509Certificate);
-    method public java.security.cert.TrustAnchor index(java.security.cert.X509Certificate);
-  }
-
-  public class TrustedCertificateStore implements com.android.org.conscrypt.ConscryptCertStore {
-    ctor @dalvik.annotation.compat.UnsupportedAppUsage public TrustedCertificateStore();
-    method public java.util.Set<java.lang.String> aliases();
-    method public java.util.Set<java.lang.String> allSystemAliases();
-    method public boolean containsAlias(String);
-    method public void deleteCertificateEntry(String) throws java.security.cert.CertificateException, java.io.IOException;
-    method public java.util.Set<java.security.cert.X509Certificate> findAllIssuers(java.security.cert.X509Certificate);
-    method public java.security.cert.X509Certificate findIssuer(java.security.cert.X509Certificate);
-    method public java.security.cert.Certificate getCertificate(String);
-    method public java.security.cert.Certificate getCertificate(String, boolean);
-    method public String getCertificateAlias(java.security.cert.Certificate);
-    method public String getCertificateAlias(java.security.cert.Certificate, boolean);
-    method @dalvik.annotation.compat.UnsupportedAppUsage public java.util.List<java.security.cert.X509Certificate> getCertificateChain(java.security.cert.X509Certificate) throws java.security.cert.CertificateException;
-    method public java.io.File getCertificateFile(java.io.File, java.security.cert.X509Certificate);
-    method public java.util.Date getCreationDate(String);
-    method public java.security.cert.X509Certificate getTrustAnchor(java.security.cert.X509Certificate);
-    method public void installCertificate(java.security.cert.X509Certificate) throws java.security.cert.CertificateException, java.io.IOException;
-    method public static final boolean isUser(String);
-    method public boolean isUserAddedCertificate(java.security.cert.X509Certificate);
-    method public static void setDefaultUserDirectory(java.io.File);
-    method public java.util.Set<java.lang.String> userAliases();
+  @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.CLASS) @java.lang.annotation.Target({java.lang.annotation.ElementType.METHOD}) public static @interface CovariantReturnType.CovariantReturnTypes {
+    method public abstract dalvik.annotation.codegen.CovariantReturnType[] value();
   }
 
 }
@@ -1056,6 +925,28 @@ package javax.crypto {
 
 }
 
+package libcore.content.type {
+
+  public final class MimeMap {
+    method public libcore.content.type.MimeMap.Builder buildUpon();
+    method public static libcore.content.type.MimeMap.Builder builder();
+    method @NonNull public java.util.Set<java.lang.String> extensions();
+    method @NonNull public static libcore.content.type.MimeMap getDefault();
+    method @Nullable public String guessExtensionFromMimeType(@Nullable String);
+    method @Nullable public String guessMimeTypeFromExtension(@Nullable String);
+    method public boolean hasExtension(@Nullable String);
+    method public boolean hasMimeType(@Nullable String);
+    method @NonNull public java.util.Set<java.lang.String> mimeTypes();
+    method public static void setDefaultSupplier(@NonNull java.util.function.Supplier<libcore.content.type.MimeMap>);
+  }
+
+  public static final class MimeMap.Builder {
+    method public libcore.content.type.MimeMap build();
+    method public libcore.content.type.MimeMap.Builder put(@NonNull String, @NonNull java.util.List<java.lang.String>);
+  }
+
+}
+
 package libcore.icu {
 
   public final class DateIntervalFormat {
@@ -1183,17 +1074,6 @@ package libcore.net {
     method public static java.net.InetAddress parseNumericAddress(String);
   }
 
-  public abstract class MimeMap {
-    method public static boolean compareAndSetDefault(@NonNull libcore.net.MimeMap, @NonNull libcore.net.MimeMap);
-    method @NonNull public static libcore.net.MimeMap getDefault();
-    method @Nullable protected abstract String guessExtensionFromLowerCaseMimeType(@NonNull String);
-    method @Nullable public final String guessExtensionFromMimeType(@Nullable String);
-    method @Nullable public final String guessMimeTypeFromExtension(@Nullable String);
-    method @Nullable protected abstract String guessMimeTypeFromLowerCaseExtension(@NonNull String);
-    method public final boolean hasExtension(@Nullable String);
-    method public final boolean hasMimeType(@Nullable String);
-  }
-
   public abstract class NetworkSecurityPolicy {
     ctor public NetworkSecurityPolicy();
     method public static libcore.net.NetworkSecurityPolicy getInstance();
@@ -1218,12 +1098,13 @@ package libcore.timezone {
 
   public final class CountryTimeZones {
     method public String getCountryIso();
+    method public android.icu.util.TimeZone getDefaultTimeZone();
     method public String getDefaultTimeZoneId();
+    method public java.util.List<libcore.timezone.CountryTimeZones.TimeZoneMapping> getEffectiveTimeZoneMappingsAt(long);
     method public java.util.List<libcore.timezone.CountryTimeZones.TimeZoneMapping> getTimeZoneMappings();
     method public boolean hasUtcZone(long);
-    method public boolean isDefaultOkForCountryTimeZoneDetection(long);
     method public boolean isForCountryCode(String);
-    method @Deprecated public libcore.timezone.CountryTimeZones.OffsetResult lookupByOffsetWithBias(int, boolean, long, android.icu.util.TimeZone);
+    method public libcore.timezone.CountryTimeZones.OffsetResult lookupByOffsetWithBias(int, Boolean, Integer, long, android.icu.util.TimeZone);
   }
 
   public static final class CountryTimeZones.OffsetResult {
@@ -1233,6 +1114,7 @@ package libcore.timezone {
 
   public static final class CountryTimeZones.TimeZoneMapping {
     method public static libcore.timezone.CountryTimeZones.TimeZoneMapping createForTests(String, boolean, Long);
+    method public android.icu.util.TimeZone getTimeZone();
     field public final Long notUsedAfter;
     field public final boolean showInPicker;
     field public final String timeZoneId;
@@ -1256,10 +1138,6 @@ package libcore.timezone {
     method public String getIanaVersion();
     method public static libcore.timezone.TimeZoneFinder getInstance();
     method public libcore.timezone.CountryTimeZones lookupCountryTimeZones(String);
-    method public String lookupDefaultTimeZoneIdByCountry(String);
-    method public android.icu.util.TimeZone lookupTimeZoneByCountryAndOffset(String, int, boolean, long, android.icu.util.TimeZone);
-    method public java.util.List<java.lang.String> lookupTimeZoneIdsByCountry(String);
-    method public java.util.List<android.icu.util.TimeZone> lookupTimeZonesByCountry(String);
     method public void validate() throws java.io.IOException;
   }
 
@@ -1326,6 +1204,47 @@ package libcore.util {
     field public static final String[] STRING;
   }
 
+  public class FP16 {
+    method public static short ceil(short);
+    method public static int compare(short, short);
+    method public static boolean equals(short, short);
+    method public static short floor(short);
+    method public static boolean greater(short, short);
+    method public static boolean greaterEquals(short, short);
+    method public static boolean isInfinite(short);
+    method public static boolean isNaN(short);
+    method public static boolean isNormalized(short);
+    method public static boolean less(short, short);
+    method public static boolean lessEquals(short, short);
+    method public static short max(short, short);
+    method public static short min(short, short);
+    method public static short rint(short);
+    method public static float toFloat(short);
+    method public static short toHalf(float);
+    method public static String toHexString(short);
+    method public static short trunc(short);
+    field public static final short EPSILON = 5120; // 0x1400
+    field public static final int EXPONENT_BIAS = 15; // 0xf
+    field public static final int EXPONENT_SHIFT = 10; // 0xa
+    field public static final int EXPONENT_SIGNIFICAND_MASK = 32767; // 0x7fff
+    field public static final short LOWEST_VALUE = -1025; // 0xfffffbff
+    field public static final int MAX_EXPONENT = 15; // 0xf
+    field public static final short MAX_VALUE = 31743; // 0x7bff
+    field public static final int MIN_EXPONENT = -14; // 0xfffffff2
+    field public static final short MIN_NORMAL = 1024; // 0x400
+    field public static final short MIN_VALUE = 1; // 0x1
+    field public static final short NEGATIVE_INFINITY = -1024; // 0xfffffc00
+    field public static final short NEGATIVE_ZERO = -32768; // 0xffff8000
+    field public static final short NaN = 32256; // 0x7e00
+    field public static final short POSITIVE_INFINITY = 31744; // 0x7c00
+    field public static final short POSITIVE_ZERO = 0; // 0x0
+    field public static final int SHIFTED_EXPONENT_MASK = 31; // 0x1f
+    field public static final int SIGNIFICAND_MASK = 1023; // 0x3ff
+    field public static final int SIGN_MASK = 32768; // 0x8000
+    field public static final int SIGN_SHIFT = 15; // 0xf
+    field public static final int SIZE = 16; // 0x10
+  }
+
   public class HexEncoding {
     method public static byte[] decode(String) throws java.lang.IllegalArgumentException;
     method public static byte[] decode(String, boolean) throws java.lang.IllegalArgumentException;
@@ -1350,11 +1269,6 @@ package libcore.util {
 
   public class SneakyThrow {
     method public static void sneakyThrow(Throwable);
-  }
-
-  public final class TimeZoneFinder {
-    method public static libcore.util.TimeZoneFinder getInstance();
-    method public java.util.List<android.icu.util.TimeZone> lookupTimeZonesByCountry(String);
   }
 
   public class XmlObjectFactory {
