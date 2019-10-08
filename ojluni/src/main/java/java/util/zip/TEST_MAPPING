@@ -1,0 +1,15 @@
+{
+  "postsubmit": [
+    {
+      "name": "CtsLibcoreTestCases",
+      "options": [
+        {
+          "include-filter": "libcore.java.util.zip"
+        },
+        {
+          "include-filter": "org.apache.harmony.tests.java.util.zip"
+        }
+      ]
+    }
+  ]
+}

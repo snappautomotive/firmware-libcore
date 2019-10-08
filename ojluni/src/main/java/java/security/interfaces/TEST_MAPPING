@@ -1,0 +1,12 @@
+{
+  "postsubmit": [
+    {
+      "name": "CtsLibcoreTestCases",
+      "options": [
+        {
+          "include-filter": "tests.security.interfaces"
+        }
+      ]
+    }
+  ]
+}
