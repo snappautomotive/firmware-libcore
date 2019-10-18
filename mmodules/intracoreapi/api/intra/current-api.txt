@@ -12,6 +12,7 @@ package android.compat {
     method public java.util.Set<java.lang.Long> forceDisabledSet();
     method public long[] forceEnabledChangesArray();
     method public java.util.Set<java.lang.Long> forceEnabledSet();
+    method public boolean isEmpty();
     method public boolean isForceDisabled(long);
     method public boolean isForceEnabled(long);
   }
@@ -44,6 +45,13 @@ package dalvik.annotation.compat {
 
   @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.CLASS) @java.lang.annotation.Target(java.lang.annotation.ElementType.TYPE) @libcore.api.CorePlatformApi @libcore.api.IntraCoreApi public static @interface UnsupportedAppUsage.Container {
     method @libcore.api.CorePlatformApi @libcore.api.IntraCoreApi public abstract dalvik.annotation.compat.UnsupportedAppUsage[] value();
+  }
+
+}
+
+package dalvik.annotation.optimization {
+
+  @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.RUNTIME) @java.lang.annotation.Target({java.lang.annotation.ElementType.FIELD, java.lang.annotation.ElementType.METHOD}) @libcore.api.IntraCoreApi public @interface ReachabilitySensitive {
   }
 
 }
@@ -119,6 +127,11 @@ package libcore.net {
 }
 
 package libcore.util {
+
+  @libcore.api.CorePlatformApi @libcore.api.IntraCoreApi public class NativeAllocationRegistry {
+    method @libcore.api.CorePlatformApi @libcore.api.IntraCoreApi public static libcore.util.NativeAllocationRegistry createMalloced(ClassLoader, long);
+    method @libcore.api.CorePlatformApi @libcore.api.IntraCoreApi public Runnable registerNativeAllocation(Object, long);
+  }
 
   @java.lang.annotation.Documented @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE) @java.lang.annotation.Target({java.lang.annotation.ElementType.TYPE_USE}) @libcore.api.IntraCoreApi public @interface NonNull {
   }
