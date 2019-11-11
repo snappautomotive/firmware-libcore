@@ -89,6 +89,22 @@ package java.net {
 
 }
 
+package java.nio.charset {
+
+  public abstract class Charset implements java.lang.Comparable<java.nio.charset.Charset> {
+    ctor @libcore.api.IntraCoreApi protected Charset(String, String[]);
+  }
+
+  public abstract class CharsetDecoder {
+    ctor protected CharsetDecoder(java.nio.charset.Charset, float, float);
+  }
+
+  public abstract class CharsetEncoder {
+    ctor protected CharsetEncoder(java.nio.charset.Charset, float, float, byte[], boolean);
+  }
+
+}
+
 package java.security.spec {
 
   public class ECParameterSpec implements java.security.spec.AlgorithmParameterSpec {
@@ -104,14 +120,6 @@ package libcore.api {
   }
 
   @java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.SOURCE) @java.lang.annotation.Target({java.lang.annotation.ElementType.TYPE, java.lang.annotation.ElementType.FIELD, java.lang.annotation.ElementType.METHOD, java.lang.annotation.ElementType.CONSTRUCTOR, java.lang.annotation.ElementType.ANNOTATION_TYPE}) @libcore.api.IntraCoreApi public @interface IntraCoreApi {
-  }
-
-}
-
-package libcore.icu {
-
-  @libcore.api.IntraCoreApi @libcore.api.CorePlatformApi public final class ICU {
-    method @libcore.api.IntraCoreApi public static String getIcuVersion();
   }
 
 }

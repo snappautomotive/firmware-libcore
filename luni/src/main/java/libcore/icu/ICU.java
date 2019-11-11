@@ -31,7 +31,6 @@ import libcore.util.BasicLruCache;
  * Makes ICU data accessible to Java.
  * @hide
  */
-@libcore.api.IntraCoreApi
 @libcore.api.CorePlatformApi
 public final class ICU {
 
@@ -332,22 +331,6 @@ public final class ICU {
     return result;
   }
 
-  /**
-   * Returns the version of the CLDR data in use, such as "22.1.1".
-   */
-  public static native String getCldrVersion();
-
-  /**
-   * Returns the icu4c version in use, such as "50.1.1".
-   */
-  @libcore.api.IntraCoreApi
-  public static native String getIcuVersion();
-
-  /**
-   * Returns the Unicode version our ICU supports, such as "6.2".
-   */
-  public static native String getUnicodeVersion();
-
   // --- Case mapping.
 
   public static String toLowerCase(String s, Locale locale) {
@@ -363,17 +346,6 @@ public final class ICU {
   private static native String toUpperCase(String s, String languageTag);
 
   // --- Errors.
-
-  // Just the subset of error codes needed by CharsetDecoderICU/CharsetEncoderICU.
-  public static final int U_ZERO_ERROR = 0;
-  public static final int U_INVALID_CHAR_FOUND = 10;
-  public static final int U_TRUNCATED_CHAR_FOUND = 11;
-  public static final int U_ILLEGAL_CHAR_FOUND = 12;
-  public static final int U_BUFFER_OVERFLOW_ERROR = 15;
-
-  public static boolean U_FAILURE(int error) {
-    return error > U_ZERO_ERROR;
-  }
 
   // --- Native methods accessing ICU's database.
 
@@ -445,8 +417,4 @@ public final class ICU {
    * Returns a locale name, not a BCP-47 language tag. e.g. en_US not en-US.
    */
   public static native String getDefaultLocale();
-
-  /** Returns the TZData version as reported by ICU4C. */
-  @libcore.api.CorePlatformApi
-  public static native String getTZDataVersion();
 }
