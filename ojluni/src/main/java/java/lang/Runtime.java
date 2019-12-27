@@ -40,7 +40,7 @@ import dalvik.system.VMRuntime;
 import libcore.io.IoUtils;
 import libcore.io.Libcore;
 import libcore.util.EmptyArray;
-import static android.system.OsConstants._SC_NPROCESSORS_CONF;
+import static android.system.OsConstants._SC_NPROCESSORS_ONLN;
 
 /**
  * Every Java application has a single instance of class
@@ -708,7 +708,7 @@ public class Runtime {
      * @since 1.4
      */
     public int availableProcessors() {
-        return (int) Libcore.os.sysconf(_SC_NPROCESSORS_CONF);
+        return (int) Libcore.os.sysconf(_SC_NPROCESSORS_ONLN);
     }
 
     /**
