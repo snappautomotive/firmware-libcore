@@ -87,6 +87,45 @@ public class OsTest extends TestCase {
         }
     }
 
+    public void testFcntlInt_udpSocket() throws Exception {
+        final FileDescriptor fd = Os.socket(AF_INET, SOCK_DGRAM, 0);
+        try {
+            assertEquals(0, (Os.fcntlVoid(fd, F_GETFL) & O_NONBLOCK));
+
+            // Verify that we can set file descriptor flags on sockets
+            Os.fcntlInt(fd, F_SETFL, SOCK_DGRAM | O_NONBLOCK);
+            assertTrue((Os.fcntlVoid(fd, F_GETFL) & O_NONBLOCK) != 0);
+
+            // Check that we can turn it off also.
+            Os.fcntlInt(fd, F_SETFL, SOCK_DGRAM);
+            assertEquals(0, (Os.fcntlVoid(fd, F_GETFL) & O_NONBLOCK));
+        } finally {
+            Os.close(fd);
+        }
+    }
+
+    public void testFcntlInt_invalidCmd() throws Exception {
+        final FileDescriptor fd = Os.socket(AF_INET, SOCK_DGRAM, 0);
+        try {
+            final int unknownCmd = -1;
+            Os.fcntlInt(fd, unknownCmd, 0);
+            fail("Expected failure due to invalid cmd");
+        } catch (ErrnoException expected) {
+            assertEquals(EINVAL, expected.errno);
+        } finally {
+            Os.close(fd);
+        }
+    }
+
+    public void testFcntlInt_nullFd() throws Exception {
+        try {
+            Os.fcntlInt(null, F_SETFL, O_NONBLOCK);
+            fail("Expected failure due to null file descriptor");
+        } catch (ErrnoException expected) {
+            assertEquals(EBADF, expected.errno);
+        }
+    }
+
     public void testUnixDomainSockets_in_file_system() throws Exception {
         String path = System.getProperty("java.io.tmpdir") + "/test_unix_socket";
         new File(path).delete();
@@ -538,10 +577,14 @@ public class OsTest extends TestCase {
 
     public void test_NetlinkSocket() throws Exception {
         FileDescriptor nlSocket = Os.socket(AF_NETLINK, SOCK_DGRAM, NETLINK_ROUTE);
-        Os.bind(nlSocket, new NetlinkSocketAddress());
-        NetlinkSocketAddress address = (NetlinkSocketAddress) Os.getsockname(nlSocket);
-        assertTrue(address.getPortId() > 0);
-        assertEquals(0, address.getGroupsMask());
+        try {
+            Os.bind(nlSocket, new NetlinkSocketAddress());
+            // Non-system processes should not be allowed to bind() to NETLINK_ROUTE sockets.
+            // http://b/141455849
+            fail("bind() on NETLINK_ROUTE socket succeeded");
+        } catch (ErrnoException expectedException) {
+            assertEquals(expectedException.errno, EACCES);
+        }
 
         NetlinkSocketAddress nlKernel = new NetlinkSocketAddress();
         Os.connect(nlSocket, nlKernel);
@@ -941,7 +984,7 @@ public class OsTest extends TestCase {
 
         // ENOTSUP, Extended attributes are not supported by the filesystem, or are disabled.
         // Since kernel version 4.9 (or some other version after 4.4), *xattr() methods
-        // may set errno to EACCESS instead. This behavior change is likely related to
+        // may set errno to EACCES instead. This behavior change is likely related to
         // https://patchwork.kernel.org/patch/9294421/ which reimplemented getxattr, setxattr,
         // and removexattr on top of generic handlers.
         final String path = "/proc/self/stat";
@@ -1469,5 +1512,84 @@ public class OsTest extends TestCase {
         String srcAddress = "10.1";
         InetAddress inetAddress = Os.inet_pton(AF_INET, srcAddress);
         assertNull(inetAddress);
+    }
+
+    /**
+     * Verifies the {@link OsConstants#MAP_ANONYMOUS}.
+     */
+    public void testMapAnonymous() throws Exception {
+        final long size = 4096;
+        final long address = Os.mmap(0, size, PROT_READ,
+                MAP_PRIVATE | MAP_ANONYMOUS, new FileDescriptor(), 0);
+        assertTrue(address > 0);
+        Os.munmap(address, size);
+    }
+
+    public void testMemfdCreate() throws Exception {
+        FileDescriptor fd = null;
+        try {
+            fd = Os.memfd_create("test_memfd", 0);
+            assertNotNull(fd);
+            assertTrue(fd.valid());
+
+            StructStat stat = Os.fstat(fd);
+            assertEquals(0, stat.st_size);
+
+            final byte[] expected = new byte[] {1, 2, 3, 4};
+            Os.write(fd, expected, 0, expected.length);
+            stat = Os.fstat(fd);
+            assertEquals(expected.length, stat.st_size);
+
+            byte[] actual = new byte[expected.length];
+            // should be seekable
+            Os.lseek(fd, 0, SEEK_SET);
+            Os.read(fd, actual, 0, actual.length);
+            assertArrayEquals(expected, actual);
+        } finally {
+            if (fd != null) {
+                Os.close(fd);
+                fd = null;
+            }
+        }
+    }
+
+    public void testMemfdCreateFlags() throws Exception {
+        FileDescriptor fd = null;
+
+        // test that MFD_CLOEXEC is obeyed
+        try {
+            fd = Os.memfd_create("test_memfd", 0);
+            assertNotNull(fd);
+            assertTrue(fd.valid());
+            int flags = Os.fcntlVoid(fd, F_GETFD);
+            assertTrue("Expected flags to not include " + FD_CLOEXEC + ", actual value: " + flags,
+                    0 == (flags & FD_CLOEXEC));
+        } finally {
+            if (fd != null) {
+                Os.close(fd);
+                fd = null;
+            }
+        }
+        try {
+            fd = Os.memfd_create("test_memfd", MFD_CLOEXEC);
+            assertNotNull(fd);
+            assertTrue(fd.valid());
+            int flags = Os.fcntlVoid(fd, F_GETFD);
+            assertTrue("Expected flags to include " + FD_CLOEXEC + ", actual value: " + flags,
+                    0 != (flags & FD_CLOEXEC));
+        } finally {
+            if (fd != null) {
+                Os.close(fd);
+                fd = null;
+            }
+        }
+    }
+
+    public void testMemfdCreateErrno() throws Exception {
+        expectException(() -> Os.memfd_create(null, 0), NullPointerException.class, null,
+                "memfd_create(null, 0)");
+
+        expectException(() -> Os.memfd_create("test_memfd", 0xffff), ErrnoException.class, EINVAL,
+                "memfd_create(\"test_memfd\", 0xffff)");
     }
 }

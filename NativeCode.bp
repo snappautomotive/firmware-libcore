@@ -50,6 +50,10 @@ cc_library_shared {
     visibility: [
         "//art/build/apex",
     ],
+    apex_available: [
+        "com.android.art.release",
+        "com.android.art.debug",
+    ],
     defaults: [
         "core_native_default_flags",
         "core_native_default_libs",
@@ -88,6 +92,15 @@ cc_library_shared {
     name: "libandroidio",
     visibility: [
         "//art/build/apex",
+        "//external/conscrypt",
+    ],
+    apex_available: [
+        "com.android.art.release",
+        "com.android.art.debug",
+        // TODO(b/147813447) remove this. This is currently due to the 'runtime_libs'
+        // dependency from libjavacrypto in the conscrypt APEX.
+        "com.android.conscrypt",
+        "test_com.android.conscrypt",
     ],
     defaults: [
         "core_native_default_flags",
@@ -164,6 +177,10 @@ cc_library_shared {
     visibility: [
         "//art/build/apex",
     ],
+    apex_available: [
+        "com.android.art.release",
+        "com.android.art.debug",
+    ],
     defaults: ["libopenjdk_native_defaults"],
     shared_libs: [
         "libopenjdkjvm",
@@ -176,6 +193,9 @@ cc_library_shared {
     visibility: [
         "//art/build/apex",
     ],
+    apex_available: [
+        "com.android.art.debug",
+    ],
     defaults: ["libopenjdk_native_defaults"],
     shared_libs: [
         "libopenjdkjvmd",
@@ -186,6 +206,7 @@ cc_library_shared {
 cc_library_shared {
     name: "libjavacoretests",
     visibility: [
+        "//art/build/sdk",
         "//cts/tests/libcore/luni",
     ],
     defaults: ["core_native_default_flags"],

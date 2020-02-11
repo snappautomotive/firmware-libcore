@@ -45,7 +45,6 @@ static bool g_constants_valid = false;
 
 // Constants
 jclass booleanClass;
-jclass charsetICUClass;
 jclass doubleClass;
 jclass errnoExceptionClass;
 jclass fileDescriptorClass;
@@ -91,7 +90,6 @@ void EnsureJniConstantsInitialized(JNIEnv* env) {
     }
 
     booleanClass = findClass(env, "java/lang/Boolean");
-    charsetICUClass = findClass(env, "java/nio/charset/CharsetICU");
     doubleClass = findClass(env, "java/lang/Double");
     errnoExceptionClass = findClass(env, "android/system/ErrnoException");
     fileDescriptorClass = findClass(env, "java/io/FileDescriptor");
@@ -132,6 +130,15 @@ void JniConstants::Initialize(JNIEnv* env) {
 }
 
 void JniConstants::Invalidate() {
+    // This method is called when a new runtime instance is created. There is no
+    // notification of a runtime instance being destroyed in the JNI interface
+    // so we piggyback on creation. Since only one runtime is supported at a
+    // time, we know the constants are invalid when JNI_CreateJavaVM() is
+    // called.
+    //
+    // Clean shutdown would require calling DeleteGlobalRef() for each of the
+    // class references, but JavaVM is unavailable because ART only calls this
+    // once all threads are unregistered.
     std::lock_guard guard(g_constants_mutex);
     g_constants_valid = false;
 }
@@ -139,11 +146,6 @@ void JniConstants::Invalidate() {
 jclass JniConstants::GetBooleanClass(JNIEnv* env) {
     EnsureJniConstantsInitialized(env);
     return booleanClass;
-}
-
-jclass JniConstants::GetCharsetICUClass(JNIEnv* env) {
-    EnsureJniConstantsInitialized(env);
-    return charsetICUClass;
 }
 
 jclass JniConstants::GetDoubleClass(JNIEnv* env) {
