@@ -112,8 +112,8 @@ public final class ZygoteHooks {
      * before {@code postForkChild} for system server.
      */
     @libcore.api.CorePlatformApi
-    public static void postForkSystemServer() {
-        nativePostForkSystemServer();
+    public static void postForkSystemServer(int runtimeFlags) {
+        nativePostForkSystemServer(runtimeFlags);
     }
 
     /**
@@ -136,13 +136,14 @@ public final class ZygoteHooks {
      */
     @libcore.api.CorePlatformApi
     public static void postForkCommon() {
-        Daemons.startPostZygoteFork();
+        // Notify the runtime before creating new threads.
         nativePostZygoteFork();
+        Daemons.startPostZygoteFork();
     }
 
 
     // Hook for SystemServer specific early initialization post-forking.
-    private static native void nativePostForkSystemServer();
+    private static native void nativePostForkSystemServer(int runtimeFlags);
 
     private static native long nativePreFork();
     private static native void nativePostZygoteFork();

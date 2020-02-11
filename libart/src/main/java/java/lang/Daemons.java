@@ -16,18 +16,20 @@
 
 package java.lang;
 
+import android.compat.annotation.UnsupportedAppUsage;
 import android.system.Os;
 import android.system.OsConstants;
-import dalvik.annotation.compat.UnsupportedAppUsage;
-import dalvik.system.VMRuntime;
+
 import java.lang.ref.FinalizerReference;
 import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import libcore.util.EmptyArray;
+
+import dalvik.system.VMRuntime;
+import dalvik.system.VMDebug;
 
 /**
  * Calls Object.finalize() on objects in the finalizer reference queue. The VM
@@ -321,7 +323,7 @@ public final class Daemons {
                     continue;
                 }
                 final Object finalizing = waitForFinalization();
-                if (finalizing != null && !VMRuntime.getRuntime().isDebuggerActive()) {
+                if (finalizing != null && !VMDebug.isDebuggerConnected()) {
                     finalizerTimedOut(finalizing);
                     break;
                 }

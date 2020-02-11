@@ -22,7 +22,8 @@
  */
 package libcore.util;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
+
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.util.Arrays;
@@ -31,7 +32,7 @@ import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.TimeZone;
 import libcore.io.BufferIterator;
-import libcore.timezone.ZoneInfoDB;
+import libcore.timezone.ZoneInfoDb;
 
 /**
  * Our concrete TimeZone implementation, backed by zoneinfo data.
@@ -42,7 +43,7 @@ import libcore.timezone.ZoneInfoDB;
  * {@code man 8 zic}) and an index by long name, e.g. Europe/London.
  *
  * <p>The compacted form is created by {@code external/icu/tools/ZoneCompactor.java} and is used
- * by both this and Bionic. {@link ZoneInfoDB} is responsible for mapping the binary file, and
+ * by both this and Bionic. {@link ZoneInfoDb} is responsible for mapping the binary file, and
  * reading the index and creating a {@link BufferIterator} that provides access to an entry for a
  * specific file. This class is responsible for reading the data from that {@link BufferIterator}
  * and storing it a representation to support the {@link TimeZone} and {@link GregorianCalendar}

@@ -16,7 +16,9 @@
 
 package libcore.icu;
 
-import dalvik.annotation.compat.UnsupportedAppUsage;
+import android.compat.annotation.UnsupportedAppUsage;
+import android.icu.util.ULocale;
+
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -31,7 +33,6 @@ import libcore.util.BasicLruCache;
  * Makes ICU data accessible to Java.
  * @hide
  */
-@libcore.api.IntraCoreApi
 @libcore.api.CorePlatformApi
 public final class ICU {
 
@@ -267,10 +268,6 @@ public final class ICU {
     return availableLocalesCache.clone();
   }
 
-  public static Locale[] getAvailableCollatorLocales() {
-    return localesFromStrings(getAvailableCollatorLocalesNative());
-  }
-
   @UnsupportedAppUsage
   @libcore.api.CorePlatformApi
   public static String getBestDateTimePattern(String skeleton, Locale locale) {
@@ -332,96 +329,38 @@ public final class ICU {
     return result;
   }
 
-  /**
-   * Returns the version of the CLDR data in use, such as "22.1.1".
-   */
-  public static native String getCldrVersion();
-
-  /**
-   * Returns the icu4c version in use, such as "50.1.1".
-   */
-  @libcore.api.IntraCoreApi
-  public static native String getIcuVersion();
-
-  /**
-   * Returns the Unicode version our ICU supports, such as "6.2".
-   */
-  public static native String getUnicodeVersion();
-
-  // --- Case mapping.
-
-  public static String toLowerCase(String s, Locale locale) {
-    return toLowerCase(s, locale.toLanguageTag());
-  }
-
-  private static native String toLowerCase(String s, String languageTag);
-
-  public static String toUpperCase(String s, Locale locale) {
-    return toUpperCase(s, locale.toLanguageTag());
-  }
-
-  private static native String toUpperCase(String s, String languageTag);
-
   // --- Errors.
-
-  // Just the subset of error codes needed by CharsetDecoderICU/CharsetEncoderICU.
-  public static final int U_ZERO_ERROR = 0;
-  public static final int U_INVALID_CHAR_FOUND = 10;
-  public static final int U_TRUNCATED_CHAR_FOUND = 11;
-  public static final int U_ILLEGAL_CHAR_FOUND = 12;
-  public static final int U_BUFFER_OVERFLOW_ERROR = 15;
-
-  public static boolean U_FAILURE(int error) {
-    return error > U_ZERO_ERROR;
-  }
 
   // --- Native methods accessing ICU's database.
 
-  private static native String[] getAvailableCollatorLocalesNative();
   private static native String[] getAvailableLocalesNative();
 
   public static native String getCurrencyCode(String countryCode);
-
-  public static String getDisplayCountry(Locale targetLocale, Locale locale) {
-    return getDisplayCountryNative(targetLocale.toLanguageTag(), locale.toLanguageTag());
-  }
-
-  private static native String getDisplayCountryNative(String targetLanguageTag, String languageTag);
-
-  public static String getDisplayLanguage(Locale targetLocale, Locale locale) {
-    return getDisplayLanguageNative(targetLocale.toLanguageTag(), locale.toLanguageTag());
-  }
-
-  private static native String getDisplayLanguageNative(String targetLanguageTag, String languageTag);
-
-  public static String getDisplayVariant(Locale targetLocale, Locale locale) {
-    return getDisplayVariantNative(targetLocale.toLanguageTag(), locale.toLanguageTag());
-  }
-
-  private static native String getDisplayVariantNative(String targetLanguageTag, String languageTag);
-
-  public static String getDisplayScript(Locale targetLocale, Locale locale) {
-    return getDisplayScriptNative(targetLocale.toLanguageTag(), locale.toLanguageTag());
-  }
-
-  private static native String getDisplayScriptNative(String targetLanguageTag, String languageTag);
 
   public static native String getISO3Country(String languageTag);
 
   public static native String getISO3Language(String languageTag);
 
-  @UnsupportedAppUsage
-  @libcore.api.CorePlatformApi
-  public static Locale addLikelySubtags(Locale locale) {
-      return Locale.forLanguageTag(addLikelySubtags(locale.toLanguageTag()).replace('_', '-'));
-  }
-
   /**
-   * @deprecated use {@link #addLikelySubtags(java.util.Locale)} instead.
+   * @deprecated Use {@link android.icu.util.ULocale#addLikelySubtags(ULocale)} instead.
+   * The method is only kept for @UnsupportedAppUsage.
    */
   @UnsupportedAppUsage
   @Deprecated
-  public static native String addLikelySubtags(String locale);
+  public static Locale addLikelySubtags(Locale locale) {
+      return ULocale.addLikelySubtags(ULocale.forLocale(locale)).toLocale();
+  }
+
+  /**
+   * @return ICU localeID
+   * @deprecated Use {@link android.icu.util.ULocale#addLikelySubtags(ULocale)} instead.
+   * The method is only kept for @UnsupportedAppUsage.
+   */
+  @UnsupportedAppUsage
+  @Deprecated
+  public static String addLikelySubtags(String locale) {
+      return ULocale.addLikelySubtags(new ULocale(locale)).getName();
+  }
 
   /**
    * @deprecated use {@link java.util.Locale#getScript()} instead. This has been kept
@@ -445,8 +384,4 @@ public final class ICU {
    * Returns a locale name, not a BCP-47 language tag. e.g. en_US not en-US.
    */
   public static native String getDefaultLocale();
-
-  /** Returns the TZData version as reported by ICU4C. */
-  @libcore.api.CorePlatformApi
-  public static native String getTZDataVersion();
 }

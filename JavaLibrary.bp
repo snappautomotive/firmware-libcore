@@ -120,10 +120,7 @@ filegroup {
         "//frameworks/base",
     ],
     srcs: [
-        ":android_icu4j_src_files",
-        ":core_oj_api_files",
-        ":core_libart_api_files",
-        ":conscrypt_public_api_files",
+        ":android_icu4j_public_api_files",
     ],
 }
 
@@ -142,8 +139,14 @@ genrule {
     tools: [
         "merge_zips",
     ],
+    srcs: [
+        ":art-module-public-api-stubs-source",
+        ":conscrypt-module-public-api-stubs-source",
+    ],
     out: ["core-current-stubs-source.srcjar"],
-    cmd: "$(location merge_zips) $(out)",
+    cmd: "$(location merge_zips) $(out)" +
+        " $(location :art-module-public-api-stubs-source)" +
+        " $(location :conscrypt-module-public-api-stubs-source)",
 }
 
 // The set of files for the ART module that contribute to one or more API
@@ -205,6 +208,7 @@ java_library {
         ":core_libart_java_files",
         ":openjdk_lambda_stub_files",
         ":openjdk_generated_annotation_stub_files",
+        ":app-compat-annotations-source",
     ],
 
     sdk_version: "none",
@@ -257,6 +261,10 @@ java_library {
         "//external/wycheproof",
         "//libcore/benchmarks",
     ],
+    apex_available: [
+        "com.android.art.release",
+        "com.android.art.debug",
+    ],
     defaults: ["libcore_java_defaults"],
     installable: true,
     hostdex: true,
@@ -300,6 +308,10 @@ java_library {
         "//external/wycheproof",
         "//libcore/benchmarks",
         "//frameworks/layoutlib",
+    ],
+    apex_available: [
+        "com.android.art.release",
+        "com.android.art.debug",
     ],
     defaults: ["libcore_java_defaults"],
     installable: true,
@@ -472,8 +484,11 @@ java_library {
 java_library_static {
     name: "core-test-rules",
     visibility: [
+        "//art/build/sdk",
         "//external/conscrypt",
         "//frameworks/base/location/tests/locationtests",
+        "//frameworks/base/core/tests/coretests",
+        "//frameworks/base/wifi/tests",
     ],
     hostdex: true,
     srcs: [
@@ -488,29 +503,33 @@ java_library_static {
 
 // Builds platform_compat test rules
 java_library_static {
-    name: "platform_compat-test-rules",
-    visibility: ["//visibility:public"],
+    name: "core-compat-test-rules",
+    visibility: [
+        "//art/build/sdk",
+        "//frameworks/base/tests/PlatformCompatGating/test-rules",
+    ],
     srcs: [
         "luni/src/main/java/android/compat/**/*.java",
         "test-rules/src/platform_compat/**/*.java",
         "luni/src/main/java/libcore/api/CorePlatformApi.java",
         "luni/src/main/java/libcore/api/IntraCoreApi.java",
-
     ],
     static_libs: [
         "junit",
         "guava",
-        "android-support-test",
     ],
-    platform_apis: true,
+    sdk_version: "none",
+    system_modules: "core-all-system-modules",
     // This builds classes that are in the java.base Java module:
     patch_module: "java.base",
+    hostdex: true,
 }
 
 // Builds the core-tests-support library used by various tests.
 java_library_static {
     name: "core-tests-support",
     visibility: [
+        "//art/build/sdk",
         "//cts/apps/CtsVerifier",
         "//cts/tests/tests/keystore",
         "//cts/tests/tests/net",
@@ -555,6 +574,14 @@ filegroup {
     visibility: ["//libcore/luni/src/test/java9language"],
 }
 
+genrule {
+    name: "core-tests-smali-dex",
+    srcs: ["luni/src/test/java/**/*.smali"],
+    cmd: "$(location smali) ass --api 28 -o $(out) $(in)",
+    out: ["core-tests-smali.dex"],
+    tools: ["smali"],
+}
+
 // Builds the core-tests library.
 java_test {
     name: "core-tests",
@@ -591,6 +618,7 @@ java_test {
         ":annotations-test",
         ":filesystemstest",
         ":parameter-metadata-test",
+        ":core-tests-smali-dex",
     ],
 
     sdk_version: "none",
@@ -601,7 +629,7 @@ java_test {
     ],
 
     static_libs: [
-        "archive-patcher",
+        "core-compat-test-rules",
         "core-java-9-language-tests",
         "core-test-rules",
         "core-tests-support",
@@ -613,7 +641,7 @@ java_test {
         "slf4j-jdk14",
         "sqlite-jdbc",
         "tzdata-testing",
-        "truth-prebuilt",
+        "truth-prebuilt-jar",
     ],
 
     errorprone: {
@@ -707,9 +735,6 @@ java_test {
 // available to metalava. Used for nullability annotations in OpenJDK source.
 droiddoc_exported_dir {
     name: "ojluni-annotated-sdk-stubs",
-    visibility: [
-        "//frameworks/base",
-    ],
     path: "ojluni/annotations/sdk",
 }
 
@@ -742,11 +767,16 @@ filegroup {
     ],
 }
 
-// Generates stubs for the parts of the public SDK API provided by the ART module.
+// A special set of stubs containing the minimal set of self consistent
+// classes for which a system module can be created. Every system module must
+// contain the java.lang classes so the set was constructed by starting with
+// the java.lang classes and then adding their transitive dependencies without
+// splitting packages. So, if one class from a package is used then all classes
+// in that package were added to the set.
 //
-// Only for use by art.module.public.api.stubs target below.
+// Needed for java-current-stubs-system-modules.
 droidstubs {
-    name: "art-module-public-api-stubs-gen",
+    name: "java-current-stubs-source",
     srcs: [
         ":core_oj_api_files",
         ":core_libart_api_files",
@@ -755,12 +785,13 @@ droidstubs {
     installable: false,
     sdk_version: "none",
     system_modules: "none",
+
+    args: "--stub-packages java.*:javax.*:org.w3c.dom.*:org.xml.sax.*",
 }
 
-// A stubs target containing the parts of the public SDK API provided by the ART module.
 java_library {
-    name: "art.module.public.api.stubs",
-    srcs: [":art-module-public-api-stubs-gen"],
+    name: "java.current.stubs",
+    srcs: [":java-current-stubs-source"],
     errorprone: {
         javacflags: [
             "-Xep:MissingOverride:OFF",
@@ -771,6 +802,82 @@ java_library {
     system_modules: "none",
 }
 
+// A special set of system modules needed to build art.module.public.api.stubs
+// that contain nullability annotations when targeting java language level 1.9
+// and above.
+java_system_modules {
+    name: "java-current-stubs-system-modules",
+    libs: [
+        // Minimal set of classes required for a system module.
+        "java.current.stubs",
+
+        // The nullability annotations used by the generated stubs.
+        "stub-annotations",
+    ],
+}
+
+// http://b/129765390 Rewrite links to "platform" or "technotes" folders
+// which are siblings (and thus outside of) {@docRoot}.
+//
+// We have to escape \ as \\ and $ as $$ here because they get resolved by
+// different layers of the build tooling. The arguments are wrapped in '' so
+// that the shell doesn't add yet another level of escaping.
+rewrite_openjdk_doc_args = "--replace-documentation " +
+    // packages whose descendants to apply replacement to (all packages from
+    // libcore/ojluni/src/main/java that contribute to documentation).
+    "com.sun:java:javax:jdk.net:sun " +
+    // regex of the string to replace
+    "'(<a\\s+href\\s?=[\\*\\s]*\")(?:(?:\\{@docRoot\\}/\\.\\./)|(?:(?:\\.\\./)+))((?:platform|technotes).+)\">' " +
+    // replacement (with $1, $2 backreferences to the regex groups)
+    "'$$1https://docs.oracle.com/javase/8/docs/$$2\">' "
+
+// Generates stubs for the parts of the public SDK API provided by the ART module.
+//
+// Only for use by art.module.public.api.stubs target below.
+droidstubs {
+    name: "art-module-public-api-stubs-source",
+    srcs: [
+        ":core_oj_api_files",
+        ":core_libart_api_files",
+    ],
+    java_version: "1.9",
+    installable: false,
+    sdk_version: "none",
+    system_modules: "java-current-stubs-system-modules",
+    libs: [
+        // Provide access to I18N constants that are used to initialize
+        // constants in the public API. i.e. to allow the value of the
+        // java.text.CollectionElementIterator.NULLORDER to be initialized from
+        // android.icu.text.CollationElementIterator.NULLORDER.
+        "i18n.module.intra.core.api.stubs",
+    ],
+
+    args: rewrite_openjdk_doc_args,
+
+    create_doc_stubs: true,
+
+    // Emit nullability annotations from the source to the stub files.
+    annotations_enabled: true,
+
+    merge_annotations_dirs: [
+        "ojluni-annotated-sdk-stubs",
+    ],
+}
+
+// A stubs target containing the parts of the public SDK API provided by the ART module.
+java_library {
+    name: "art.module.public.api.stubs",
+    srcs: [":art-module-public-api-stubs-source"],
+    errorprone: {
+        javacflags: [
+            "-Xep:MissingOverride:OFF",
+        ],
+    },
+    patch_module: "java.base",
+    sdk_version: "none",
+    system_modules: "java-current-stubs-system-modules",
+}
+
 // Used when compiling higher-level code against art.module.public.api.stubs.
 //
 // This is only intended for use within core libraries and must not be used
@@ -778,6 +885,7 @@ java_library {
 java_system_modules {
     name: "art-module-public-api-stubs-system-modules",
     visibility: [
+        "//art/build/sdk",
         "//external/conscrypt",
         "//external/icu/android_icu4j",
         "//external/wycheproof",
@@ -797,6 +905,12 @@ java_system_modules {
         // the UnsupportedAppUsage, CorePlatformApi and IntraCoreApi
         // annotations.
         "art.module.api.annotations.for.system.modules",
+
+        // Make nullability annotations available when compiling public stubs.
+        // They are provided as a separate library because while the
+        // annotations are not themselves part of the public API provided by
+        // this module they are used in the stubs.
+        "stub-annotations",
     ],
 }
 
@@ -858,7 +972,6 @@ droidstubs {
         "--validate-nullability-from-merged-stubs ",
     merge_inclusion_annotations_dirs: ["ojluni-annotated-mmodule-stubs"],
     merge_annotations_dirs: [
-        "metalava-manual",
         // N.B. Stubs in this filegroup will be validated:
         "ojluni-annotated-nullability-stubs",
     ],
@@ -875,6 +988,7 @@ droidstubs {
 java_library_host {
     name: "timezone-host",
     visibility: [
+        "//art/build/sdk",
         "//system/timezone/distro/core",
     ],
     srcs: [":timezone_host_files"],
@@ -917,5 +1031,6 @@ java_library {
     srcs: [
         ":api_surface_annotation_files",
     ],
+    java_version: "1.9",
     sdk_version: "core_current",
 }
