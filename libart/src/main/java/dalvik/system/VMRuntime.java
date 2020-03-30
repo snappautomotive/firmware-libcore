@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
+import dalvik.annotation.optimization.CriticalNative;
 import dalvik.annotation.optimization.FastNative;
 
 /**
