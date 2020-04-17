@@ -37,7 +37,7 @@ cc_defaults {
 
 cc_defaults {
     name: "core_native_default_libs",
-
+    header_libs: ["jni_headers"],
     shared_libs: [
         "libbase",
         "liblog",
@@ -63,29 +63,17 @@ cc_library_shared {
         "dalvik/src/main/native/org_apache_harmony_dalvik_NativeTestTarget.cpp",
     ],
     shared_libs: [
+        "libandroidicu",
         "libandroidio",
         "libbase",
         "libcrypto",
         "libexpat",
-        "libicuuc",
-        "libicui18n",
         "libnativehelper",
         "libz",
     ],
     static_libs: [
-        "libandroidicuinit",
         "libziparchive",
     ],
-    target: {
-        android: {
-            cflags: [
-                // -DANDROID_LINK_SHARED_ICU4C to enable access to the full ICU4C.
-                // See external/icu/android_icu4c/include/uconfig_local.h
-                // for more information.
-                "-DANDROID_LINK_SHARED_ICU4C",
-            ],
-        },
-    },
 }
 
 cc_library_shared {
@@ -142,7 +130,6 @@ cc_defaults {
     shared_libs: [
         "libandroidio",
         "libcrypto",
-        "libicuuc",
         "libnativehelper",
         "libz",
     ],
@@ -158,14 +145,14 @@ cc_defaults {
             ],
         },
         android: {
-            cflags: [
-                // -DANDROID_LINK_SHARED_ICU4C to enable access to the full ICU4C.
-                // See external/icu/android_icu4c/include/uconfig_local.h
-                // for more information.
-                "-DANDROID_LINK_SHARED_ICU4C",
-            ],
             shared_libs: [
+                "libandroidicu",
                 "libdl_android",
+            ],
+        },
+        host: {
+            shared_libs: [
+                "libicuuc",
             ],
         },
     },
