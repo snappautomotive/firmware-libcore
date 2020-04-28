@@ -197,9 +197,8 @@ public abstract class CharsetEncoder {
      * This constructor is for subclasses to specify whether {@code replacement} can be used as it
      * is ("trusted"). If it is trusted, {@link #replaceWith(byte[])} and
      * {@link #implReplaceWith(byte[])} will not be called.
-     * @hide
      */
-    protected CharsetEncoder(Charset cs, float averageBytesPerChar, float maxBytesPerChar, byte[] replacement,
+    CharsetEncoder(Charset cs, float averageBytesPerChar, float maxBytesPerChar, byte[] replacement,
             boolean trusted)
     {
         // END Android-added: A hidden constructor for the CharsetEncoderICU subclass.

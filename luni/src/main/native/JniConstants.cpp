@@ -45,6 +45,7 @@ static bool g_constants_valid = false;
 
 // Constants
 jclass booleanClass;
+jclass charsetICUClass;
 jclass doubleClass;
 jclass errnoExceptionClass;
 jclass fileDescriptorClass;
@@ -60,8 +61,10 @@ jclass localeDataClass;
 jclass longClass;
 jclass netlinkSocketAddressClass;
 jclass packetSocketAddressClass;
+jclass patternSyntaxExceptionClass;
 jclass stringClass;
 jclass structAddrinfoClass;
+jclass structFlockClass;
 jclass structGroupReqClass;
 jclass structIfaddrsClass;
 jclass structLingerClass;
@@ -90,6 +93,7 @@ void EnsureJniConstantsInitialized(JNIEnv* env) {
     }
 
     booleanClass = findClass(env, "java/lang/Boolean");
+    charsetICUClass = findClass(env, "java/nio/charset/CharsetICU");
     doubleClass = findClass(env, "java/lang/Double");
     errnoExceptionClass = findClass(env, "android/system/ErrnoException");
     fileDescriptorClass = findClass(env, "java/io/FileDescriptor");
@@ -105,8 +109,10 @@ void EnsureJniConstantsInitialized(JNIEnv* env) {
     longClass = findClass(env, "java/lang/Long");
     netlinkSocketAddressClass = findClass(env, "android/system/NetlinkSocketAddress");
     packetSocketAddressClass = findClass(env, "android/system/PacketSocketAddress");
+    patternSyntaxExceptionClass = findClass(env, "java/util/regex/PatternSyntaxException");
     stringClass = findClass(env, "java/lang/String");
     structAddrinfoClass = findClass(env, "android/system/StructAddrinfo");
+    structFlockClass = findClass(env, "android/system/StructFlock");
     structGroupReqClass = findClass(env, "android/system/StructGroupReq");
     structIfaddrsClass = findClass(env, "android/system/StructIfaddrs");
     structLingerClass = findClass(env, "android/system/StructLinger");
@@ -130,15 +136,6 @@ void JniConstants::Initialize(JNIEnv* env) {
 }
 
 void JniConstants::Invalidate() {
-    // This method is called when a new runtime instance is created. There is no
-    // notification of a runtime instance being destroyed in the JNI interface
-    // so we piggyback on creation. Since only one runtime is supported at a
-    // time, we know the constants are invalid when JNI_CreateJavaVM() is
-    // called.
-    //
-    // Clean shutdown would require calling DeleteGlobalRef() for each of the
-    // class references, but JavaVM is unavailable because ART only calls this
-    // once all threads are unregistered.
     std::lock_guard guard(g_constants_mutex);
     g_constants_valid = false;
 }
@@ -146,6 +143,11 @@ void JniConstants::Invalidate() {
 jclass JniConstants::GetBooleanClass(JNIEnv* env) {
     EnsureJniConstantsInitialized(env);
     return booleanClass;
+}
+
+jclass JniConstants::GetCharsetICUClass(JNIEnv* env) {
+    EnsureJniConstantsInitialized(env);
+    return charsetICUClass;
 }
 
 jclass JniConstants::GetDoubleClass(JNIEnv* env) {
@@ -223,6 +225,11 @@ jclass JniConstants::GetPacketSocketAddressClass(JNIEnv* env) {
     return packetSocketAddressClass;
 }
 
+jclass JniConstants::GetPatternSyntaxExceptionClass(JNIEnv* env) {
+    EnsureJniConstantsInitialized(env);
+    return patternSyntaxExceptionClass;
+}
+
 jclass JniConstants::GetStringClass(JNIEnv* env) {
     EnsureJniConstantsInitialized(env);
     return stringClass;
@@ -231,6 +238,11 @@ jclass JniConstants::GetStringClass(JNIEnv* env) {
 jclass JniConstants::GetStructAddrinfoClass(JNIEnv* env) {
     EnsureJniConstantsInitialized(env);
     return structAddrinfoClass;
+}
+
+jclass JniConstants::GetStructFlockClass(JNIEnv* env) {
+    EnsureJniConstantsInitialized(env);
+    return structFlockClass;
 }
 
 jclass JniConstants::GetStructGroupReqClass(JNIEnv* env) {

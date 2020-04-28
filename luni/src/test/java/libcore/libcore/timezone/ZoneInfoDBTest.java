@@ -18,6 +18,7 @@ package libcore.libcore.timezone;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.RandomAccessFile;
 
 import libcore.timezone.TimeZoneDataFiles;
@@ -30,15 +31,15 @@ import static libcore.timezone.ZoneInfoDB.TzData.SIZEOF_INDEX_ENTRY;
 public class ZoneInfoDBTest extends junit.framework.TestCase {
 
   // The base tzdata file, always present on a device.
-  private static final String TZDATA_FILE =
-          TimeZoneDataFiles.getTimeZoneModuleTzFile(ZoneInfoDB.TZDATA_FILE_NAME);
+  private static final String SYSTEM_TZDATA_FILE =
+      TimeZoneDataFiles.getSystemTimeZoneFile(ZoneInfoDB.TZDATA_FILE);
 
   // An empty override file should fall back to the default file.
   public void testLoadTzDataWithFallback_emptyOverrideFile() throws Exception {
     String emptyFilePath = makeEmptyFile().getPath();
-    try (ZoneInfoDB.TzData data = ZoneInfoDB.TzData.loadTzData(TZDATA_FILE);
+    try (ZoneInfoDB.TzData data = ZoneInfoDB.TzData.loadTzData(SYSTEM_TZDATA_FILE);
          ZoneInfoDB.TzData dataWithEmptyOverride =
-                 ZoneInfoDB.TzData.loadTzDataWithFallback(emptyFilePath, TZDATA_FILE)) {
+                 ZoneInfoDB.TzData.loadTzDataWithFallback(emptyFilePath, SYSTEM_TZDATA_FILE)) {
       assertEquals(data.getVersion(), dataWithEmptyOverride.getVersion());
       assertEquals(data.getAvailableIDs().length, dataWithEmptyOverride.getAvailableIDs().length);
     }
@@ -47,9 +48,9 @@ public class ZoneInfoDBTest extends junit.framework.TestCase {
   // A corrupt override file should fall back to the default file.
   public void testLoadTzDataWithFallback_corruptOverrideFile() throws Exception {
     String corruptFilePath = makeCorruptFile().getPath();
-    try (ZoneInfoDB.TzData data = ZoneInfoDB.TzData.loadTzData(TZDATA_FILE);
+    try (ZoneInfoDB.TzData data = ZoneInfoDB.TzData.loadTzData(SYSTEM_TZDATA_FILE);
          ZoneInfoDB.TzData dataWithCorruptOverride =
-                 ZoneInfoDB.TzData.loadTzDataWithFallback(corruptFilePath, TZDATA_FILE)) {
+                 ZoneInfoDB.TzData.loadTzDataWithFallback(corruptFilePath, SYSTEM_TZDATA_FILE)) {
       assertEquals(data.getVersion(), dataWithCorruptOverride.getVersion());
       assertEquals(data.getAvailableIDs().length, dataWithCorruptOverride.getAvailableIDs().length);
     }
@@ -67,7 +68,7 @@ public class ZoneInfoDBTest extends junit.framework.TestCase {
 
   // Given a valid override file, we should find ourselves using that.
   public void testLoadTzDataWithFallback_goodOverrideFile() throws Exception {
-    RandomAccessFile in = new RandomAccessFile(TZDATA_FILE, "r");
+    RandomAccessFile in = new RandomAccessFile(SYSTEM_TZDATA_FILE, "r");
     byte[] content = new byte[(int) in.length()];
     in.readFully(content);
     in.close();
@@ -81,8 +82,8 @@ public class ZoneInfoDBTest extends junit.framework.TestCase {
 
     File goodFile = makeTemporaryFile(content);
     try (ZoneInfoDB.TzData dataWithOverride =
-              ZoneInfoDB.TzData.loadTzDataWithFallback(goodFile.getPath(), TZDATA_FILE);
-         ZoneInfoDB.TzData data = ZoneInfoDB.TzData.loadTzData(TZDATA_FILE)) {
+              ZoneInfoDB.TzData.loadTzDataWithFallback(goodFile.getPath(), SYSTEM_TZDATA_FILE);
+         ZoneInfoDB.TzData data = ZoneInfoDB.TzData.loadTzData(SYSTEM_TZDATA_FILE)) {
 
       assertEquals("9999z", dataWithOverride.getVersion());
       assertEquals(data.getAvailableIDs().length, dataWithOverride.getAvailableIDs().length);
@@ -92,7 +93,7 @@ public class ZoneInfoDBTest extends junit.framework.TestCase {
   }
 
   public void testLoadTzData_badHeader() throws Exception {
-    RandomAccessFile in = new RandomAccessFile(TZDATA_FILE, "r");
+    RandomAccessFile in = new RandomAccessFile(SYSTEM_TZDATA_FILE, "r");
     byte[] content = new byte[(int) in.length()];
     in.readFully(content);
     in.close();
@@ -215,7 +216,7 @@ public class ZoneInfoDBTest extends junit.framework.TestCase {
 
   // Confirms any caching that exists correctly handles TimeZone mutability.
   public void testMakeTimeZone_timeZoneMutability() throws Exception {
-    try (ZoneInfoDB.TzData data = ZoneInfoDB.TzData.loadTzData(TZDATA_FILE)) {
+    try (ZoneInfoDB.TzData data = ZoneInfoDB.TzData.loadTzData(SYSTEM_TZDATA_FILE)) {
       String tzId = "Europe/London";
       ZoneInfo first = data.makeTimeZone(tzId);
       ZoneInfo second = data.makeTimeZone(tzId);
@@ -233,14 +234,14 @@ public class ZoneInfoDBTest extends junit.framework.TestCase {
   }
 
   public void testMakeTimeZone_notFound() throws Exception {
-    try (ZoneInfoDB.TzData data = ZoneInfoDB.TzData.loadTzData(TZDATA_FILE)) {
+    try (ZoneInfoDB.TzData data = ZoneInfoDB.TzData.loadTzData(SYSTEM_TZDATA_FILE)) {
       assertNull(data.makeTimeZone("THIS_TZ_DOES_NOT_EXIST"));
       assertFalse(data.hasTimeZone("THIS_TZ_DOES_NOT_EXIST"));
     }
   }
 
   public void testMakeTimeZone_found() throws Exception {
-    try (ZoneInfoDB.TzData data = ZoneInfoDB.TzData.loadTzData(TZDATA_FILE)) {
+    try (ZoneInfoDB.TzData data = ZoneInfoDB.TzData.loadTzData(SYSTEM_TZDATA_FILE)) {
       assertNotNull(data.makeTimeZone("Europe/London"));
       assertTrue(data.hasTimeZone("Europe/London"));
     }

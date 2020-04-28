@@ -1129,8 +1129,7 @@ assertEquals(""+l, (String) MH_this.invokeExact(subl)); // Listie method
 
             // Make sure that the special caller is identical to the lookup class or that we have
             // private access.
-            // Android-changed: Also allow access to any interface methods.
-            checkSpecialCaller(specialCaller, refc);
+            checkSpecialCaller(specialCaller);
 
             // Even though constructors are invoked using a "special" invoke, handles to them can't
             // be created using findSpecial. Callers must use findConstructor instead. Similarly,
@@ -1656,9 +1655,7 @@ return mh1;
             }
 
             if (!m.isAccessible()) {
-                // Android-changed: Match Java language 9 behavior where unreflectSpecial continues
-                // to require exact caller lookupClass match.
-                checkSpecialCaller(specialCaller, null);
+                checkSpecialCaller(specialCaller);
             }
 
             final MethodType methodType = MethodType.methodType(m.getReturnType(),
@@ -1940,19 +1937,13 @@ return mh1;
         //
         // private static final boolean ALLOW_NESTMATE_ACCESS = false;
 
-        // Android-changed: Match java language 9 behavior allowing special access if the reflected
-        // class (called 'refc', the class from which the method is being accessed) is an interface
-        // and is implemented by the caller.
-        private void checkSpecialCaller(Class<?> specialCaller, Class<?> refc) throws IllegalAccessException {
+        private void checkSpecialCaller(Class<?> specialCaller) throws IllegalAccessException {
             // Android-changed: No support for TRUSTED lookups. Also construct the
             // IllegalAccessException by hand because the upstream code implicitly assumes
             // that the lookupClass == specialCaller.
             //
             // if (allowedModes == TRUSTED)  return;
-            boolean isInterfaceLookup = (refc != null &&
-                                         refc.isInterface() &&
-                                         refc.isAssignableFrom(specialCaller));
-            if (!hasPrivateAccess() || (specialCaller != lookupClass() && !isInterfaceLookup)) {
+            if (!hasPrivateAccess() || (specialCaller != lookupClass())) {
                 throw new IllegalAccessException("no private access for invokespecial : "
                         + specialCaller + ", from" + this);
             }

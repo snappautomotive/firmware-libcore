@@ -16,7 +16,6 @@
 
 package libcore.util;
 
-import com.android.icu.util.Icu4cMetadata;
 import libcore.timezone.TimeZoneDataFiles;
 import libcore.timezone.TzDataSetVersion;
 import libcore.timezone.TzDataSetVersion.TzDataSetException;
@@ -60,23 +59,31 @@ public class CoreLibraryDebug {
         // Time zone module tz data set.
         {
             String tzDataModulePrefix = debugKeyPrefix + "tzdata_module_";
-            String versionFile =
-                    TimeZoneDataFiles.getTimeZoneModuleTzFile(TzDataSetVersion.DEFAULT_FILE_NAME);
-            addTzDataSetVersionDebugInfo(versionFile, tzDataModulePrefix, debugInfo);
+            String versionFileName = TimeZoneDataFiles.getTimeZoneModuleFile(
+                    "tz/" + TzDataSetVersion.DEFAULT_FILE_NAME);
+            addTzDataSetVersionDebugInfo(versionFileName, tzDataModulePrefix, debugInfo);
+        }
+
+        // Runtime module tz data set.
+        {
+            String runtimeModulePrefix = debugKeyPrefix + "runtime_module_";
+            String versionFileName = TimeZoneDataFiles.getRuntimeModuleFile(
+                    "tz/" + TzDataSetVersion.DEFAULT_FILE_NAME);
+            addTzDataSetVersionDebugInfo(versionFileName, runtimeModulePrefix, debugInfo);
         }
 
         // /system tz data set.
         {
             String systemDirPrefix = debugKeyPrefix + "system_";
-            String versionFile =
-                    TimeZoneDataFiles.getSystemTzFile(TzDataSetVersion.DEFAULT_FILE_NAME);
-            addTzDataSetVersionDebugInfo(versionFile, systemDirPrefix, debugInfo);
+            String versionFileName =
+                    TimeZoneDataFiles.getSystemTimeZoneFile(TzDataSetVersion.DEFAULT_FILE_NAME);
+            addTzDataSetVersionDebugInfo(versionFileName, systemDirPrefix, debugInfo);
         }
     }
 
-    private static void addTzDataSetVersionDebugInfo(String tzDataSetVersionFile,
+    private static void addTzDataSetVersionDebugInfo(String tzDataSetVersionFileName,
             String debugKeyPrefix, DebugInfo debugInfo) {
-        File file = new File(tzDataSetVersionFile);
+        File file = new File(tzDataSetVersionFileName);
         String statusKey = debugKeyPrefix + "status";
         if (file.exists()) {
             try {
@@ -111,6 +118,6 @@ public class CoreLibraryDebug {
                 ZoneInfoDB.getInstance().getVersion());
         debugInfo.addStringEntry(
                 debugKeyPrefix + "icu4c.tzdb_version",
-                Icu4cMetadata.getTzdbVersion());
+                libcore.icu.ICU.getTZDataVersion());
     }
 }

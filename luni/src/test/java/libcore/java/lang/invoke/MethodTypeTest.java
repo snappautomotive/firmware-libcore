@@ -96,7 +96,7 @@ public class MethodTypeTest extends TestCase {
         }
 
         try {
-            MethodType.methodType(int.class, String.class, (Class<?>) null);
+            MethodType.methodType(int.class, String.class, null);
             fail();
         } catch (NullPointerException expected) {
         }
@@ -334,7 +334,7 @@ public class MethodTypeTest extends TestCase {
         }
 
         try {
-            mt.insertParameterTypes(1, Arrays.asList((Class<?>) null));
+            mt.insertParameterTypes(1, Arrays.asList(null));
             fail();
         } catch (NullPointerException expected) {
         }
@@ -404,7 +404,7 @@ public class MethodTypeTest extends TestCase {
         }
 
         try {
-            mt.appendParameterTypes(Arrays.asList((Class<?>) null));
+            mt.appendParameterTypes(Arrays.asList(null));
             fail();
         } catch (NullPointerException expected) {
         }

@@ -244,7 +244,6 @@ class ServerSocket implements java.io.Closeable {
         }
     }
 
-    // Android-changed: Made getImpl() public and @hide, for internal use.
     /**
      * Get the {@code SocketImpl} attached to this socket, creating
      * it if necessary.
@@ -254,6 +253,7 @@ class ServerSocket implements java.io.Closeable {
      * @since 1.4
      * @hide
      */
+    // Android-changed: Make ctor public and @hide, for internal use.
     public SocketImpl getImpl() throws SocketException {
         if (!created)
             createImpl();

@@ -27,11 +27,12 @@
 package java.nio.charset;
 
 import java.io.UnsupportedEncodingException;
-import com.android.icu.charset.NativeConverter;
+import libcore.icu.NativeConverter;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.spi.CharsetProvider;
 import java.security.AccessController;
+import java.security.AccessControlException;
 import java.security.PrivilegedAction;
 import java.util.AbstractMap;
 import java.util.Collections;
@@ -51,7 +52,6 @@ import sun.nio.cs.ThreadLocalCoders;
 import sun.security.action.GetPropertyAction;
 
 
-// Android-changed: Docs to say UTF-8 is always the platform default charset.
 /**
  * A named mapping between sequences of sixteen-bit Unicode <a
  * href="../../lang/Character.html#unicode">code units</a> and sequences of
@@ -318,8 +318,8 @@ public abstract class Charset
         }
     }
 
-    // Android-removed: We use ICU's list of standard charsets.
     /* The standard set of charsets */
+    // Android-removed: We use ICU's list of standard charsets.
     // private static CharsetProvider standardProvider = new StandardCharsets();
 
     // Cache of the most-recently-returned charsets,
@@ -566,7 +566,7 @@ public abstract class Charset
         throw new UnsupportedCharsetException(charsetName);
     }
 
-    // BEGIN Android-added: forNameUEE(String) method.
+
     /**
      * Equivalent to {@code forName} but only throws {@code UnsupportedEncodingException},
      * which is all pre-nio code claims to throw.
@@ -582,7 +582,7 @@ public abstract class Charset
             throw ex;
         }
     }
-    // END Android-added: forNameUEE(String) method.
+
 
     // Fold charsets from the given iterator into the given map, ignoring
     // charsets whose names already have entries in the map.
@@ -685,7 +685,6 @@ public abstract class Charset
      * @throws IllegalCharsetNameException
      *         If the canonical name or any of the aliases are illegal
      */
-    @libcore.api.IntraCoreApi
     protected Charset(String canonicalName, String[] aliases) {
         checkName(canonicalName);
         String[] as = (aliases == null) ? new String[0] : aliases;

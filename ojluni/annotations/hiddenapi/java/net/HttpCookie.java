@@ -256,8 +256,7 @@ public final class HttpCookie implements java.lang.Cloneable {
         header = null;
     }
 
-    @UnsupportedAppUsage(
-        publicAlternatives = "Use {@link #setHttpOnly()}/{@link #isHttpOnly()} instead.")
+    @UnsupportedAppUsage
     private boolean httpOnly;
 
     @UnsupportedAppUsage

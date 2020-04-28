@@ -26,8 +26,10 @@
 
 package java.util.regex;
 
-import com.android.icu.util.regex.NativePattern;
+import dalvik.annotation.optimization.ReachabilitySensitive;
 import dalvik.system.VMRuntime;
+
+import libcore.util.NativeAllocationRegistry;
 
 import java.util.Iterator;
 import java.util.ArrayList;
@@ -943,7 +945,12 @@ public final class Pattern
     // BEGIN Android-changed: reimplement matching logic natively via ICU.
     // We only need some tie-ins to native memory, instead of a large number
     // of fields on the .java side.
-    /* package */ transient NativePattern nativePattern;
+    @ReachabilitySensitive
+    transient long address;
+
+    private static final NativeAllocationRegistry registry =
+            NativeAllocationRegistry.createMalloced(Pattern.class.getClassLoader(),
+            getNativeFinalizer());
     // END Android-changed: reimplement matching logic natively via ICU.
 
     /**
@@ -1423,8 +1430,12 @@ public final class Pattern
         // These are the flags natively supported by ICU.
         // They even have the same value in native code.
         int icuFlags = flags & (CASE_INSENSITIVE | COMMENTS | MULTILINE | DOTALL | UNIX_LINES);
-        nativePattern = NativePattern.create(icuPattern, icuFlags);
+        address = compileImpl(icuPattern, icuFlags);
+        registry.registerNativeAllocation(this, address);
     }
+
+    private static native long compileImpl(String regex, int flags);
+    private static native long getNativeFinalizer();
     // END Android-changed: reimplement matching logic natively via ICU.
 
     /**

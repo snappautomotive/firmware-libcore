@@ -130,7 +130,6 @@ public final class OsConstants {
     public static final int ARPHRD_ETHER = placeholder();
     /** @hide */
     @UnsupportedAppUsage
-    @libcore.api.CorePlatformApi
     public static final int ARPHRD_LOOPBACK = placeholder();
     public static final int CAP_AUDIT_CONTROL = placeholder();
     public static final int CAP_AUDIT_WRITE = placeholder();
@@ -359,7 +358,6 @@ public final class OsConstants {
     @libcore.api.CorePlatformApi
     public static final int _LINUX_CAPABILITY_VERSION_3 = placeholder();
     public static final int MAP_FIXED = placeholder();
-    public static final int MAP_ANONYMOUS = placeholder();
     /** @hide */
     @UnsupportedAppUsage
     @libcore.api.CorePlatformApi

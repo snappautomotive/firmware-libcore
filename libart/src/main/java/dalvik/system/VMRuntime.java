@@ -53,7 +53,6 @@ public final class VMRuntime {
         ABI_TO_INSTRUCTION_SET_MAP.put("x86", "x86");
         ABI_TO_INSTRUCTION_SET_MAP.put("x86_64", "x86_64");
         ABI_TO_INSTRUCTION_SET_MAP.put("arm64-v8a", "arm64");
-        ABI_TO_INSTRUCTION_SET_MAP.put("arm64-v8a-hwasan", "arm64");
     }
 
     /**
@@ -273,8 +272,6 @@ public final class VMRuntime {
      * app starts to run, because it may change the VM's behavior in
      * dangerous ways. Defaults to {@link #SDK_VERSION_CUR_DEVELOPMENT}.
      */
-    @UnsupportedAppUsage(maxTargetSdk=0, publicAlternatives="Use the {@code targetSdkVersion}"
-        +" attribute in the {@code uses-sdk} manifest tag instead.")
     @libcore.api.CorePlatformApi
     public synchronized void setTargetSdkVersion(int targetSdkVersion) {
         this.targetSdkVersion = targetSdkVersion;
@@ -650,12 +647,6 @@ public final class VMRuntime {
     @libcore.api.CorePlatformApi
     @FastNative
     public static native boolean hasBootImageSpaces();
-
-    /**
-     * Used to notify the runtime that boot completed.
-     */
-    @libcore.api.CorePlatformApi
-    public static native void bootCompleted();
 
     /**
      * Returns the instruction set of the current runtime.

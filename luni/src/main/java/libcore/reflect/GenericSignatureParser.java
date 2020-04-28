@@ -315,18 +315,18 @@ public final class GenericSignatureParser {
         qualIdent.append(this.identifier);
 
         ListOfTypes typeArgs = parseOptTypeArguments();
-        ParameterizedTypeImpl type = new ParameterizedTypeImpl(
-                null /* ownerType */, qualIdent.toString(), typeArgs, loader);
+        ParameterizedTypeImpl parentType =
+                new ParameterizedTypeImpl(null, qualIdent.toString(), typeArgs, loader);
+        ParameterizedTypeImpl type = parentType;
 
-        ParameterizedTypeImpl ownerType;
         while (symbol == '.') {
             // Deal with Member Classes:
             scanSymbol();
             scanIdentifier();
             qualIdent.append("$").append(identifier); // FIXME: is "$" correct?
             typeArgs = parseOptTypeArguments();
-            ownerType = type;
-            type = new ParameterizedTypeImpl(ownerType, qualIdent.toString(), typeArgs, loader);
+            type = new ParameterizedTypeImpl(parentType, qualIdent.toString(), typeArgs,
+                    loader);
         }
 
         expect(';');

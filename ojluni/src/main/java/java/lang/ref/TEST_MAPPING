@@ -1,7 +1,0 @@
-{
-  "imports": [
-    {
-      "path": "libcore/luni/src/main/java/java/lang/ref"
-    }
-  ]
-}

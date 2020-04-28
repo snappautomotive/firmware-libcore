@@ -38,11 +38,10 @@ import dalvik.annotation.optimization.FastNative;
  * @author   Mark Reinhold
  * @since    1.2
  */
+// BEGIN Android-changed: Reimplemented to accommodate a different GC and compiler.
+// ClassLinker knows about the fields of this class.
 
 public abstract class Reference<T> {
-    // BEGIN Android-changed: Reimplemented to accommodate a different GC and compiler.
-    // ClassLinker knows about the fields of this class.
-
     /**
      * Forces JNI path.
      * If GC is not in progress (ie: not going through slow path), the referent

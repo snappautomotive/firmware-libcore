@@ -21,6 +21,7 @@ import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.CLASS;
 
+import dalvik.system.VersionCodes;
 import java.lang.annotation.Repeatable;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
@@ -73,9 +74,14 @@ public @interface UnsupportedAppUsage {
      * <p>Possible values are:
      * <ul>
      *     <li>
-     *         An API level like {@link VersionCodes#O} - in which case the API is available up to
-     *         and including the specified release. Or, in other words, the API is blacklisted
-     *         (unavailable) from the next API level from the one specified.
+     *         {@link VersionCodes#O} - in which case the API is available up to and including the
+     *         O release and all intermediate releases between O and P. Or in other words the API
+     *         is blacklisted (unavailable) from P onwards.
+     *     </li>
+     *     <li>
+     *         {@link VersionCodes#P} - in which case the API is available up to and including the
+     *         P release and all intermediate releases between P and Q. Or in other words the API
+     *         is blacklisted (unavailable) from Q onwards.
      *     </li>
      *     <li>
      *         absent (default value) - All apps can access this API, but doing so may result in
@@ -116,34 +122,6 @@ public @interface UnsupportedAppUsage {
     @CorePlatformApi
     @IntraCoreApi
     String implicitMember() default "";
-
-    /**
-     * Public API alternatives to this API.
-     *
-     * <p>If non-empty, the string must be a description of the public API alternative(s) to this
-     * API. The explanation must contain at least one Javadoc link tag to public API methods or
-     * fields. e.g.:
-     * {@literal @UnsupportedAppUsage(publicAlternatives="Use {@link foo.bar.Baz#bat()} instead.")}
-     *
-     * <p>Any elements that can be deduced can be omitted, e.g.:
-     * <ul>
-     *      <li>
-     *          the class, if it's the same as for the annotated element.
-     *      </li>
-     *      <li>
-     *          the package name, if it's the same as for the annotated element.
-     *      </li>
-     *      <li>
-     *          the method parameters, if there is only one method with that name in the given
-     *          package and class.
-     *      </li>
-     * </ul>
-     * @return A Javadoc-formatted string.
-     */
-    @SuppressWarnings("JavadocReference")
-    @CorePlatformApi
-    @IntraCoreApi
-    String publicAlternatives() default "";
 
     /**
      * Container for {@link UnsupportedAppUsage} that allows it to be applied repeatedly to types.

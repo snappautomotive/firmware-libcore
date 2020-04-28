@@ -27,8 +27,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
-import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -234,19 +232,18 @@ abstract class Repository {
          */
         public List<Path> loadRelPathsFromBlueprint() throws IOException {
             List<Path> result = new ArrayList<>();
-            result.addAll(loadOrderedRelPathsSetFromBlueprint(
+            result.addAll(loadRelPathsFromBlueprint(
                 "openjdk_java_files.bp", "\"ojluni/src/main/java/(.+\\.java)\""));
-            result.addAll(loadOrderedRelPathsSetFromBlueprint(
+            result.addAll(loadRelPathsFromBlueprint(
                 "ojluni/src/main/native/Android.bp", "\\s+\"(.+\\.(?:c|cpp))\","));
             return result;
         }
 
-        private Set<Path> loadOrderedRelPathsSetFromBlueprint(
+        private List<Path> loadRelPathsFromBlueprint(
             String blueprintPathString, String patternString) throws IOException {
             Path blueprintPath = rootPath.resolve(blueprintPathString);
             Pattern pattern = Pattern.compile(patternString);
-            // Use TreeSet to sort and de-duplicate the result.
-            Set<Path> result = new TreeSet<>();
+            List<Path> result = new ArrayList<>();
             for (String line : Util.readLines(blueprintPath)) {
                 Matcher matcher = pattern.matcher(line);
                 while (matcher.find()) {
@@ -254,6 +251,7 @@ abstract class Repository {
                     result.add(relPath);
                 }
             }
+            Collections.sort(result);
             return result;
         }
 

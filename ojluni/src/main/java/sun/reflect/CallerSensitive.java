@@ -28,7 +28,6 @@ package sun.reflect;
 import java.lang.annotation.*;
 import static java.lang.annotation.ElementType.*;
 
-// Android-added: @hide; CallerSensitive is used in source but not part of the public API
 /**
  * A method annotated @CallerSensitive is sensitive to its calling class,
  * via {@link sun.reflect.Reflection#getCallerClass Reflection.getCallerClass},
@@ -38,6 +37,7 @@ import static java.lang.annotation.ElementType.*;
  *
  * @hide
  */
+// Android-added @hide
 @Retention(RetentionPolicy.RUNTIME)
 @Target({METHOD})
 public @interface CallerSensitive {

@@ -348,16 +348,6 @@ public class DexClassLoaderTest extends TestCase {
      * Tests native modification behaviors
      */
 
-    private boolean isLibraryFound(DexClassLoader loader, String libName) {
-        String ret = loader.findLibrary(libName);
-        if (ret != null && ret.startsWith("/")) {
-            return true;
-        }
-        // This case includes findLibrary returning null or a mapped libname
-        // e.g. "libfake.so" when libName was "fake".
-        return false;
-    }
-
     /**
      * Checks that a adding a native library to an existing class loader makes it visible for
      * subsequent calls.
@@ -367,12 +357,12 @@ public class DexClassLoaderTest extends TestCase {
         String path = nativeLib1.getParentFile().getAbsolutePath();
         DexClassLoader classLoader = (DexClassLoader) createLoader(dex1);
 
-        assertFalse("findLibrary should not find un-added path",
-                isLibraryFound(classLoader, "fake"));
+        assertNull("findLibrary should not find un-added path",
+                classLoader.findLibrary("fake"));
 
         classLoader.addNativePath(Collections.singletonList(path));
 
-        assertTrue("findLibrary should find newly added path",
-                isLibraryFound(classLoader, "fake"));
+        assertNotNull("findLibrary should find newly added path",
+                classLoader.findLibrary("fake"));
     }
 }

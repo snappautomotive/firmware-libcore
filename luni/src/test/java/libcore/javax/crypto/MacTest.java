@@ -26,18 +26,28 @@ import javax.crypto.Mac;
 import javax.crypto.SecretKey;
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
-import libcore.junit.junit3.TestCaseWithRules;
-import libcore.junit.util.EnableDeprecatedBouncyCastleAlgorithmsRule;
-import org.junit.Rule;
-import org.junit.rules.TestRule;
+import junit.framework.TestCase;
 
-public class MacTest extends TestCaseWithRules {
+import dalvik.system.VMRuntime;
+import sun.security.jca.Providers;
+
+public class MacTest extends TestCase {
 
     // Allow access to deprecated BC algorithms in this test, so we can ensure they
     // continue to work
-    @Rule
-    public TestRule enableDeprecatedBCAlgorithmsRule =
-            EnableDeprecatedBouncyCastleAlgorithmsRule.getInstance();
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
+        Providers.setMaximumAllowableApiLevelForBcDeprecation(
+                VMRuntime.getRuntime().getTargetSdkVersion());
+    }
+
+    @Override
+    public void tearDown() throws Exception {
+        Providers.setMaximumAllowableApiLevelForBcDeprecation(
+                Providers.DEFAULT_MAXIMUM_ALLOWABLE_TARGET_API_LEVEL_FOR_BC_DEPRECATION);
+        super.tearDown();
+    }
 
     private static abstract class MockProvider extends Provider {
         public MockProvider(String name) {

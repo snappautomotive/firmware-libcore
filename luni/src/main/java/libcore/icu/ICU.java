@@ -266,8 +266,32 @@ public final class ICU {
     return availableLocalesCache.clone();
   }
 
+  public static Locale[] getAvailableBreakIteratorLocales() {
+    return localesFromStrings(getAvailableBreakIteratorLocalesNative());
+  }
+
+  public static Locale[] getAvailableCalendarLocales() {
+    return localesFromStrings(getAvailableCalendarLocalesNative());
+  }
+
   public static Locale[] getAvailableCollatorLocales() {
     return localesFromStrings(getAvailableCollatorLocalesNative());
+  }
+
+  public static Locale[] getAvailableDateFormatLocales() {
+    return localesFromStrings(getAvailableDateFormatLocalesNative());
+  }
+
+  public static Locale[] getAvailableDateFormatSymbolsLocales() {
+    return getAvailableDateFormatLocales();
+  }
+
+  public static Locale[] getAvailableDecimalFormatSymbolsLocales() {
+    return getAvailableNumberFormatLocales();
+  }
+
+  public static Locale[] getAvailableNumberFormatLocales() {
+    return localesFromStrings(getAvailableNumberFormatLocalesNative());
   }
 
   @UnsupportedAppUsage
@@ -331,6 +355,21 @@ public final class ICU {
     return result;
   }
 
+  /**
+   * Returns the version of the CLDR data in use, such as "22.1.1".
+   */
+  public static native String getCldrVersion();
+
+  /**
+   * Returns the icu4c version in use, such as "50.1.1".
+   */
+  public static native String getIcuVersion();
+
+  /**
+   * Returns the Unicode version our ICU supports, such as "6.2".
+   */
+  public static native String getUnicodeVersion();
+
   // --- Case mapping.
 
   public static String toLowerCase(String s, Locale locale) {
@@ -347,12 +386,43 @@ public final class ICU {
 
   // --- Errors.
 
+  // Just the subset of error codes needed by CharsetDecoderICU/CharsetEncoderICU.
+  public static final int U_ZERO_ERROR = 0;
+  public static final int U_INVALID_CHAR_FOUND = 10;
+  public static final int U_TRUNCATED_CHAR_FOUND = 11;
+  public static final int U_ILLEGAL_CHAR_FOUND = 12;
+  public static final int U_BUFFER_OVERFLOW_ERROR = 15;
+
+  public static boolean U_FAILURE(int error) {
+    return error > U_ZERO_ERROR;
+  }
+
   // --- Native methods accessing ICU's database.
 
+  private static native String[] getAvailableBreakIteratorLocalesNative();
+  private static native String[] getAvailableCalendarLocalesNative();
   private static native String[] getAvailableCollatorLocalesNative();
+  private static native String[] getAvailableDateFormatLocalesNative();
   private static native String[] getAvailableLocalesNative();
+  private static native String[] getAvailableNumberFormatLocalesNative();
 
+  public static native String[] getAvailableCurrencyCodes();
   public static native String getCurrencyCode(String countryCode);
+
+  public static String getCurrencyDisplayName(Locale locale, String currencyCode) {
+    return getCurrencyDisplayName(locale.toLanguageTag(), currencyCode);
+  }
+
+  private static native String getCurrencyDisplayName(String languageTag, String currencyCode);
+
+  public static native int getCurrencyFractionDigits(String currencyCode);
+  public static native int getCurrencyNumericCode(String currencyCode);
+
+  public static String getCurrencySymbol(Locale locale, String currencyCode) {
+    return getCurrencySymbol(locale.toLanguageTag(), currencyCode);
+  }
+
+  private static native String getCurrencySymbol(String languageTag, String currencyCode);
 
   public static String getDisplayCountry(Locale targetLocale, Locale locale) {
     return getDisplayCountryNative(targetLocale.toLanguageTag(), locale.toLanguageTag());
@@ -417,4 +487,8 @@ public final class ICU {
    * Returns a locale name, not a BCP-47 language tag. e.g. en_US not en-US.
    */
   public static native String getDefaultLocale();
+
+  /** Returns the TZData version as reported by ICU4C. */
+  @libcore.api.CorePlatformApi
+  public static native String getTZDataVersion();
 }

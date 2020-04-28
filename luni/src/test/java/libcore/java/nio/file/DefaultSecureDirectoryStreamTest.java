@@ -185,7 +185,7 @@ public class DefaultSecureDirectoryStreamTest {
 
             // NPE
             try (DirectoryStream<Path> ds_path_dir1 =  ds_path_root.newDirectoryStream(path_root.
-                    relativize(path_f1), (LinkOption) null)) {
+                    relativize(path_f1), null)) {
                 fail();
             } catch (NullPointerException expected) {}
 
@@ -380,7 +380,7 @@ public class DefaultSecureDirectoryStreamTest {
 
         try {
             ds_path_dir1.move(path_dir1, ds_path_dir1,
-                    Paths.get(path_root.getParent().toString(), (String) null));
+                    Paths.get(path_root.getParent().toString(), null));
             fail();
         } catch (NullPointerException expected) {}
 
@@ -498,7 +498,7 @@ public class DefaultSecureDirectoryStreamTest {
         try (SecureDirectoryStream<Path> ds_path_root = (SecureDirectoryStream<Path>)
                 Files.newDirectoryStream(path_root)) {
             ds_path_root.getFileAttributeView(path_root.relativize(path_f1),
-                    BasicFileAttributeView.class, (LinkOption) null);
+                    BasicFileAttributeView.class, null);
             fail();
         } catch (NullPointerException expected) {}
     }

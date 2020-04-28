@@ -16,30 +16,27 @@
 
 package java.net;
 
-import libcore.content.type.MimeMap;
+import java.util.Locale;
+import libcore.net.MimeUtils;
 
 /**
- * Implements {@link FileNameMap} in terms of {@link MimeMap}.
+ * Implements {@link FileNameMap} in terms of {@link libcore.net.MimeUtils}.
  */
 class DefaultFileNameMap implements FileNameMap {
     public String getContentTypeFor(String filename) {
-        String ext = extensionOf(filename);
-        return MimeMap.getDefault().guessMimeTypeFromExtension(ext);
-    }
-
-    private static String extensionOf(String filename) {
-        int fragmentIndex = filename.indexOf('#');
-        if (fragmentIndex >= 0) {
-            filename = filename.substring(0, fragmentIndex);
+        if (filename.endsWith("/")) {
+            // a directory, return html
+            return MimeUtils.guessMimeTypeFromExtension("html");
         }
-        if (filename.endsWith("/")) { // a directory
-            return "html";
+        int lastCharInExtension = filename.lastIndexOf('#');
+        if (lastCharInExtension < 0) {
+            lastCharInExtension = filename.length();
         }
-        int slashIndex = filename.lastIndexOf('/');
-        if (slashIndex >= 0) {
-            filename = filename.substring(slashIndex);
+        int firstCharInExtension = filename.lastIndexOf('.') + 1;
+        String ext = "";
+        if (firstCharInExtension > filename.lastIndexOf('/')) {
+            ext = filename.substring(firstCharInExtension, lastCharInExtension);
         }
-        int dotIndex = filename.lastIndexOf('.');
-        return (dotIndex >= 0) ? filename.substring(dotIndex + 1) : "";
+        return MimeUtils.guessMimeTypeFromExtension(ext);
     }
 }

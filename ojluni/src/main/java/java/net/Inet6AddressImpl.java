@@ -27,7 +27,7 @@ package java.net;
 import android.system.ErrnoException;
 import android.system.GaiException;
 import android.system.StructAddrinfo;
-import android.system.IcmpHeaders;
+import android.system.StructIcmpHdr;
 
 import dalvik.system.BlockGuard;
 
@@ -263,7 +263,7 @@ class Inet6AddressImpl implements InetAddressImpl {
 
                 IoBridge.setSocketOption(fd, SocketOptions.SO_TIMEOUT, sockTo);
 
-                packet = IcmpHeaders.createIcmpEchoHdr(isIPv4, seq);
+                packet = StructIcmpHdr.IcmpEchoHdr(isIPv4, seq).getBytes();
                 IoBridge.sendto(fd, packet, 0, packet.length, 0, addr, 0);
                 final int icmpId = IoBridge.getLocalInetSocketAddress(fd).getPort();
 

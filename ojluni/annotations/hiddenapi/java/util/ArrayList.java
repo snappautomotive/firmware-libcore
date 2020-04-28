@@ -425,9 +425,7 @@ public class ArrayList<E> extends java.util.AbstractList<E>
             parentOffset = 0;
         }
 
-        @UnsupportedAppUsage(publicAlternatives = "Please update to a current version of the "
-        + "{@code Streamsupport} library; older versions of {@code Streamsupport} do not "
-        + "support current versions of Android.")
+        @UnsupportedAppUsage
         int size;
     }
 }

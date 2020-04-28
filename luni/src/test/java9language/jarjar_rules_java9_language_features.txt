@@ -1,1 +1,0 @@
-rule libcore.internal.** libcore.internal.repackaged.@1

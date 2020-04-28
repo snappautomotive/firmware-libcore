@@ -46,8 +46,6 @@ public class Support_Configuration {
 
     public static final String HomeAddressSoftware = "Jetty(6.0.x)";
 
-    public static String ProxyServerTestHost = "jcltest.apache.org";
-
     public static final String SocksServerTestHost = "jcltest.apache.org";
 
     public static final int SocksServerTestPort = 1080;

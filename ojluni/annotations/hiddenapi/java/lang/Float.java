@@ -26,7 +26,7 @@
 package java.lang;
 
 import dalvik.annotation.compat.UnsupportedAppUsage;
-import dalvik.annotation.compat.VersionCodes;
+import dalvik.system.VersionCodes;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
 public final class Float extends java.lang.Number implements java.lang.Comparable<java.lang.Float> {

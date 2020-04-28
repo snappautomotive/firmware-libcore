@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) 2014 The Android Open Source Project
  * Copyright (c) 1997, 2013, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
@@ -44,7 +45,7 @@ import sun.misc.ASCIICaseInsensitiveComparator;
  * the ASCII characters in the set [0-9a-zA-Z_-], and cannot exceed 70
  * characters in length. Attribute values can contain any characters and
  * will be UTF8-encoded when written to the output stream.  See the
- * <a href="../../../../technotes/guides/jar/jar.html">JAR File Specification</a>
+ * <a href="https://docs.oracle.com/javase/8/docs/technotes/guides/jar/jar.html">JAR File Specification</a>
  * for more information about valid attribute names and values.
  *
  * @author  David Connelly
@@ -441,7 +442,7 @@ public class Attributes implements Map<Object,Object>, Cloneable {
      * to the ASCII characters in the set [0-9a-zA-Z_-], and cannot exceed
      * 70 characters in length. Attribute values can contain any characters
      * and will be UTF8-encoded when written to the output stream.  See the
-     * <a href="../../../../technotes/guides/jar/jar.html">JAR File Specification</a>
+     * <a href="https://docs.oracle.com/javase/8/docs/technotes/guides/jar/jar.html">JAR File Specification</a>
      * for more information about valid attribute names and values.
      */
     public static class Name {
@@ -527,7 +528,7 @@ public class Attributes implements Map<Object,Object>, Cloneable {
          * <code>Name</code> object for <code>Manifest-Version</code>
          * manifest attribute. This attribute indicates the version number
          * of the manifest standard to which a JAR file's manifest conforms.
-         * @see <a href="../../../../technotes/guides/jar/jar.html#JAR_Manifest">
+         * @see <a href="https://docs.oracle.com/javase/8/docs/technotes/guides/jar/jar.html#JAR_Manifest">
          *      Manifest and Signature Specification</a>
          */
         public static final Name MANIFEST_VERSION = new Name("Manifest-Version");
@@ -535,7 +536,7 @@ public class Attributes implements Map<Object,Object>, Cloneable {
         /**
          * <code>Name</code> object for <code>Signature-Version</code>
          * manifest attribute used when signing JAR files.
-         * @see <a href="../../../../technotes/guides/jar/jar.html#JAR_Manifest">
+         * @see <a href="https://docs.oracle.com/javase/8/docs/technotes/guides/jar/jar.html#JAR_Manifest">
          *      Manifest and Signature Specification</a>
          */
         public static final Name SIGNATURE_VERSION = new Name("Signature-Version");
@@ -550,7 +551,7 @@ public class Attributes implements Map<Object,Object>, Cloneable {
          * <code>Name</code> object for <code>Class-Path</code>
          * manifest attribute. Bundled extensions can use this attribute
          * to find other JAR files containing needed classes.
-         * @see <a href="../../../../technotes/guides/jar/jar.html#classpath">
+         * @see <a href="https://docs.oracle.com/javase/8/docs/technotes/guides/jar/jar.html#classpath">
          *      JAR file specification</a>
          */
         public static final Name CLASS_PATH = new Name("Class-Path");
@@ -567,7 +568,7 @@ public class Attributes implements Map<Object,Object>, Cloneable {
         /**
          * <code>Name</code> object for <code>Sealed</code> manifest attribute
          * used for sealing.
-         * @see <a href="../../../../technotes/guides/jar/jar.html#sealing">
+         * @see <a href="https://docs.oracle.com/javase/8/docs/technotes/guides/jar/jar.html#sealing">
          *      Package Sealing</a>
          */
         public static final Name SEALED = new Name("Sealed");
@@ -575,7 +576,7 @@ public class Attributes implements Map<Object,Object>, Cloneable {
        /**
          * <code>Name</code> object for <code>Extension-List</code> manifest attribute
          * used for declaring dependencies on installed extensions.
-         * @see <a href="../../../../technotes/guides/extensions/spec.html#dependency">
+         * @see <a href="https://docs.oracle.com/javase/8/docs/technotes/guides/extensions/spec.html#dependency">
          *      Installed extension dependency</a>
          */
         public static final Name EXTENSION_LIST = new Name("Extension-List");
@@ -583,7 +584,7 @@ public class Attributes implements Map<Object,Object>, Cloneable {
         /**
          * <code>Name</code> object for <code>Extension-Name</code> manifest attribute
          * used for declaring dependencies on installed extensions.
-         * @see <a href="../../../../technotes/guides/extensions/spec.html#dependency">
+         * @see <a href="https://docs.oracle.com/javase/8/docs/technotes/guides/extensions/spec.html#dependency">
          *      Installed extension dependency</a>
          */
         public static final Name EXTENSION_NAME = new Name("Extension-Name");
@@ -593,7 +594,7 @@ public class Attributes implements Map<Object,Object>, Cloneable {
          * used for declaring dependencies on installed extensions.
          * @deprecated Extension mechanism will be removed in a future release.
          *             Use class path instead.
-         * @see <a href="../../../../technotes/guides/extensions/spec.html#dependency">
+         * @see <a href="https://docs.oracle.com/javase/8/docs/technotes/guides/extensions/spec.html#dependency">
          *      Installed extension dependency</a>
          */
         @Deprecated
@@ -602,7 +603,7 @@ public class Attributes implements Map<Object,Object>, Cloneable {
         /**
          * <code>Name</code> object for <code>Implementation-Title</code>
          * manifest attribute used for package versioning.
-         * @see <a href="../../../../technotes/guides/versioning/spec/versioning2.html#wp90779">
+         * @see <a href="https://docs.oracle.com/javase/8/docs/technotes/guides/versioning/spec/versioning2.html#wp90779">
          *      Java Product Versioning Specification</a>
          */
         public static final Name IMPLEMENTATION_TITLE = new Name("Implementation-Title");
@@ -610,7 +611,7 @@ public class Attributes implements Map<Object,Object>, Cloneable {
         /**
          * <code>Name</code> object for <code>Implementation-Version</code>
          * manifest attribute used for package versioning.
-         * @see <a href="../../../../technotes/guides/versioning/spec/versioning2.html#wp90779">
+         * @see <a href="https://docs.oracle.com/javase/8/docs/technotes/guides/versioning/spec/versioning2.html#wp90779">
          *      Java Product Versioning Specification</a>
          */
         public static final Name IMPLEMENTATION_VERSION = new Name("Implementation-Version");
@@ -618,7 +619,7 @@ public class Attributes implements Map<Object,Object>, Cloneable {
         /**
          * <code>Name</code> object for <code>Implementation-Vendor</code>
          * manifest attribute used for package versioning.
-         * @see <a href="../../../../technotes/guides/versioning/spec/versioning2.html#wp90779">
+         * @see <a href="https://docs.oracle.com/javase/8/docs/technotes/guides/versioning/spec/versioning2.html#wp90779">
          *      Java Product Versioning Specification</a>
          */
         public static final Name IMPLEMENTATION_VENDOR = new Name("Implementation-Vendor");
@@ -628,7 +629,7 @@ public class Attributes implements Map<Object,Object>, Cloneable {
          * manifest attribute used for package versioning.
          * @deprecated Extension mechanism will be removed in a future release.
          *             Use class path instead.
-         * @see <a href="../../../../technotes/guides/extensions/versioning.html#applet">
+         * @see <a href="https://docs.oracle.com/javase/8/docs/technotes/guides/extensions/versioning.html#applet">
          *      Optional Package Versioning</a>
          */
         @Deprecated
@@ -639,7 +640,7 @@ public class Attributes implements Map<Object,Object>, Cloneable {
          * manifest attribute used for package versioning.
          * @deprecated Extension mechanism will be removed in a future release.
          *             Use class path instead.
-         * @see <a href="../../../../technotes/guides/extensions/versioning.html#applet">
+         * @see <a href="https://docs.oracle.com/javase/8/docs/technotes/guides/extensions/versioning.html#applet">
          *      Optional Package Versioning</a>
          */
         @Deprecated
@@ -648,7 +649,7 @@ public class Attributes implements Map<Object,Object>, Cloneable {
         /**
          * <code>Name</code> object for <code>Specification-Title</code>
          * manifest attribute used for package versioning.
-         * @see <a href="../../../../technotes/guides/versioning/spec/versioning2.html#wp90779">
+         * @see <a href="https://docs.oracle.com/javase/8/docs/technotes/guides/versioning/spec/versioning2.html#wp90779">
          *      Java Product Versioning Specification</a>
          */
         public static final Name SPECIFICATION_TITLE = new Name("Specification-Title");
@@ -656,7 +657,7 @@ public class Attributes implements Map<Object,Object>, Cloneable {
         /**
          * <code>Name</code> object for <code>Specification-Version</code>
          * manifest attribute used for package versioning.
-         * @see <a href="../../../../technotes/guides/versioning/spec/versioning2.html#wp90779">
+         * @see <a href="https://docs.oracle.com/javase/8/docs/technotes/guides/versioning/spec/versioning2.html#wp90779">
          *      Java Product Versioning Specification</a>
          */
         public static final Name SPECIFICATION_VERSION = new Name("Specification-Version");
@@ -664,7 +665,7 @@ public class Attributes implements Map<Object,Object>, Cloneable {
         /**
          * <code>Name</code> object for <code>Specification-Vendor</code>
          * manifest attribute used for package versioning.
-         * @see <a href="../../../../technotes/guides/versioning/spec/versioning2.html#wp90779">
+         * @see <a href="https://docs.oracle.com/javase/8/docs/technotes/guides/versioning/spec/versioning2.html#wp90779">
          *      Java Product Versioning Specification</a>
          */
         public static final Name SPECIFICATION_VENDOR = new Name("Specification-Vendor");

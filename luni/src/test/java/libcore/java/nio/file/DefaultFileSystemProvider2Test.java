@@ -600,8 +600,7 @@ public class DefaultFileSystemProvider2Test {
         } catch (NullPointerException expected) {}
 
         try {
-            provider.newByteChannel(filesSetup.getTestPath(), new HashSet<>(),
-                (FileAttribute<?>) null);
+            provider.newByteChannel(filesSetup.getTestPath(), new HashSet<>(), null);
             fail();
         } catch (NullPointerException expected) {}
     }

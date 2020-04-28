@@ -18,7 +18,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include <atomic>
 #include <string>
 
 #include <jni.h>
@@ -70,7 +69,7 @@ jboolean Java_libcore_libcore_util_NativeAllocationRegistryTest_isNativeBridgedA
   return static_cast<jboolean>(is_native_bridged_abi);
 }
 
-std::atomic<uint64_t> gNumNativeBytesAllocated = 0;
+uint64_t gNumNativeBytesAllocated = 0;
 
 static void finalize(uint64_t* ptr) {
   gNumNativeBytesAllocated -= *ptr;

@@ -22,8 +22,6 @@ import android.icu.text.TimeZoneNames;
 import android.icu.util.VersionInfo;
 import android.system.Os;
 
-import com.android.icu.util.Icu4cMetadata;
-
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -39,6 +37,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import libcore.icu.ICU;
 import libcore.timezone.TimeZoneDataFiles;
 import libcore.timezone.TimeZoneFinder;
 import libcore.timezone.TzDataSetVersion;
@@ -183,7 +182,7 @@ public class TimeZoneIntegrationTest {
      */
     @Test
     public void testTimeZoneDataVersion() {
-        String icu4cTzVersion = Icu4cMetadata.getTzdbVersion();
+        String icu4cTzVersion = ICU.getTZDataVersion();
 
         String zoneInfoTzVersion = ZoneInfoDB.getInstance().getVersion();
         assertEquals(icu4cTzVersion, zoneInfoTzVersion);
@@ -227,24 +226,34 @@ public class TimeZoneIntegrationTest {
      */
     @Test
     public void testTzDataSetVersions() throws Exception {
-        // The time zone data module is required.
-        String timeZoneModuleVersionFile =
-                TimeZoneDataFiles.getTimeZoneModuleTzFile(TzDataSetVersion.DEFAULT_FILE_NAME);
-        assertTzDataSetVersionIsCompatible(timeZoneModuleVersionFile);
+        String moduleTzVersionFile = "tz/" + TzDataSetVersion.DEFAULT_FILE_NAME;
 
-        // Check getTimeZoneModuleTzVersionFile() is doing the right thing.
-        // getTimeZoneModuleTzVersionFile() should go away when its one user, RulesManagerService,
+        String timeZoneModuleVersionFile =
+                TimeZoneDataFiles.getTimeZoneModuleFile(moduleTzVersionFile);
+        // We currently treat the time zone APEX as optional in code. Its is also not present on ART
+        // host environments.
+        if (fileExists(timeZoneModuleVersionFile)) {
+            assertTzDataSetVersionIsCompatible(timeZoneModuleVersionFile);
+        }
+
+        String runtimeModuleVersionFile =
+                TimeZoneDataFiles.getRuntimeModuleFile(moduleTzVersionFile);
+        assertTzDataSetVersionIsCompatible(runtimeModuleVersionFile);
+
+        // Check getRuntimeModuleTzVersionFile() is doing the right thing.
+        // getRuntimeModuleTzVersionFile() should go away when its one user, RulesManagerService,
         // is removed from the platform code. http://b/123398797
-        assertEquals(TimeZoneDataFiles.getTimeZoneModuleTzVersionFile(), timeZoneModuleVersionFile);
+        assertEquals(TimeZoneDataFiles.getRuntimeModuleTzVersionFile(), runtimeModuleVersionFile);
 
         // TODO: Remove this once the /system copy of time zone files have gone away. See also
         // testTimeZoneDebugInfo().
         assertTzDataSetVersionIsCompatible(
-                TimeZoneDataFiles.getSystemTzFile(TzDataSetVersion.DEFAULT_FILE_NAME));
+                TimeZoneDataFiles.getSystemTimeZoneFile(TzDataSetVersion.DEFAULT_FILE_NAME));
     }
 
     private static void assertTzDataSetVersionIsCompatible(String versionFile) throws Exception {
-        TzDataSetVersion actualVersion = TzDataSetVersion.readFromFile(new File(versionFile));
+        TzDataSetVersion actualVersion =
+                TzDataSetVersion.readFromFile(new File(versionFile));
         assertEquals(
                 TzDataSetVersion.currentFormatMajorVersion(),
                 actualVersion.formatMajorVersion);
@@ -269,8 +278,8 @@ public class TimeZoneIntegrationTest {
                 "core_library.timezone.source.tzdata_module_status");
         String apexRootDir = TimeZoneDataFiles.getTimeZoneModuleFile("");
         List<String> dataModuleFiles =
-                createModuleTzFiles(TimeZoneDataFiles::getTimeZoneModuleTzFile);
-        String icuOverlayFile = TimeZoneDataFiles.getTimeZoneModuleIcuFile("icu_tzdata.dat");
+                createModuleTzFileNames(TimeZoneDataFiles::getTimeZoneModuleFile);
+        String icuOverlayFile = TimeZoneDataFiles.getTimeZoneModuleFile("icu/icu_tzdata.dat");
         if (fileExists(apexRootDir)) {
             assertEquals("OK", tzModuleStatus);
             dataModuleFiles.forEach(TimeZoneIntegrationTest::assertFileExists);
@@ -281,36 +290,46 @@ public class TimeZoneIntegrationTest {
             assertFileDoesNotExist(icuOverlayFile);
         }
 
+        // Every device should have a runtime module copy of time zone data since we expect every
+        // device to have a runtime module. This is the base copy of time zone data that can be
+        // updated when we update the runtime module. Host ART should match device.
+        assertEquals("OK", getDebugStringValue(debugInfo,
+                "core_library.timezone.source.runtime_module_status"));
+        assertFileExists(TimeZoneDataFiles.getRuntimeModuleFile(""));
+        List<String> runtimeModuleFiles =
+                createModuleTzFileNames(TimeZoneDataFiles::getRuntimeModuleFile);
+        runtimeModuleFiles.forEach(TimeZoneIntegrationTest::assertFileExists);
+
         String icuDatFileName = "icudt" + VersionInfo.ICU_VERSION.getMajor() + "l.dat";
-        String i18nModuleIcuData = TimeZoneDataFiles.getI18nModuleIcuFile(icuDatFileName);
-        assertFileExists(i18nModuleIcuData);
+        String runtimeModuleIcuData =
+                TimeZoneDataFiles.getRuntimeModuleFile("icu/" + icuDatFileName);
+        assertFileExists(runtimeModuleIcuData);
 
         // Devices currently have a subset of the time zone files in /system. These are going away
         // but we test them while they exist. Host ART should match device.
         assertEquals("OK", getDebugStringValue(debugInfo,
                 "core_library.timezone.source.system_status"));
         assertFileExists(
-                TimeZoneDataFiles.getSystemTzFile(TzDataSetVersion.DEFAULT_FILE_NAME));
-        assertFileExists(TimeZoneDataFiles.getSystemTzFile(ZoneInfoDB.TZDATA_FILE_NAME));
+                TimeZoneDataFiles.getSystemTimeZoneFile(TzDataSetVersion.DEFAULT_FILE_NAME));
+        assertFileExists(TimeZoneDataFiles.getSystemTimeZoneFile("tzdata"));
         // The following files once existed in /system but have been removed as part of APEX work.
-        assertFileDoesNotExist(
-                TimeZoneDataFiles.getSystemTzFile(TimeZoneFinder.TZLOOKUP_FILE_NAME));
+        assertFileDoesNotExist(TimeZoneDataFiles.getSystemTimeZoneFile("tzlookup.xml"));
 
         // It's hard to assert much about this file as there is a symlink in /system on device for
         // app compatibility (b/122985829) but it doesn't exist in host environments. If the file
         // exists we can say it should resolve (realpath) to the same file as the runtime module.
         String systemIcuData = TimeZoneDataFiles.getSystemIcuFile(icuDatFileName);
         if (new File(systemIcuData).exists()) {
-            assertEquals(Os.realpath(i18nModuleIcuData), Os.realpath(systemIcuData));
+            assertEquals(Os.realpath(runtimeModuleIcuData), Os.realpath(systemIcuData));
         }
     }
 
-    private static List<String> createModuleTzFiles(
+    private static List<String> createModuleTzFileNames(
             Function<String, String> pathCreationFunction) {
         List<String> relativePaths = Arrays.asList(
-                TzDataSetVersion.DEFAULT_FILE_NAME,
-                ZoneInfoDB.TZDATA_FILE_NAME,
-                TimeZoneFinder.TZLOOKUP_FILE_NAME);
+                "tz/" + TzDataSetVersion.DEFAULT_FILE_NAME,
+                "tz/tzdata",
+                "tz/tzlookup.xml");
         return relativePaths.stream().map(pathCreationFunction).collect(Collectors.toList());
     }
 

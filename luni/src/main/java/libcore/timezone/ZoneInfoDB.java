@@ -19,6 +19,8 @@ package libcore.timezone;
 import android.system.ErrnoException;
 import dalvik.annotation.optimization.ReachabilitySensitive;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -41,10 +43,10 @@ import libcore.util.ZoneInfo;
 public final class ZoneInfoDB {
 
   // VisibleForTesting
-  public static final String TZDATA_FILE_NAME = "tzdata";
+  public static final String TZDATA_FILE = "tzdata";
 
   private static final TzData DATA =
-          TzData.loadTzDataWithFallback(TimeZoneDataFiles.getTimeZoneFilePaths(TZDATA_FILE_NAME));
+          TzData.loadTzDataWithFallback(TimeZoneDataFiles.getTimeZoneFilePaths(TZDATA_FILE));
 
   /** @hide */
   @libcore.api.CorePlatformApi
@@ -123,7 +125,7 @@ public final class ZoneInfoDB {
       // We didn't find any usable tzdata on disk, so let's just hard-code knowledge of "GMT".
       // This is actually implemented in TimeZone itself, so if this is the only time zone
       // we report, we won't be asked any more questions.
-      System.logE("Couldn't find any " + TZDATA_FILE_NAME + " file!");
+      System.logE("Couldn't find any " + TZDATA_FILE + " file!");
       return TzData.createFallback();
     }
 
@@ -193,7 +195,7 @@ public final class ZoneInfoDB {
 
         // Something's wrong with the file.
         // Log the problem and return false so we try the next choice.
-        System.logE(TZDATA_FILE_NAME + " file \"" + path + "\" was present but invalid!", ex);
+        System.logE(TZDATA_FILE + " file \"" + path + "\" was present but invalid!", ex);
         return false;
       }
     }

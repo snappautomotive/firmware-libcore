@@ -32,9 +32,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.List;
+import junit.framework.TestCase;
 import libcore.java.security.TestKeyStore;
-import libcore.junit.junit3.TestCaseWithRules;
-import libcore.junit.util.EnableDeprecatedBouncyCastleAlgorithmsRule;
 import org.bouncycastle.asn1.x509.CRLReason;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.bouncycastle.cert.X509CertificateHolder;
@@ -49,16 +48,27 @@ import org.bouncycastle.cert.ocsp.RevokedStatus;
 import org.bouncycastle.operator.DigestCalculatorProvider;
 import org.bouncycastle.operator.bc.BcDigestCalculatorProvider;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
-import org.junit.Rule;
-import org.junit.rules.TestRule;
 
-public class CertPathValidatorTest extends TestCaseWithRules {
+import dalvik.system.VMRuntime;
+import sun.security.jca.Providers;
+
+public class CertPathValidatorTest extends TestCase {
 
     // Allow access to deprecated BC algorithms in this test, so we can ensure they
     // continue to work
-    @Rule
-    public TestRule enableDeprecatedBCAlgorithmsRule =
-            EnableDeprecatedBouncyCastleAlgorithmsRule.getInstance();
+    @Override
+    public void setUp() throws Exception {
+        super.setUp();
+        Providers.setMaximumAllowableApiLevelForBcDeprecation(
+                VMRuntime.getRuntime().getTargetSdkVersion());
+    }
+
+    @Override
+    public void tearDown() throws Exception {
+        Providers.setMaximumAllowableApiLevelForBcDeprecation(
+                Providers.DEFAULT_MAXIMUM_ALLOWABLE_TARGET_API_LEVEL_FOR_BC_DEPRECATION);
+        super.tearDown();
+    }
 
     private OCSPResp generateOCSPResponse(X509Certificate serverCertJca, X509Certificate caCertJca,
             PrivateKey caKey, CertificateStatus status) throws Exception {

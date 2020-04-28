@@ -39,7 +39,6 @@
 
 package java.text;
 
-import android.icu.impl.number.DecimalFormatProperties.ParseMode;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -53,6 +52,7 @@ import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import libcore.icu.LocaleData;
+
 import android.icu.math.MathContext;
 
 /**
@@ -385,7 +385,8 @@ public class DecimalFormat extends NumberFormat {
     // to implement DecimalFormat.
 
     // Android-added: ICU DecimalFormat to delegate to.
-    private transient android.icu.text.DecimalFormat icuDecimalFormat;
+    // TODO(b/68143370): switch back to ICU DecimalFormat once it can reproduce ICU 58 behavior.
+    private transient android.icu.text.DecimalFormat_ICU58_Android icuDecimalFormat;
 
     /**
      * Creates a DecimalFormat using the default pattern and symbols
@@ -487,10 +488,8 @@ public class DecimalFormat extends NumberFormat {
      * {@link #icuDecimalFormat} in the process. This should only be called from constructors.
      */
     private void initPattern(String pattern) {
-        this.icuDecimalFormat =  new android.icu.text.DecimalFormat(pattern,
+        this.icuDecimalFormat =  new android.icu.text.DecimalFormat_ICU58_Android(pattern,
                 symbols.getIcuDecimalFormatSymbols());
-        // Android-changed: Compatibility mode for j.t.DecimalFormat. http://b/112355520
-        icuDecimalFormat.setParseStrictMode(ParseMode.COMPATIBILITY);
         updateFieldsFromIcu();
     }
 
@@ -3084,7 +3083,7 @@ public class DecimalFormat extends NumberFormat {
         */
         try {
             DecimalFormat other = (DecimalFormat) super.clone();
-            other.icuDecimalFormat = (android.icu.text.DecimalFormat) icuDecimalFormat.clone();
+            other.icuDecimalFormat = (android.icu.text.DecimalFormat_ICU58_Android) icuDecimalFormat.clone();
             other.symbols = (DecimalFormatSymbols) symbols.clone();
             return other;
         } catch (Exception e) {
@@ -3150,7 +3149,7 @@ public class DecimalFormat extends NumberFormat {
             && compareIcuRoundingIncrement(other.icuDecimalFormat);
     }
 
-    private boolean compareIcuRoundingIncrement(android.icu.text.DecimalFormat other) {
+    private boolean compareIcuRoundingIncrement(android.icu.text.DecimalFormat_ICU58_Android other) {
         BigDecimal increment = this.icuDecimalFormat.getRoundingIncrement();
         if (increment != null) {
             return (other.getRoundingIncrement() != null)

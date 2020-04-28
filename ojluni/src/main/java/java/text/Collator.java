@@ -226,16 +226,14 @@ public abstract class Collator
      * @see java.util.Locale
      * @see java.util.ResourceBundle
      */
-    public static Collator getInstance(Locale desiredLocale) {
-        // BEGIN Android-changed: Switched to ICU.
-        synchronized(Collator.class) {
-            if (desiredLocale == null) {
-                throw new NullPointerException("locale == null");
-            }
-            return new RuleBasedCollator((android.icu.text.RuleBasedCollator)
-                    android.icu.text.Collator.getInstance(desiredLocale));
+    // Android-changed: Switched to ICU.
+    public static synchronized Collator getInstance(Locale desiredLocale)
+    {
+        if (desiredLocale == null) {
+            throw new NullPointerException("locale == null");
         }
-        // END Android-changed: Switched to ICU.
+        return new RuleBasedCollator((android.icu.text.RuleBasedCollator)
+                android.icu.text.Collator.getInstance(desiredLocale));
     }
 
     /**
@@ -388,7 +386,7 @@ public abstract class Collator
         icuColl.setDecomposition(decompositionMode_Java_ICU(decompositionMode));
     }
 
-    // Android-changed: Removed javadoc references to CollatorProvider.
+    // Android-changed: Removed references to CollatorProvider.
     /**
      * Returns an array of all locales for which the
      * <code>getInstance</code> methods of this class can return
@@ -427,7 +425,7 @@ public abstract class Collator
     }
     // END Android-added: conversion method for decompositionMode constants.
 
-    // Android-changed: improve clone() documentation.
+    // Android-changed: improve documentation.
     /**
      * Returns a new collator with the same decomposition mode and
      * strength value as this collator.

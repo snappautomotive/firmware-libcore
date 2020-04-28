@@ -16,8 +16,6 @@
 
 package android.system;
 
-import libcore.util.Objects;
-
 /**
  * A signed 64bit integer reference suitable for passing to lower-level system calls.
  */
@@ -26,9 +24,5 @@ public class Int64Ref {
 
     public Int64Ref(long value) {
         this.value = value;
-    }
-
-    @Override public String toString() {
-        return Objects.toString(this);
     }
 }

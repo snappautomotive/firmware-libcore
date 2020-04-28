@@ -417,7 +417,7 @@ public class Transformers {
 
         @Override
         public void transform(EmulatedStackFrame emulatedStackFrame) throws Throwable {
-            final Class<?> receiverType = constructorHandle.type().parameterType(0);
+            final Class<?> receiverType = type().rtype();
             checkInstantiable(receiverType);
 
             // Allocate memory for receiver.

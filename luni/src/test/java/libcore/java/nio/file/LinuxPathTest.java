@@ -18,7 +18,6 @@ package libcore.java.nio.file;
 
 import com.sun.nio.file.ExtendedWatchEventModifier;
 
-import java.nio.file.WatchEvent.Kind;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
@@ -455,7 +454,7 @@ public class LinuxPathTest {
         } catch (NullPointerException expected) {}
 
         try {
-            directory.register(watchService, (Kind<?>) null);
+            directory.register(watchService, null);
             fail();
         } catch (NullPointerException expected) {}
     }
