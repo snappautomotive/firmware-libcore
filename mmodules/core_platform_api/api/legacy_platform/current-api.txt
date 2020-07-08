@@ -211,10 +211,6 @@ package com.android.org.bouncycastle.asn1 {
     ctor public DERBitString(byte[]);
   }
 
-  @Deprecated public class DERInteger extends com.android.org.bouncycastle.asn1.ASN1Integer {
-    ctor @Deprecated public DERInteger(long);
-  }
-
   public class DERNull extends com.android.org.bouncycastle.asn1.ASN1Null {
     field public static final com.android.org.bouncycastle.asn1.DERNull INSTANCE;
   }
@@ -531,6 +527,7 @@ package dalvik.system {
     method public void addDexPath(String);
     method public void addNativePath(java.util.Collection<java.lang.String>);
     method public String getLdLibraryPath();
+    method public void reportClassLoaderChain();
     method public static void setReporter(dalvik.system.BaseDexClassLoader.Reporter);
   }
 
@@ -563,6 +560,7 @@ package dalvik.system {
     method public static dalvik.system.CloseGuard get();
     method public static dalvik.system.CloseGuard.Reporter getReporter();
     method public void open(String);
+    method public void openWithCallSite(String, String);
     method public static void setEnabled(boolean);
     method public static void setReporter(dalvik.system.CloseGuard.Reporter);
     method public void warnIfOpen();
@@ -570,14 +568,7 @@ package dalvik.system {
 
   public static interface CloseGuard.Reporter {
     method public void report(String, Throwable);
-  }
-
-  public interface DalvikLogHandler {
-    method public void publish(java.util.logging.Logger, String, java.util.logging.Level, String);
-  }
-
-  public final class DalvikLogging {
-    method public static String loggerNameToTag(String);
+    method public default void report(String);
   }
 
   public final class DelegateLastClassLoader extends dalvik.system.PathClassLoader {
@@ -605,7 +596,6 @@ package dalvik.system {
   }
 
   public final class RuntimeHooks {
-    method @Nullable public static dalvik.system.ThreadPrioritySetter getThreadPrioritySetter();
     method public static void setThreadPrioritySetter(@NonNull dalvik.system.ThreadPrioritySetter);
     method public static void setTimeZoneIdSupplier(java.util.function.Supplier<java.lang.String>);
     method public static void setUncaughtExceptionPreHandler(java.lang.Thread.UncaughtExceptionHandler);
@@ -629,7 +619,6 @@ package dalvik.system {
 
   public final class VMDebug {
     method public static void attachAgent(String, ClassLoader) throws java.io.IOException;
-    method public static boolean cacheRegisterMap(String);
     method public static long countInstancesOfClass(Class, boolean);
     method public static long[] countInstancesOfClasses(Class[], boolean);
     method public static void dumpHprofData(String) throws java.io.IOException;
@@ -649,12 +638,10 @@ package dalvik.system {
     method public static void resetAllocCount(int);
     method public static void setAllocTrackerStackDepth(int);
     method public static void startAllocCounting();
-    method public static void startEmulatorTracing();
     method public static void startMethodTracing(String, int, int, boolean, int);
     method public static void startMethodTracing(String, java.io.FileDescriptor, int, int, boolean, int, boolean);
     method public static void startMethodTracingDdms(int, int, boolean, int);
     method public static void stopAllocCounting();
-    method public static void stopEmulatorTracing();
     method public static void stopMethodTracing();
     method @dalvik.annotation.optimization.FastNative public static long threadCpuTimeNanos();
     field public static final int KIND_ALL_COUNTS = -1; // 0xffffffff
@@ -681,13 +668,10 @@ package dalvik.system {
     method public static String getCurrentInstructionSet();
     method public static String getInstructionSet(String);
     method public static dalvik.system.VMRuntime getRuntime();
-    method public float getTargetHeapUtilization();
     method public int getTargetSdkVersion();
-    method @dalvik.annotation.optimization.FastNative public static boolean hasBootImageSpaces();
     method @dalvik.annotation.optimization.FastNative public boolean is64Bit();
     method public static boolean is64BitAbi(String);
     method public static boolean is64BitInstructionSet(String);
-    method public static boolean isBootClassPathOnDisk(String);
     method @dalvik.annotation.optimization.FastNative public boolean isCheckJniEnabled();
     method @dalvik.annotation.optimization.FastNative public boolean isNativeDebuggable();
     method public static boolean isValidClassLoaderContext(String);
@@ -711,7 +695,6 @@ package dalvik.system {
     method public static void setNonSdkApiUsageConsumer(java.util.function.Consumer<java.lang.String>);
     method public static void setProcessDataDirectory(String);
     method public static void setProcessPackageName(String);
-    method public float setTargetHeapUtilization(float);
     method public void setTargetSdkVersion(int);
     method public void startJitCompilation();
     method public void updateProcessState(int);
@@ -769,10 +752,6 @@ package java.lang {
 
   public final class Math {
     method public static long randomLongInternal();
-  }
-
-  public final class System {
-    method public static void logE(String, Throwable);
   }
 
   public class Thread implements java.lang.Runnable {
@@ -1084,124 +1063,10 @@ package libcore.net.event {
 
 }
 
-package libcore.timezone {
-
-  public final class CountryTimeZones {
-    method public String getCountryIso();
-    method public android.icu.util.TimeZone getDefaultTimeZone();
-    method public String getDefaultTimeZoneId();
-    method public java.util.List<libcore.timezone.CountryTimeZones.TimeZoneMapping> getEffectiveTimeZoneMappingsAt(long);
-    method public java.util.List<libcore.timezone.CountryTimeZones.TimeZoneMapping> getTimeZoneMappings();
-    method public boolean hasUtcZone(long);
-    method public boolean isDefaultTimeZoneBoosted();
-    method public libcore.timezone.CountryTimeZones.OffsetResult lookupByOffsetWithBias(long, android.icu.util.TimeZone, int, boolean);
-    method public libcore.timezone.CountryTimeZones.OffsetResult lookupByOffsetWithBias(long, android.icu.util.TimeZone, int);
-    method public boolean matchesCountryCode(String);
-  }
-
-  public static final class CountryTimeZones.OffsetResult {
-    method public android.icu.util.TimeZone getTimeZone();
-    method public boolean isOnlyMatch();
-  }
-
-  public static final class CountryTimeZones.TimeZoneMapping {
-    method public static libcore.timezone.CountryTimeZones.TimeZoneMapping createForTests(String, boolean, Long);
-    method public Long getNotUsedAfter();
-    method public android.icu.util.TimeZone getTimeZone();
-    method public String getTimeZoneId();
-    method public boolean isShownInPicker();
-  }
-
-  public final class CountryZonesFinder {
-    method public java.util.List<java.lang.String> lookupAllCountryIsoCodes();
-    method public libcore.timezone.CountryTimeZones lookupCountryTimeZones(String);
-    method public java.util.List<libcore.timezone.CountryTimeZones> lookupCountryTimeZonesForZoneId(String);
-  }
-
-  public final class TelephonyLookup {
-    method public static libcore.timezone.TelephonyLookup createInstance(String) throws java.io.IOException;
-    method public static libcore.timezone.TelephonyLookup getInstance();
-    method public libcore.timezone.TelephonyNetworkFinder getTelephonyNetworkFinder();
-    method public void validate() throws java.io.IOException;
-  }
-
-  public final class TelephonyNetwork {
-    method public String getCountryIsoCode();
-    method public String getMcc();
-    method public String getMnc();
-  }
-
-  public final class TelephonyNetworkFinder {
-    method public libcore.timezone.TelephonyNetwork findNetworkByMccMnc(String, String);
-  }
-
-  public final class TimeZoneDataFiles {
-    method public static String getDataTimeZoneFile(String);
-    method public static String getDataTimeZoneRootDir();
-    method public static String getTimeZoneModuleTzVersionFile();
-  }
-
-  public final class TimeZoneFinder {
-    method public static libcore.timezone.TimeZoneFinder createInstance(String) throws java.io.IOException;
-    method public libcore.timezone.CountryZonesFinder getCountryZonesFinder();
-    method public String getIanaVersion();
-    method public static libcore.timezone.TimeZoneFinder getInstance();
-    method public libcore.timezone.CountryTimeZones lookupCountryTimeZones(String);
-    method public void validate() throws java.io.IOException;
-  }
-
-  public final class TzDataSetVersion {
-    ctor public TzDataSetVersion(int, int, String, int) throws libcore.timezone.TzDataSetVersion.TzDataSetException;
-    method public static int currentFormatMajorVersion();
-    method public static int currentFormatMinorVersion();
-    method public int getFormatMajorVersion();
-    method public int getFormatMinorVersion();
-    method public int getRevision();
-    method public String getRulesVersion();
-    method public static boolean isCompatibleWithThisDevice(libcore.timezone.TzDataSetVersion);
-    method public static libcore.timezone.TzDataSetVersion readFromFile(java.io.File) throws java.io.IOException, libcore.timezone.TzDataSetVersion.TzDataSetException;
-    method public static libcore.timezone.TzDataSetVersion readTimeZoneModuleVersion() throws java.io.IOException, libcore.timezone.TzDataSetVersion.TzDataSetException;
-    method public byte[] toBytes();
-    field public static final String DEFAULT_FILE_NAME = "tz_version";
-  }
-
-  public static class TzDataSetVersion.TzDataSetException extends java.lang.Exception {
-    ctor public TzDataSetVersion.TzDataSetException(String);
-    ctor public TzDataSetVersion.TzDataSetException(String, Throwable);
-  }
-
-  public final class ZoneInfoDb implements java.lang.AutoCloseable {
-    method public static libcore.timezone.ZoneInfoDb getInstance();
-    method public String getVersion();
-    method public boolean hasTimeZone(String);
-    method public static libcore.timezone.ZoneInfoDb loadTzData(String);
-    method public libcore.util.ZoneInfo makeTimeZone(String);
-    method public void validate() throws java.io.IOException;
-  }
-
-}
-
 package libcore.util {
 
   public final class ArrayUtils {
     method public static void throwsIfOutOfBounds(int, int, int);
-  }
-
-  public class CoreLibraryDebug {
-    method public static libcore.util.DebugInfo getDebugInfo();
-  }
-
-  public class DebugInfo {
-    ctor public DebugInfo();
-    method public libcore.util.DebugInfo addStringEntry(String, String);
-    method public libcore.util.DebugInfo addStringEntry(String, int);
-    method public java.util.List<libcore.util.DebugInfo.DebugEntry> getDebugEntries();
-  }
-
-  public static class DebugInfo.DebugEntry {
-    ctor public DebugInfo.DebugEntry(String, String);
-    method public String getKey();
-    method public String getStringValue();
   }
 
   public final class EmptyArray {
@@ -1285,35 +1150,6 @@ package libcore.util {
     method public static org.xml.sax.XMLReader newXMLReader();
     method public static org.xmlpull.v1.XmlPullParser newXmlPullParser();
     method public static org.xmlpull.v1.XmlSerializer newXmlSerializer();
-  }
-
-  public final class ZoneInfo extends java.util.TimeZone {
-  }
-
-  public static class ZoneInfo.WallTime {
-    ctor public ZoneInfo.WallTime();
-    method public int getGmtOffset();
-    method public int getHour();
-    method public int getIsDst();
-    method public int getMinute();
-    method public int getMonth();
-    method public int getMonthDay();
-    method public int getSecond();
-    method public int getWeekDay();
-    method public int getYear();
-    method public int getYearDay();
-    method public void localtime(int, libcore.util.ZoneInfo);
-    method public int mktime(libcore.util.ZoneInfo);
-    method public void setGmtOffset(int);
-    method public void setHour(int);
-    method public void setIsDst(int);
-    method public void setMinute(int);
-    method public void setMonth(int);
-    method public void setMonthDay(int);
-    method public void setSecond(int);
-    method public void setWeekDay(int);
-    method public void setYear(int);
-    method public void setYearDay(int);
   }
 
 }
@@ -1441,15 +1277,10 @@ package sun.security.jca {
 
 package sun.security.pkcs {
 
-  public class ContentInfo {
-    method public byte[] getContentBytes() throws java.io.IOException;
-  }
-
   public class PKCS7 {
     ctor public PKCS7(java.io.InputStream) throws java.io.IOException, sun.security.pkcs.ParsingException;
     ctor public PKCS7(byte[]) throws sun.security.pkcs.ParsingException;
     method public java.security.cert.X509Certificate[] getCertificates();
-    method public sun.security.pkcs.ContentInfo getContentInfo();
     method public sun.security.pkcs.SignerInfo[] getSignerInfos();
     method public sun.security.pkcs.SignerInfo verify(sun.security.pkcs.SignerInfo, java.io.InputStream) throws java.io.IOException, java.security.NoSuchAlgorithmException, java.security.SignatureException;
     method public sun.security.pkcs.SignerInfo[] verify(byte[]) throws java.security.NoSuchAlgorithmException, java.security.SignatureException;
