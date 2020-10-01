@@ -46,7 +46,6 @@ import libcore.util.Objects;
  * them a clone rather than the original.
  * @hide
  */
-@libcore.api.CorePlatformApi
 public final class LocaleData {
 
     /**
@@ -101,44 +100,30 @@ public final class LocaleData {
 
     // Used by Calendar.
     @UnsupportedAppUsage
-    @libcore.api.CorePlatformApi
     public Integer firstDayOfWeek;
     @UnsupportedAppUsage
     public Integer minimalDaysInFirstWeek;
 
     // Used by DateFormatSymbols.
-    @libcore.api.CorePlatformApi
     public String[] amPm; // "AM", "PM".
     public String[] eras; // "BC", "AD".
 
-    @libcore.api.CorePlatformApi
     public String[] longMonthNames; // "January", ...
     @UnsupportedAppUsage
-    @libcore.api.CorePlatformApi
     public String[] shortMonthNames; // "Jan", ...
-    @libcore.api.CorePlatformApi
     public String[] tinyMonthNames; // "J", ...
-    @libcore.api.CorePlatformApi
     public String[] longStandAloneMonthNames; // "January", ...
     @UnsupportedAppUsage
-    @libcore.api.CorePlatformApi
     public String[] shortStandAloneMonthNames; // "Jan", ...
-    @libcore.api.CorePlatformApi
     public String[] tinyStandAloneMonthNames; // "J", ...
 
-    @libcore.api.CorePlatformApi
     public String[] longWeekdayNames; // "Sunday", ...
-    @libcore.api.CorePlatformApi
     public String[] shortWeekdayNames; // "Sun", ...
-    @libcore.api.CorePlatformApi
     public String[] tinyWeekdayNames; // "S", ...
     @UnsupportedAppUsage
-    @libcore.api.CorePlatformApi
     public String[] longStandAloneWeekdayNames; // "Sunday", ...
     @UnsupportedAppUsage
-    @libcore.api.CorePlatformApi
     public String[] shortStandAloneWeekdayNames; // "Sun", ...
-    @libcore.api.CorePlatformApi
     public String[] tinyStandAloneWeekdayNames; // "S", ...
 
     // today and tomorrow is only kept for @UnsupportedAppUsage.
@@ -158,28 +143,15 @@ public final class LocaleData {
     public String mediumDateFormat;
     public String shortDateFormat;
 
-    // Used by TimePicker. Not currently used by UTS#35.
-    @libcore.api.CorePlatformApi
-    public String narrowAm; // "a".
-    @libcore.api.CorePlatformApi
-    public String narrowPm; // "p".
-
-    // Used by DateFormat to implement 12- and 24-hour SHORT and MEDIUM.
-    // They are also used directly by frameworks code.
+    // timeFormat_hm and timeFormat_Hm are only kept for @UnsupportedAppUsage.
+    // Their value is hard-coded, not localized.
     @UnsupportedAppUsage
-    @libcore.api.CorePlatformApi
     public String timeFormat_hm;
     @UnsupportedAppUsage
-    @libcore.api.CorePlatformApi
     public String timeFormat_Hm;
-    @libcore.api.CorePlatformApi
-    public String timeFormat_hms;
-    @libcore.api.CorePlatformApi
-    public String timeFormat_Hms;
 
     // Used by DecimalFormatSymbols.
     @UnsupportedAppUsage
-    @libcore.api.CorePlatformApi
     public char zeroDigit;
     public char decimalSeparator;
     public char groupingSeparator;
@@ -198,9 +170,14 @@ public final class LocaleData {
     public String currencyPattern;
     public String percentPattern;
 
-    private LocaleData() {
+    private final Locale mLocale;
+
+    private LocaleData(Locale locale) {
+        mLocale = locale;
         today = "Today";
         tomorrow = "Tomorrow";
+        timeFormat_hm = "h:mm a";
+        timeFormat_Hm = "HH:mm";
     }
 
     @UnsupportedAppUsage
@@ -239,7 +216,6 @@ public final class LocaleData {
      * Returns a shared LocaleData for the given locale.
      */
     @UnsupportedAppUsage
-    @libcore.api.CorePlatformApi
     public static LocaleData get(Locale locale) {
         if (locale == null) {
             throw new NullPointerException("locale == null");
@@ -269,7 +245,6 @@ public final class LocaleData {
         return Objects.toString(this);
     }
 
-    @libcore.api.CorePlatformApi
     public String getDateFormat(int style) {
         switch (style) {
         case DateFormat.SHORT:
@@ -285,18 +260,22 @@ public final class LocaleData {
     }
 
     public String getTimeFormat(int style) {
+        // Do not cache ICU.getTimePattern() return value in the LocaleData instance
+        // because most users do not enable this setting, hurts performance in critical path,
+        // e.g. b/161846393, and ICU.getBestDateTimePattern will cache it in  ICU.CACHED_PATTERNS
+        // on demand.
         switch (style) {
         case DateFormat.SHORT:
             if (DateFormat.is24Hour == null) {
                 return shortTimeFormat;
             } else {
-                return DateFormat.is24Hour ? timeFormat_Hm : timeFormat_hm;
+                return ICU.getTimePattern(mLocale, DateFormat.is24Hour, false);
             }
         case DateFormat.MEDIUM:
             if (DateFormat.is24Hour == null) {
                 return mediumTimeFormat;
             } else {
-                return DateFormat.is24Hour ? timeFormat_Hms : timeFormat_hms;
+                return ICU.getTimePattern(mLocale, DateFormat.is24Hour, true);
             }
         case DateFormat.LONG:
             // CLDR doesn't really have anything we can use to obey the 12-/24-hour preference.
@@ -312,7 +291,7 @@ public final class LocaleData {
      * This method is made public for testing
      */
     public static LocaleData initLocaleData(Locale locale) {
-        LocaleData localeData = new LocaleData();
+        LocaleData localeData = new LocaleData(locale);
 
         localeData.initializeDateTimePatterns(locale);
         localeData.initializeDateFormatData(locale);
@@ -321,12 +300,6 @@ public final class LocaleData {
 
         // Libcore localizes pattern separator while ICU doesn't. http://b/112080617
         initializePatternSeparator(localeData, locale);
-
-        // Get the SHORT and MEDIUM 12- and 24-hour time format strings.
-        localeData.timeFormat_hm = ICU.getBestDateTimePattern("hm", locale);
-        localeData.timeFormat_Hm = ICU.getBestDateTimePattern("Hm", locale);
-        localeData.timeFormat_hms = ICU.getBestDateTimePattern("hms", locale);
-        localeData.timeFormat_Hms = ICU.getBestDateTimePattern("Hms", locale);
 
         // Fix up a couple of patterns.
         if (localeData.fullTimeFormat != null) {
@@ -395,10 +368,6 @@ public final class LocaleData {
             .getWeekdays(DateFormatSymbols.STANDALONE, DateFormatSymbols.ABBREVIATED);
         tinyStandAloneWeekdayNames = dfs
             .getWeekdays(DateFormatSymbols.STANDALONE, DateFormatSymbols.NARROW);
-
-        String[] ampmNarrowStrings = dfs.getAmpmNarrowStrings();
-        narrowAm = ampmNarrowStrings[0];
-        narrowPm = ampmNarrowStrings[1];
 
         amPm = dfs.getAmPmStrings();
         eras = dfs.getEras();

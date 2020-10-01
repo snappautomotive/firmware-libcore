@@ -664,7 +664,6 @@ package dalvik.system {
     method public void clampGrowthLimit();
     method public void clearGrowthLimit();
     method public static boolean didPruneDalvikCache();
-    method public void disableJitCompilation();
     method public static String getCurrentInstructionSet();
     method public static String getInstructionSet(String);
     method public static dalvik.system.VMRuntime getRuntime();
@@ -696,7 +695,6 @@ package dalvik.system {
     method public static void setProcessDataDirectory(String);
     method public static void setProcessPackageName(String);
     method public void setTargetSdkVersion(int);
-    method public void startJitCompilation();
     method public void updateProcessState(int);
     method public String vmInstructionSet();
     method public String vmLibrary();
@@ -916,40 +914,6 @@ package libcore.content.type {
   public static final class MimeMap.Builder {
     method public libcore.content.type.MimeMap build();
     method public libcore.content.type.MimeMap.Builder put(@NonNull String, @NonNull java.util.List<java.lang.String>);
-  }
-
-}
-
-package libcore.icu {
-
-  public final class DateIntervalFormat {
-    method public static String formatDateRange(long, long, int, String);
-  }
-
-  public final class LocaleData {
-    method public static libcore.icu.LocaleData get(java.util.Locale);
-    method public String getDateFormat(int);
-    field public String[] amPm;
-    field public Integer firstDayOfWeek;
-    field public String[] longMonthNames;
-    field public String[] longStandAloneMonthNames;
-    field public String[] longStandAloneWeekdayNames;
-    field public String[] longWeekdayNames;
-    field public String narrowAm;
-    field public String narrowPm;
-    field public String[] shortMonthNames;
-    field public String[] shortStandAloneMonthNames;
-    field public String[] shortStandAloneWeekdayNames;
-    field public String[] shortWeekdayNames;
-    field public String timeFormat_Hm;
-    field public String timeFormat_Hms;
-    field public String timeFormat_hm;
-    field public String timeFormat_hms;
-    field public String[] tinyMonthNames;
-    field public String[] tinyStandAloneMonthNames;
-    field public String[] tinyStandAloneWeekdayNames;
-    field public String[] tinyWeekdayNames;
-    field public char zeroDigit;
   }
 
 }
