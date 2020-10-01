@@ -22,6 +22,8 @@ import android.icu.text.CurrencyMetaInfo.CurrencyFilter;
 import android.icu.text.DateTimePatternGenerator;
 import android.icu.util.ULocale;
 
+import com.android.icu.util.LocaleNative;
+
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -49,6 +51,20 @@ public final class ICU {
   private static String[] isoCountries;
 
   private static String[] isoLanguages;
+
+  static {
+    // Fill CACHED_PATTERNS with the patterns from default locale and en-US initially.
+    // Likely, this is initialized in Zygote and the initial values in the cache can be shared
+    // among app. The cache was filled by LocaleData in the older Android platform, but moved to
+    // here, due to an performance issue http://b/161846393.
+    // It initializes 2 x 4 = 8 values in the CACHED_PATTERNS whose max size should be >= 8.
+    for (Locale locale : new Locale[] {Locale.US, Locale.getDefault()}) {
+      getTimePattern(locale, false, false);
+      getTimePattern(locale, false, true);
+      getTimePattern(locale, true, false);
+      getTimePattern(locale, true, true);
+    }
+  }
 
   private ICU() {
   }
@@ -272,6 +288,16 @@ public final class ICU {
     return availableLocalesCache.clone();
   }
 
+  /* package */ static String getTimePattern(Locale locale, boolean is24Hour, boolean withSecond) {
+    final String skeleton;
+    if (withSecond) {
+      skeleton = is24Hour ? "Hms" : "hms";
+    } else {
+      skeleton = is24Hour ? "Hm" : "hm";
+    }
+    return getBestDateTimePattern(skeleton, locale);
+  }
+
   @UnsupportedAppUsage
   public static String getBestDateTimePattern(String skeleton, Locale locale) {
     String languageTag = locale.toLanguageTag();
@@ -396,7 +422,9 @@ public final class ICU {
   /**
    * Takes a BCP-47 language tag (Locale.toLanguageTag()). e.g. en-US, not en_US
    */
-  public static native void setDefaultLocale(String languageTag);
+  public static void setDefaultLocale(String languageTag) {
+    LocaleNative.setDefault(languageTag);
+  }
 
   /**
    * Returns a locale name, not a BCP-47 language tag. e.g. en_US not en-US.
