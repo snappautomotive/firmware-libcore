@@ -453,12 +453,13 @@ java_library_static {
     name: "core-test-rules",
     visibility: [
         "//art/build/sdk",
+        "//cts/tests/tests/util",
         "//external/conscrypt",
         "//external/conscrypt/apex/tests",
         "//frameworks/base/location/tests/locationtests",
         "//frameworks/base/core/tests/coretests",
         "//frameworks/base/wifi/tests",
-        "//cts/tests/tests/util",
+        "//packages/modules/Wifi/framework/tests",
     ],
     hostdex: true,
     srcs: [
@@ -509,6 +510,8 @@ java_library_static {
         "//libcore/benchmarks",
         "//packages/apps/KeyChain/tests",
         "//system/timezone/distro/core",
+        "//packages/modules/Connectivity/tests/cts/net",
+        "//packages/modules/Connectivity/tests/cts/net/api23Test",
     ],
     hostdex: true,
     srcs: ["support/src/test/java/**/*.java"],
