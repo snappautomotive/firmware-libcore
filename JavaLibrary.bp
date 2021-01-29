@@ -223,11 +223,13 @@ java_library {
     name: "core-oj",
     visibility: [
         "//art/build/apex",
+        "//art/build/sdk",
         "//external/wycheproof",
         "//libcore/benchmarks",
+        "//packages/modules/ArtPrebuilt",
     ],
     apex_available: [
-        "com.android.art.release",
+        "com.android.art",
         "com.android.art.debug",
     ],
     defaults: ["libcore_java_defaults"],
@@ -269,13 +271,15 @@ java_library {
     name: "core-libart",
     visibility: [
         "//art/build/apex",
+        "//art/build/sdk",
         "//external/robolectric-shadows",
         "//external/wycheproof",
         "//libcore/benchmarks",
         "//frameworks/layoutlib",
+        "//packages/modules/ArtPrebuilt",
     ],
     apex_available: [
-        "com.android.art.release",
+        "com.android.art",
         "com.android.art.debug",
     ],
     defaults: ["libcore_java_defaults"],
@@ -424,12 +428,13 @@ java_library_static {
     name: "core-test-rules",
     visibility: [
         "//art/build/sdk",
+        "//cts/tests/tests/util",
         "//external/conscrypt",
         "//external/conscrypt/apex/tests",
         "//frameworks/base/location/tests/locationtests",
         "//frameworks/base/core/tests/coretests",
         "//frameworks/base/wifi/tests",
-        "//cts/tests/tests/util",
+        "//packages/modules/Wifi/framework/tests",
     ],
     hostdex: true,
     srcs: [
@@ -480,6 +485,8 @@ java_library_static {
         "//libcore/benchmarks",
         "//packages/apps/KeyChain/tests",
         "//system/timezone/distro/core",
+        "//packages/modules/Connectivity/tests/cts/net",
+        "//packages/modules/Connectivity/tests/cts/net/api23Test",
     ],
     hostdex: true,
     srcs: ["support/src/test/java/**/*.java"],
@@ -497,6 +504,7 @@ java_library_static {
 java_test {
     name: "jsr166-tests",
     visibility: [
+        "//art/build/sdk",
         "//cts/tests/libcore/jsr166",
     ],
     srcs: ["jsr166-tests/src/test/java/**/*.java"],
@@ -527,6 +535,7 @@ genrule {
 java_test {
     name: "core-tests",
     visibility: [
+        "//art/build/sdk",
         "//cts/tests/libcore/luni",
     ],
     defaults: ["libcore_java_defaults"],
@@ -679,6 +688,7 @@ java_test {
 java_test {
     name: "core-ojtests-public",
     visibility: [
+        "//art/build/sdk",
         "//cts/tests/libcore/ojluni",
     ],
     defaults: ["libcore_java_defaults"],
@@ -815,7 +825,9 @@ rewrite_openjdk_doc_args = "--replace-documentation " +
 java_sdk_library {
     name: "art.module.public.api",
     visibility: [
+        "//art/build/sdk",
         "//frameworks/base",
+        "//frameworks/base/api",
     ],
     srcs: [
         ":core_oj_api_files",
@@ -837,6 +849,7 @@ java_sdk_library {
     api_only: true,
     droiddoc_options: [
         rewrite_openjdk_doc_args,
+        "--force-convert-to-warning-nullability-annotations +*:-android.*:+android.icu.*:-dalvik.* ",
     ],
 
     // Emit nullability annotations from the source to the stub files.
@@ -859,6 +872,12 @@ java_sdk_library {
     patch_module: "java.base",
     sdk_version: "none",
     system_modules: "java-current-stubs-system-modules",
+    // The base name for the artifacts that are automatically published to the
+    // dist and which end up in one of the sub-directories of prebuilts/sdk.
+    // As long as this matches the name of the artifacts in prebuilts/sdk then
+    // the API will be checked for compatibility against the latest released
+    // version of the API.
+    dist_stem: "art",
 }
 
 // Used when compiling higher-level code against art.module.public.api.stubs.
@@ -984,21 +1003,6 @@ droidstubs {
     check_nullability_warnings: "nullability_warnings.txt",
 }
 
-// A host library containing time zone related classes. Used for
-// host-side tools and tests that have to deal with Android
-// time zone data.
-java_library_host {
-    name: "timezone-host",
-    visibility: [
-        "//art/build/sdk",
-        "//system/timezone/distro/core",
-    ],
-    srcs: [
-        ":timezone_host_files",
-        ":timezone_host_libcore_files",
-    ],
-}
-
 // A special set of system modules for building the following library for use
 // in the art-module-public-api-system-modules.
 java_system_modules {
@@ -1030,6 +1034,8 @@ java_library {
 java_library {
     name: "art.module.api.annotations",
     visibility: [
+        "//art/build/sdk",
+        "//external/icu/android_icu4j",
         "//frameworks/base",
     ],
     host_supported: true,

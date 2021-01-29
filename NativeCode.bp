@@ -51,7 +51,7 @@ cc_library_shared {
         "//art/build/apex",
     ],
     apex_available: [
-        "com.android.art.release",
+        "com.android.art",
         "com.android.art.debug",
     ],
     defaults: [
@@ -60,13 +60,12 @@ cc_library_shared {
     ],
     srcs: [
         ":luni_native_srcs",
-        "dalvik/src/main/native/org_apache_harmony_dalvik_NativeTestTarget.cpp",
     ],
     shared_libs: [
-        "libandroidicu",
         "libandroidio",
         "libbase",
         "libcrypto",
+        "libicu",
         "libexpat",
         "libnativehelper",
         "libz",
@@ -84,7 +83,7 @@ cc_library_shared {
         "//external/conscrypt",
     ],
     apex_available: [
-        "com.android.art.release",
+        "com.android.art",
         "com.android.art.debug",
         // TODO(b/147813447) remove this. This is currently due to the 'runtime_libs'
         // dependency from libjavacrypto in the conscrypt APEX.
@@ -130,6 +129,7 @@ cc_defaults {
     shared_libs: [
         "libandroidio",
         "libcrypto",
+        "libicu",
         "libnativehelper",
         "libz",
     ],
@@ -146,13 +146,7 @@ cc_defaults {
         },
         android: {
             shared_libs: [
-                "libandroidicu",
                 "libdl_android",
-            ],
-        },
-        host: {
-            shared_libs: [
-                "libicuuc",
             ],
         },
     },
@@ -166,7 +160,7 @@ cc_library_shared {
         "//art/build/apex",
     ],
     apex_available: [
-        "com.android.art.release",
+        "com.android.art",
         "com.android.art.debug",
     ],
     defaults: ["libopenjdk_native_defaults"],

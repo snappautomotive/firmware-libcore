@@ -16,9 +16,19 @@
 package libcore.java.time.format;
 
 import org.junit.Test;
+
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
+import java.time.chrono.Chronology;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DecimalStyle;
+import java.time.format.FormatStyle;
+import java.time.temporal.ChronoField;
+import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalAccessor;
 import java.util.Locale;
 
 import static org.junit.Assert.assertEquals;
@@ -58,6 +68,109 @@ public class DateTimeFormatterTest {
 
             // Verify that calling withDecimalStyle() doesn't modify the original formatter.
             assertEquals(formatter.toString(), DecimalStyle.STANDARD, formatter.getDecimalStyle());
+        }
+    }
+
+    // Regression test for http://b/170717042.
+    @Test
+    public void test_format_locale_agq() {
+        Locale locale = new Locale("agq");
+        ZonedDateTime zonedDateTime = Instant.EPOCH.atZone(ZoneId.of("UTC"));
+        assertEquals("kɨbâ kɨ 1",
+                formatWithPattern(locale, "qqqq"/* standalone full quarter */, zonedDateTime));
+    }
+
+    @Test
+    public void test_format_locale_en_US() {
+        Locale locale = Locale.US;
+        ZonedDateTime zonedDateTime = Instant.EPOCH.atZone(ZoneId.of("UTC"));
+        assertEquals("1st quarter",
+                formatWithPattern(locale, "qqqq"/* standalone full quarter */, zonedDateTime));
+    }
+
+    private static String formatWithPattern(Locale l, String pattern, TemporalAccessor datetime) {
+        return DateTimeFormatter.ofPattern(pattern, l).format(datetime);
+    }
+
+    // 1 January 2022 00:00:00 GMT+00:00
+    private static final Instant TEST_INSTANT = Instant.ofEpochSecond(1640995200L);
+
+    // Regression test for http://b/174804526 when DateTimeFormatter fetches symbol 'B' from ICU.
+    @Test
+    public void test_format_locale_my_MM() {
+        DateTimeFormatter dateTimeFormatter = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
+                .withLocale(new Locale("my", "MM"))
+                .withZone(ZoneOffset.UTC);
+        assertEquals("0:00", dateTimeFormatter.format(TEST_INSTANT));
+        TemporalAccessor accessor = dateTimeFormatter.parse("23:59");
+        assertEquals(23, accessor.getLong(ChronoField.HOUR_OF_DAY));
+        assertEquals(59, accessor.getLong(ChronoField.MINUTE_OF_HOUR));
+    }
+
+
+    /**
+     * Test {@link DateTimeFormatter#format(TemporalAccessor)} does not crash on available locales.
+     */
+    @Test
+    public void test_format_allLocales() {
+        for (Locale locale : Locale.getAvailableLocales()) {
+            for (FormatStyle formatStyle : FormatStyle.values()) {
+                try {
+                    DateTimeFormatter.ofLocalizedTime(formatStyle)
+                            .withLocale(locale)
+                            .withZone(ZoneOffset.UTC)
+                            .format(TEST_INSTANT);
+
+                    DateTimeFormatter.ofLocalizedDate(formatStyle)
+                            .withLocale(locale)
+                            .withZone(ZoneOffset.UTC)
+                            .format(TEST_INSTANT);
+
+                    DateTimeFormatter.ofLocalizedDateTime(formatStyle)
+                            .withLocale(locale)
+                            .withZone(ZoneOffset.UTC)
+                            .format(TEST_INSTANT);
+                } catch (RuntimeException cause) {
+                    throw new RuntimeException("locale:" + locale +
+                            " formatStyle:" + formatStyle.name(), cause);
+                }
+            }
+        }
+    }
+
+    /**
+     * Test {@link DateTimeFormatter#format(TemporalAccessor)} does not crash on available locales
+     * with all possible Chronologies.
+     */
+    @Test
+    public void test_format_allLocales_allChronologies() {
+        for (Locale locale : Locale.getAvailableLocales()) {
+            for (Chronology chronology : Chronology.getAvailableChronologies()) {
+                for (FormatStyle formatStyle : FormatStyle.values()) {
+                    try {
+                        DateTimeFormatter.ofLocalizedTime(formatStyle)
+                                .withLocale(locale)
+                                .withChronology(chronology)
+                                .withZone(ZoneOffset.UTC)
+                                .format(TEST_INSTANT);
+
+                        DateTimeFormatter.ofLocalizedDate(formatStyle)
+                                .withLocale(locale)
+                                .withChronology(chronology)
+                                .withZone(ZoneOffset.UTC)
+                                .format(TEST_INSTANT);
+
+                        DateTimeFormatter.ofLocalizedDateTime(formatStyle)
+                                .withLocale(locale)
+                                .withChronology(chronology)
+                                .withZone(ZoneOffset.UTC)
+                                .format(TEST_INSTANT);
+                    } catch (RuntimeException cause) {
+                        throw new RuntimeException("locale:" + locale +
+                                " formatStyle:" + formatStyle.name(), cause);
+                    }
+                }
+            }
         }
     }
 }
