@@ -52,6 +52,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import junit.framework.TestCase;
 
@@ -1044,6 +1046,50 @@ public class OsTest extends TestCase {
         }
     }
 
+    private int[] getKernelVersion() throws Exception {
+        // Example:
+        // 4.9.29-g958411d --> 4.9
+        String release = Os.uname().release;
+        Matcher m = Pattern.compile("^(\\d+)\\.(\\d+)").matcher(release);
+        assertTrue("No pattern in release string: " + release, m.find());
+        return new int[]{ Integer.parseInt(m.group(1)), Integer.parseInt(m.group(2)) };
+    }
+
+    private boolean kernelIsAtLeast(int major, int minor) throws Exception {
+        int[] version = getKernelVersion();
+        return version[0] > major || (version[0] == major && version[1] >= minor);
+    }
+
+    public void test_socket_udpGro_setAndGet() throws Exception {
+        // UDP GRO not required to be enabled on kernels prior to 5.4
+        if (!kernelIsAtLeast(5, 4)) return;
+
+        final FileDescriptor fd = Os.socket(AF_INET6, SOCK_DGRAM, 0);
+        try {
+            final int setValue = 1;
+            Os.setsockoptInt(fd, IPPROTO_UDP, UDP_GRO, setValue);
+            // getsockopt(IPPROTO_UDP, UDP_GRO) is not implemented.
+        } finally {
+            Os.close(fd);
+        }
+    }
+
+    public void test_socket_udpGso_set() throws Exception {
+        // UDP GSO not required to be enabled on kernels prior to 4.19.
+        if (!kernelIsAtLeast(4, 19)) return;
+
+        final FileDescriptor fd = Os.socket(AF_INET, SOCK_DGRAM, 0);
+        try {
+            assertEquals(0, Os.getsockoptInt(fd, IPPROTO_UDP, UDP_SEGMENT));
+
+            final int setValue = 1452;
+            Os.setsockoptInt(fd, IPPROTO_UDP, UDP_SEGMENT, setValue);
+            assertEquals(setValue, Os.getsockoptInt(fd, IPPROTO_UDP, UDP_SEGMENT));
+        } finally {
+            Os.close(fd);
+        }
+    }
+
     /**
      * Tests that TCP_USER_TIMEOUT can be set on a TCP socket, but doesn't test
      * that it behaves as expected.
@@ -1103,8 +1149,8 @@ public class OsTest extends TestCase {
     }
 
     public void test_socket_setSockoptTimeval_effective() throws Exception {
-        int timeoutValueMillis = 50;
-        int allowedTimeoutMillis = 500;
+        int timeoutValueMillis = 250;
+        int allowedTimeoutMillis = 3000;
 
         FileDescriptor fd = Os.socket(AF_INET6, SOCK_DGRAM, IPPROTO_UDP);
         try {
@@ -1116,8 +1162,15 @@ public class OsTest extends TestCase {
             long startTime = System.nanoTime();
             expectException(() -> Os.read(fd, request, 0, request.length),
                     ErrnoException.class, EAGAIN, "Expected timeout");
-            long endTime = System.nanoTime();
-            assertTrue(Duration.ofNanos(endTime - startTime).toMillis() < allowedTimeoutMillis);
+            long durationMillis = Duration.ofNanos(System.nanoTime() - startTime).toMillis();
+            // TODO(b/176104885): Sometimes returns 1 msec early. It's unclear that's correct.
+            // We haven't seen this on modern devices, and allow it for now. Needs investigation.
+            assertTrue("Timeout of " + timeoutValueMillis + "ms returned after "
+                    + durationMillis +"ms",
+                durationMillis >= timeoutValueMillis - 1);
+            assertTrue("Timeout of " + timeoutValueMillis + "ms failed to return within "
+                    + allowedTimeoutMillis  + "ms",
+                durationMillis < allowedTimeoutMillis);
         } finally {
             Os.close(fd);
         }

@@ -17,19 +17,21 @@
 package dalvik.system;
 
 import android.compat.annotation.ChangeId;
-import android.compat.annotation.EnabledAfter;
+import android.compat.annotation.EnabledSince;
+import android.compat.annotation.Disabled;
 import android.compat.annotation.UnsupportedAppUsage;
 
 import dalvik.annotation.compat.VersionCodes;
+import dalvik.annotation.optimization.CriticalNative;
+import dalvik.annotation.optimization.FastNative;
+
+import libcore.api.CorePlatformApi;
 
 import java.lang.ref.FinalizerReference;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
-
-import dalvik.annotation.optimization.CriticalNative;
-import dalvik.annotation.optimization.FastNative;
 
 /**
  * Provides an interface to VM-global, Dalvik-specific features.
@@ -70,7 +72,7 @@ public final class VMRuntime {
      * reflection.
      */
     @ChangeId
-    @EnabledAfter(targetSdkVersion = VersionCodes.Q)
+    @EnabledSince(targetSdkVersion = VersionCodes.R)
     private static final long
         PREVENT_META_REFLECTION_BLOCKLIST_ACCESS = 142365358; // This is a bug id.
 
@@ -78,15 +80,24 @@ public final class VMRuntime {
      * Gating access to greylist-max-p APIs.
      */
     @ChangeId
-    @EnabledAfter(targetSdkVersion = VersionCodes.P)
+    @EnabledSince(targetSdkVersion = VersionCodes.Q)
     private static final long HIDE_MAXTARGETSDK_P_HIDDEN_APIS = 149997251; // This is a bug id.
 
     /**
      * Gating access to greylist-max-q APIs.
      */
     @ChangeId
-    @EnabledAfter(targetSdkVersion = VersionCodes.Q)
+    @EnabledSince(targetSdkVersion = VersionCodes.R)
     private static final long HIDE_MAXTARGETSDK_Q_HIDDEN_APIS = 149994052; // This is a bug id.
+
+    /**
+     * Allow apps accessing @TestApi APIs.
+     *
+     * <p>This will always be disabled by default and should only be used by platform test code.
+     */
+    @ChangeId
+    @Disabled
+    private static final long ALLOW_TEST_API_ACCESS = 166236554; // This is a bug id.
 
     /**
      * Interface for logging hidden API usage events.
@@ -193,13 +204,11 @@ public final class VMRuntime {
     }
 
     /**
-     * Returns the object that represents the VM instance's Dalvik-specific
-     * runtime environment.
-     *
+     * Returns the object that represents the current runtime.
      * @return the runtime object
      */
     @UnsupportedAppUsage
-    @libcore.api.CorePlatformApi
+    @libcore.api.CorePlatformApi(status = CorePlatformApi.Status.STABLE)
     @libcore.api.IntraCoreApi
     public static VMRuntime getRuntime() {
         return THE_ONE;
@@ -244,7 +253,7 @@ public final class VMRuntime {
      * Returns whether the VM is running in 64-bit mode.
      */
     @UnsupportedAppUsage
-    @libcore.api.CorePlatformApi
+    @libcore.api.CorePlatformApi(status = CorePlatformApi.Status.STABLE)
     @FastNative
     public native boolean is64Bit();
 
