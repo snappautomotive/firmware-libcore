@@ -230,7 +230,7 @@ public final class TestKeyStore {
                 .aliasPrefix("server")
                 .signer(INTERMEDIATE_CA.getPrivateKey("RSA", "RSA"))
                 .rootCa(INTERMEDIATE_CA.getRootCertificate("RSA"))
-                .addSubjectAltName(new GeneralName(GeneralName.dNSName, LOCAL_HOST_NAME))
+                .addSubjectAltNameIpAddress(LOCAL_HOST_ADDRESS)
                 .certificateSerialNumber(BigInteger.valueOf(3))
                 .build();
         CLIENT = new TestKeyStore(createClient(INTERMEDIATE_CA.keyStore), null, null);
@@ -641,7 +641,7 @@ public final class TestKeyStore {
         }
 
         private X500Principal localhost() {
-            return new X500Principal("CN=Local Host");
+            return new X500Principal("CN=" + LOCAL_HOST_NAME);
         }
     }
 
