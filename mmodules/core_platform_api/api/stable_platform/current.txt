@@ -31,6 +31,43 @@ package android.compat {
 package dalvik.system {
 
   public final class VMDebug {
+    method public static void attachAgent(String, ClassLoader) throws java.io.IOException;
+    method public static long countInstancesOfClass(Class, boolean);
+    method public static long[] countInstancesOfClasses(Class[], boolean);
+    method public static void dumpHprofData(String) throws java.io.IOException;
+    method public static void dumpHprofData(String, java.io.FileDescriptor) throws java.io.IOException;
+    method public static void dumpHprofDataDdms();
+    method public static void dumpReferenceTables();
+    method public static int getAllocCount(int);
+    method public static int getLoadedClassCount();
+    method public static int getMethodTracingMode();
+    method public static String getRuntimeStat(String);
+    method public static java.util.Map<java.lang.String,java.lang.String> getRuntimeStats();
+    method public static String[] getVmFeatureList();
+    method public static boolean isDebuggerConnected();
+    method public static boolean isDebuggingEnabled();
+    method public static long lastDebuggerActivity();
+    method public static void printLoadedClasses(int);
+    method public static void resetAllocCount(int);
+    method public static void setAllocTrackerStackDepth(int);
+    method public static void startAllocCounting();
+    method public static void startMethodTracing(String, int, int, boolean, int);
+    method public static void startMethodTracing(String, java.io.FileDescriptor, int, int, boolean, int, boolean);
+    method public static void startMethodTracingDdms(int, int, boolean, int);
+    method public static void stopAllocCounting();
+    method public static void stopMethodTracing();
+    method public static long threadCpuTimeNanos();
+    field public static final int KIND_ALL_COUNTS = -1; // 0xffffffff
+    field public static final int KIND_GLOBAL_ALLOCATED_BYTES = 2; // 0x2
+    field public static final int KIND_GLOBAL_ALLOCATED_OBJECTS = 1; // 0x1
+    field public static final int KIND_GLOBAL_CLASS_INIT_COUNT = 32; // 0x20
+    field public static final int KIND_GLOBAL_CLASS_INIT_TIME = 64; // 0x40
+    field public static final int KIND_GLOBAL_FREED_BYTES = 8; // 0x8
+    field public static final int KIND_GLOBAL_FREED_OBJECTS = 4; // 0x4
+    field public static final int KIND_GLOBAL_GC_INVOCATIONS = 16; // 0x10
+    field public static final int KIND_THREAD_ALLOCATED_BYTES = 131072; // 0x20000
+    field public static final int KIND_THREAD_ALLOCATED_OBJECTS = 65536; // 0x10000
+    field public static final int KIND_THREAD_GC_INVOCATIONS = 1048576; // 0x100000
     field public static final int TRACE_COUNT_ALLOCS = 1; // 0x1
   }
 
@@ -66,6 +103,13 @@ package libcore.content.type {
 
 package libcore.io {
 
+  public final class IoUtils {
+    method public static void close(java.io.FileDescriptor) throws java.io.IOException;
+    method public static void closeQuietly(AutoCloseable);
+    method public static void closeQuietly(java.io.FileDescriptor);
+    method public static void closeQuietly(java.net.Socket);
+  }
+
   public final class Streams {
     method public static int copy(java.io.InputStream, java.io.OutputStream) throws java.io.IOException;
     method public static byte[] readFully(java.io.InputStream) throws java.io.IOException;
@@ -75,7 +119,75 @@ package libcore.io {
 
 }
 
+package libcore.net {
+
+  public class InetAddressUtils {
+    method public static boolean isNumericAddress(String);
+    method public static java.net.InetAddress parseNumericAddress(String);
+  }
+
+  public abstract class NetworkSecurityPolicy {
+    ctor public NetworkSecurityPolicy();
+    method public static libcore.net.NetworkSecurityPolicy getInstance();
+    method public abstract boolean isCertificateTransparencyVerificationRequired(String);
+    method public abstract boolean isCleartextTrafficPermitted();
+    method public abstract boolean isCleartextTrafficPermitted(String);
+    method public static void setInstance(libcore.net.NetworkSecurityPolicy);
+  }
+
+}
+
+package libcore.net.event {
+
+  public class NetworkEventDispatcher {
+    method public static libcore.net.event.NetworkEventDispatcher getInstance();
+    method public void onNetworkConfigurationChanged();
+  }
+
+}
+
 package libcore.util {
+
+  public class FP16 {
+    method public static short ceil(short);
+    method public static int compare(short, short);
+    method public static boolean equals(short, short);
+    method public static short floor(short);
+    method public static boolean greater(short, short);
+    method public static boolean greaterEquals(short, short);
+    method public static boolean isInfinite(short);
+    method public static boolean isNaN(short);
+    method public static boolean isNormalized(short);
+    method public static boolean less(short, short);
+    method public static boolean lessEquals(short, short);
+    method public static short max(short, short);
+    method public static short min(short, short);
+    method public static short rint(short);
+    method public static float toFloat(short);
+    method public static short toHalf(float);
+    method public static String toHexString(short);
+    method public static short trunc(short);
+    field public static final short EPSILON = 5120; // 0x1400
+    field public static final int EXPONENT_BIAS = 15; // 0xf
+    field public static final int EXPONENT_SHIFT = 10; // 0xa
+    field public static final int EXPONENT_SIGNIFICAND_MASK = 32767; // 0x7fff
+    field public static final short LOWEST_VALUE = -1025; // 0xfffffbff
+    field public static final int MAX_EXPONENT = 15; // 0xf
+    field public static final short MAX_VALUE = 31743; // 0x7bff
+    field public static final int MIN_EXPONENT = -14; // 0xfffffff2
+    field public static final short MIN_NORMAL = 1024; // 0x400
+    field public static final short MIN_VALUE = 1; // 0x1
+    field public static final short NEGATIVE_INFINITY = -1024; // 0xfffffc00
+    field public static final short NEGATIVE_ZERO = -32768; // 0xffff8000
+    field public static final short NaN = 32256; // 0x7e00
+    field public static final short POSITIVE_INFINITY = 31744; // 0x7c00
+    field public static final short POSITIVE_ZERO = 0; // 0x0
+    field public static final int SHIFTED_EXPONENT_MASK = 31; // 0x1f
+    field public static final int SIGNIFICAND_MASK = 1023; // 0x3ff
+    field public static final int SIGN_MASK = 32768; // 0x8000
+    field public static final int SIGN_SHIFT = 15; // 0xf
+    field public static final int SIZE = 16; // 0x10
+  }
 
   public class HexEncoding {
     method public static byte[] decode(String) throws java.lang.IllegalArgumentException;

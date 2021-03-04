@@ -262,6 +262,9 @@ java_library {
 
     notice: "ojluni/NOTICE",
 
+    hiddenapi_additional_annotations: [
+        "core-oj-hiddenapi-annotations",
+    ],
 }
 
 // Contains parts of core library not associated with OpenJDK. Contains not
@@ -322,13 +325,6 @@ java_library {
 // Provided solely to contribute information about which hidden parts of the
 // core-oj API are used by apps.
 //
-// The build system determines that this library provides hiddenapi information
-// for the core-oj bootjar because its name is of the form <x>-hiddenapi, where
-// <x> is the name of a boot jar. That triggers the generation of a flags.csv
-// file which encapsulates information extracted from the UnsupportedAppUsage
-// annotations in the dex. The information from that file is then encoded into
-// the core-oj file.
-//
 // Usually, e.g. for core-libart, the UnsupportedAppUsage annotations are
 // added to the source that is compiled directly into the bootjar and the build
 // system extracts the information about UnsupportedAppUsage directly from
@@ -340,7 +336,7 @@ java_library {
 // difficult to pull down changes from upstream.
 //
 java_library {
-    name: "core-oj-hiddenapi",
+    name: "core-oj-hiddenapi-annotations",
     // Do not allow this to be accessed from outside this directory.
     visibility: ["//visibility:private"],
     defaults: ["libcore_java_defaults"],
@@ -531,6 +527,14 @@ genrule {
     tools: ["smali"],
 }
 
+filegroup {
+    name: "core-ojtests-javax-resources",
+    // Set path to keep the resources and .class files in the same directory in the jar file.
+    path: "ojluni/src",
+    srcs: ["ojluni/src/test/javax/**/*"],
+    exclude_srcs: ["ojluni/src/test/javax/**/*.java"],
+}
+
 // Builds the core-tests library.
 java_test {
     name: "core-tests",
@@ -565,6 +569,7 @@ java_test {
     ],
     exclude_java_resource_dirs: [
         "ojluni/src/test/java",
+        "ojluni/src/test/javax",
         "ojluni/src/test/resources",
     ],
 
@@ -595,7 +600,6 @@ java_test {
         "nist-pkix-tests",
         "slf4j-jdk14",
         "sqlite-jdbc",
-        "tzdata-testing",
         "truth-prebuilt-jar",
     ],
 
@@ -651,10 +655,15 @@ java_test {
 
     srcs: [
         "ojluni/src/test/java/**/*.java",
+        "ojluni/src/test/javax/**/*.java",
     ],
     java_resource_dirs: [
         "ojluni/src/test/java",
         "ojluni/src/test/resources",
+    ],
+
+    java_resources: [
+        ":core-ojtests-javax-resources",
     ],
 
     sdk_version: "none",
@@ -664,7 +673,10 @@ java_test {
         "bouncycastle",
     ],
 
-    static_libs: ["testng"],
+    static_libs: [
+        "junit",
+        "testng",
+    ],
 
     // ojluni/src/test/java/util/stream/{bootlib,boottest}
     // contains tests that are in packages from java.base;
@@ -694,6 +706,7 @@ java_test {
     defaults: ["libcore_java_defaults"],
     srcs: [
         "ojluni/src/test/java/**/*.java",
+        "ojluni/src/test/javax/**/*.java",
     ],
     // Filter out the following:
     // 1.) DeserializeMethodTest and SerializedLambdaTest, because they depends on stub classes
@@ -712,10 +725,15 @@ java_test {
         "ojluni/src/test/dist",
     ],
 
+    java_resources: [
+        ":core-ojtests-javax-resources",
+    ],
+
     sdk_version: "none",
     system_modules: "core-all-system-modules",
     libs: [
         "bouncycastle",
+        "junit",
         "okhttp",
         "testng",
     ],
@@ -1019,6 +1037,9 @@ java_system_modules {
 // avoid introducing compile time cycles.
 java_library {
     name: "art.module.api.annotations.for.system.modules",
+    visibility: [
+        "//art/libartservice",
+    ],
     srcs: [
         ":api_surface_annotation_files",
     ],
