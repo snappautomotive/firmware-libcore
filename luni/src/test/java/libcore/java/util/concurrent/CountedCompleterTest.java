@@ -19,6 +19,7 @@ package libcore.java.util.concurrent;
 import static org.junit.Assert.assertEquals;
 
 import java.util.concurrent.CountedCompleter;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -101,16 +102,18 @@ public class CountedCompleterTest {
     }
 
     /**
-     * Forces a task to wait for its children to complete before calling tryComplete.
+     * Forces a task to complete all its children by running them its own pool.
      *
-     * This implementation makes use of helpComplete to ensure that all the children tasks are
-     * resolved before completing itself.
-     *
-     * The function performs an action on all the elements of the array and it does so by creating
-     * sub-tasks for each element of the array. For each element, the action is applied to it,
-     * resolving the tasks.
+     * After a parent task adds its children tasks to it's own pool queue, it uses helpComplete to
+     * ensure that those tasks are run before it returns. As all tasks are queued to the same pool
+     * and the parallelism is set to 1, this will make the pool execute the children tasks from
+     * within the execution of the parent.
      */
     private static void completeAllChildren(Integer[] array, Consumer<Integer> action) {
+
+        /**
+         * Leaf task that just runs the action and then completes.
+         */
         class Task extends CountedCompleter<Integer> {
             final int idx;
 
@@ -122,44 +125,56 @@ public class CountedCompleterTest {
             @Override
             public void compute() {
                 action.accept(array[idx]);
-
-                if (getPendingCount() == 0) {
-                    tryComplete();
-                }
+                tryComplete();
             }
         }
 
+        /**
+         * The parent task that creates and queues its children, then executes them on its own pool
+         * before completing.
+         */
         class MainTask extends CountedCompleter<Integer> {
+            final ForkJoinPool pool;
             final int lo;
             final int hi;
 
-            MainTask(CountedCompleter<Integer> parent, int lo, int hi) {
-                super(parent);
+            MainTask(ForkJoinPool pool, int lo, int hi) {
+                super(null);
+                this.pool = pool;
                 this.lo = lo;
                 this.hi = hi;
             }
 
             @Override
             public void compute() {
-                for (int idx = lo; idx + 1 < hi; idx += 2) {
-                    // must set pending count before fork
-                    setPendingCount(2);
-                    new Task(this, idx).fork();
-                    new Task(this, idx+1).fork();
-                    helpComplete(2);
+                final int count = hi - lo;
+                setPendingCount(count);
+
+                for (int idx = lo; idx < hi; ++idx) {
+                    // Do not fork the task, rather add it to the parent's pool so that it is
+                    // guaranteed not to be running before this compute() returns, unless
+                    // helpComplete() is called.
+                    pool.submit(new Task(this, idx));
                 }
 
-                if ( (hi - lo) % 2 == 1 ) {
-                    action.accept(array[hi-1]);
-                }
+                // Make the pool run all the children tasks before moving one
+                helpComplete(count);
 
+                // If helpComplete() worked properly, by this point the pending count should be back
+                // to 0, so the tryComplete will terminate this task. Otherwise, the task will not
+                // get completed.
                 if (getPendingCount() == 0) {
                     tryComplete();
                 }
             }
         }
 
-        new MainTask(null, 0, array.length).invoke();
+        // Use a pool with parallelism set to 1 so the children tasks cannot run before the main
+        // task, unless helpComplete is used.
+        ForkJoinPool pool = new ForkJoinPool(1);
+        MainTask task = new MainTask(pool, 0, array.length);
+        pool.submit(task);
+        task.join();
     }
 
     /**
