@@ -181,10 +181,10 @@ public class InetAddress implements java.io.Serializable {
         throw new RuntimeException("Stub!");
     }
 
-    @UnsupportedAppUsage(maxTargetSdk = VersionCodes.P, trackingBug = 78686891,
-        publicAlternatives = "Use {@link android.net.InetAddresses#isNumericAddress} "
-        + "instead. There is a behavioural difference between the original method and its "
-        + "replacement.")
+    @UnsupportedAppUsage(maxTargetSdk = VersionCodes.P, trackingBug = 78686891)
+//        publicAlternatives = "Use {@link android.net.InetAddresses#isNumericAddress} "
+//        + "instead. There is a behavioural difference between the original method and its "
+//        + "replacement.")
     public static boolean isNumeric(java.lang.String address) {
         throw new RuntimeException("Stub!");
     }
@@ -201,10 +201,10 @@ public class InetAddress implements java.io.Serializable {
     /**
      * @deprecated Use {@code android.net.InetAddresses.parseNumericAddress(String)} instead.
      */
-    @UnsupportedAppUsage(maxTargetSdk = VersionCodes.P, trackingBug = 78686891,
-        publicAlternatives = "Use {@link android.net.InetAddresses#parseNumericAddress} "
-        + "instead. There is a behavioural difference between the original method and its "
-        + "replacement.")
+    @UnsupportedAppUsage(maxTargetSdk = VersionCodes.P, trackingBug = 78686891)
+//        publicAlternatives = "Use {@link android.net.InetAddresses#parseNumericAddress} "
+//        + "instead. There is a behavioural difference between the original method and its "
+//        + "replacement.")
     public static java.net.InetAddress parseNumericAddress(java.lang.String numericAddress) {
         throw new RuntimeException("Stub!");
     }
