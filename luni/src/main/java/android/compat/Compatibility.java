@@ -55,7 +55,7 @@ public final class Compatibility {
      */
     @CorePlatformApi(status = CorePlatformApi.Status.STABLE)
     @IntraCoreApi
-    public static void reportChange(@ChangeId long changeId) {
+    public static void reportChange(long changeId) {
         sCallbacks.reportChange(changeId);
     }
 
